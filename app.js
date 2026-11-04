@@ -99,12 +99,67 @@ function renderSavedPlans(){const all=Array.isArray(state.plans)?state.plans:[];
 $('savedPlans').innerHTML=arr.length?arr.map(p=>{const n=(p.steps||[]).length,d=(p.steps||[]).filter(s=>s.done).length;return`<div class="card"><div class="plan-head"><div><strong>${esc(p.title)}</strong><div class="muted">${esc(p.target||'対象レース未設定')} ／ ${esc(p.status||'構想')}</div></div>${chip(`${d}/${n}工程`)}</div><p class="muted" style="margin:8px 0">${(p.source?.members||[]).map(m=>esc(m.id)).join('、')||'使用馬は未登録'}</p><div class="muted">更新：${esc(dateJP(p.updatedAt))} ／ ${p.source?.validated?'':'至高成立未検証'}</div><div class="plan-actions"><button class="btn small" data-open-plan="${esc(p.id)}">計画を開く・編集</button><button class="btn ghost small" data-duplicate-plan="${esc(p.id)}">複製</button><button class="btn danger small" data-delete-plan="${esc(p.id)}">削除</button></div></div>`}).join(''):'<div class="empty">保存された配合プランはありません。「至高候補」で候補を保存するか、「新しい計画を作成」を押してください。</div>';
 }
 
+
+// v0.5: Partial pedigree auditor for 3x4x5 route drafts. A verified full-pedigree or game-rule solver is NOT implied.
+function kanaPath(p){return String(p||'').replace(/父/g,'S').replace(/母/g,'D');}
+function routeSnapshotMember(id,p){return map.get(key(id))||(p.source?.members||[]).find(x=>key(x.id)===key(id))||null;}
+function getRouteAudit(p,slots){
+ const raw=[['g3','SSS'],['g4','DSSS'],['g5','DDDSS']];const known=[],issues=[];
+ for(const [g,path] of raw){
+  const id=slots[g],r=routeSnapshotMember(id,p);if(!r){issues.push(`${id||g} は種牡馬マスターで確認できません`);continue;}
+  const f=(r.factors||[]).filter(Boolean);
+  known.push({path,id:r.name||splitName(id).name,label:id,source:'配合候補',factors:f,line:r.lineage||'',depth:path.length});
+  for(const a of r.ancestry||[]){const ap=kanaPath(a.path),dest=path+ap;if(dest.length>5||!a.horse)continue;known.push({path:dest,id:a.horse,label:a.horse,source:id+'の公開血統',factors:a.factors||[],line:a.line||'',depth:dest.length});}
+  if(!(r.ancestry||[]).length)issues.push(`${id} は詳細血統が未照合（因子のみの集計）`);
+ }
+ const uniq={};for(const x of known){if(uniq[x.path]&&key(uniq[x.path].id)!==key(x.id))issues.push(`${x.path} の祖先が矛盾しています`);else uniq[x.path]=x;}
+ const positioned=Object.values(uniq).sort((a,b)=>a.depth-b.depth||a.path.localeCompare(b.path));
+ const anchors=raw.map(([g])=>routeSnapshotMember(slots[g],p));
+ const types=new Set(anchors.flatMap(r=>r?.factors||[]));
+ const names=new Map();for(const x of positioned){const nm=key(x.id);if(!names.has(nm))names.set(nm,[]);names.get(nm).push(x.path);}
+ const extras=[...names.entries()].filter(([nm,paths])=>paths.length>1&&!(anchors.some(a=>key(a?.name||splitName(a?.id||'').name)===nm)))
+  .map(([nm,paths])=>({name:positioned.find(x=>key(x.id)===nm)?.id||nm,paths}));
+ const counted=countItems(positioned.flatMap(x=>x.factors));const lines=countItems(positioned.map(x=>x.line));
+ const fourth=positioned.filter(x=>x.depth===4);const fifth=positioned.filter(x=>x.depth===5);
+ return {known:positioned,types:[...types],factorCounts:counted,lineCounts:lines,issues,extraCrosses:extras,
+  known4:fourth,known5:fifth,sp4:fourth.filter(x=>BONUS_SPEED.has(canonicalLine(x.line))).length,
+  st4:fourth.filter(x=>BONUS_STAMINA.has(canonicalLine(x.line))).length,
+  sp5:fifth.filter(x=>BONUS_SPEED.has(canonicalLine(x.line))).length,
+  st5:fifth.filter(x=>BONUS_STAMINA.has(canonicalLine(x.line))).length};
+}
+function factorAuditText(a){return a.factorCounts.map(([f,v])=>`${esc(f)} ${v}`).join(' / ')||'未登録';}
+function routePermutationSets(p){const m=p.source?.members||[];if(m.length!==3)return [];const x=m.map(r=>r.id);const out=[];for(let i=0;i<3;i++)for(let j=0;j<3;j++){if(i===j)continue;const k=3-i-j;const slots={g3:x[i],g4:x[j],g5:x[k]};out.push({slots,audit:getRouteAudit(p,slots)});}return out;}
+function renderRouteAudit(p,slots){const a=getRouteAudit(p,slots);
+ let s=`<div class="card"><h3>v0.5｜仮配置の5代血統チェック</h3><p class="muted">3・4・5代の種牡馬と、マスターで確認できるその祖先だけを展開します。<b>完成産駒の全5代血統でも、ニトロ確定値でもありません。</b></p>
+ <div class="audit-metrics"><div class="metric"><strong>${a.types.length}種類</strong><small>対象3頭の因子</small></div><div class="metric"><strong>${a.known.length}枠</strong><small>既知の祖先位置</small></div><div class="metric"><strong>${a.extraCrosses.length}件</strong><small>追加同名祖先</small></div></div>
+ <div class="research"><b>登録済み位置の因子</b><div class="metrics">${a.factorCounts.map(([n,v])=>chip(`${n} ×${v}`)).join('')||'未登録'}</div><p class="muted">同じ祖先の重複出現も位置ごとに数えた「判明分」です。短・速・長ニトロと同一ではありません。</p><b>確認できた4代目の系統候補</b><p>SP系 ${a.sp4}枠 ／ ST系 ${a.st4}枠</p><b>確認できた5代目の系統候補</b><p>SP系 ${a.sp5}枠 ／ ST系 ${a.st5}枠</p><p class="muted">SP・ST系の分類は配合研究に基づき、実際のボーナスや加算値は未確定です。</p></div>`;
+ if(a.extraCrosses.length)s+=`<div class="audit-warn"><b>追加で重なった祖先（成立阻害とは限りません）</b><div class="muted">${a.extraCrosses.map(x=>`${esc(x.name)}（${esc(x.paths.join(' / '))}）`).join('、')}</div></div>`;
+ if(a.issues.length)s+=`<div class="audit-warn"><b>未確認の情報</b><div class="muted">${a.issues.map(esc).join(' ／ ')}</div></div>`;
+ s+=`<div class="audit-table-wrap"><table><thead><tr><th>位置</th><th>代</th><th>名前</th><th>因子</th><th>子系統</th></tr></thead><tbody>${a.known.map(x=>`<tr><td>${esc(x.path)}</td><td>${x.depth}</td><td>${esc(x.label)}</td><td>${esc((x.factors||[]).join('・')||'—')}</td><td>${esc(x.line||'未確認')}</td></tr>`).join('')}</tbody></table></div>
+ <p class="muted">S＝父、D＝母。血統表にない牝馬・未指定の種牡馬XやP1〜R2の血は計算できません。兄弟姉妹の特殊な成立阻害も未判定です。</p></div>`;
+ const sets=routePermutationSets(p);if(sets.length){s+=`<div class="card"><h3>6通りの祖先配置を比較</h3><p class="muted">表示は確認できた系統と重複の比較です。数の多さだけで有利・最強とは判定できません。</p>${sets.map((x,i)=>`<div class="compare-mini"><div><b>${esc(splitName(x.slots.g3).variant)} → ${esc(splitName(x.slots.g4).variant)} → ${esc(splitName(x.slots.g5).variant)}</b><div class="muted">3/4/5代 | 4代目 SP系${x.audit.sp4}・ST系${x.audit.st4}／重複${x.audit.extraCrosses.length}</div></div><button class="btn small ghost" data-audit-pick="${i}">この配置を選ぶ</button></div>`).join('')}</div>`;}
+ const needed=(p.steps||[]).filter(x=>!x.minSP||!x.minST).length;
+ s+=`<div class="notice warn"><b>生産前チェック</b>：最低SP/ST未設定の工程 <span id="benchMissingCount">${needed}</span>件。最終牝馬の血統が不明のため、至高成立・全ニトロ・子系統ボーナス・産駒能力は確定できません。ゲームの配合確認・ウマゲノム解析で検証してください。</div>`;
+ return s;}
+function lineageInterest(line,goal){const k=canonicalLine(line);const sp=BONUS_SPEED.has(k),st=BONUS_STAMINA.has(k);return goal==='speed'?sp?3:0:goal==='stamina'?st?3:0:(sp?2:0)+(st?2:0);}
+function renderSupportCandidates(p,scope){
+ const selected=new Set((p.source?.members||[]).map(r=>key(r.id)));
+ const rows=getRows().filter(r=>!selected.has(key(r.id))&&(scope==='all'||isOwned(r)));
+ const rich=rows.map(r=>({...r,interest:lineageInterest(r.lineage,p.goal||'balance')})).filter(r=>r.interest);
+ rich.sort((a,b)=>b.interest-a.interest||Number(isOwned(b))-Number(isOwned(a))||b.factors.length-a.factors.length||a.id.localeCompare(b.id,'ja'));
+ const visible=rich.slice(0,12);
+ return `<div class="card"><h3>子系統から探す補助種牡馬（素材候補）</h3><div class="scope-row"><label for="supportScope" class="muted">候補の範囲</label><select id="supportScope"><option value="owned" ${scope==='owned'?'selected':''}>所持馬だけ</option><option value="all" ${scope==='all'?'selected':''}>全マスター</option></select></div><p class="muted">育成方針と、公開CSVの本人の子系統に基づく<b>絞り込み候補</b>です。実際のP1などの母馬やXの場所に、そのまま使用できると保証するものではありません。配合可能性・クロス・才能は別途検証が必要です。</p>
+ ${visible.length?visible.map(r=>`<div class="slot"><strong>${esc(r.id)}</strong><span>${esc(r.lineage||'系統不明')} / ${r.factors.map(x=>chip(x)).join('')} ${isOwned(r)?chip('所持','owned'):chip('未所持')} <span class="audit-tag">${BONUS_SPEED.has(canonicalLine(r.lineage))?'SP研究候補 ':''}${BONUS_STAMINA.has(canonicalLine(r.lineage))?'ST研究候補':''}</span></span></div>`).join(''):'<div class="empty">現在の対象に一致する子系統候補はありません。全マスターに切り替えるか、所持チェックを増やしてください。</div>'}</div>`;
+}
+function setupRouteAuditPanel(el,p){let scope='owned';const pane=el.querySelector('#routeAuditor');const render=()=>{if(!pane)return;const slots={g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value};pane.innerHTML=renderRouteAudit(p,slots)+renderSupportCandidates(p,scope);pane.querySelector('#supportScope').onchange=e=>{scope=e.target.value;render();};pane.querySelectorAll('[data-audit-pick]').forEach(btn=>btn.onclick=()=>{const sets=routePermutationSets(p);const selected=sets[Number(btn.dataset.auditPick)];if(!selected)return;for(const g of ['g3','g4','g5'])el.querySelector('#routeGen'+g.slice(1)).value=selected.slots[g];render();});};
+ for(const x of ['routeGen3','routeGen4','routeGen5'])el.querySelector('#'+x).addEventListener('change',render);render();
+}
 // Route draft: mathematically consistent ANCESTOR PATHS, not a verified breeding recipe
 function routeMemberOptions(members,chosen){return members.map(m=>`<option value="${esc(m.id)}" ${m.id===chosen?'selected':''}>${esc(m.id)}</option>`).join('');}
 function defaultRouteSlots(members){const by=v=>members.find(m=>m.variant===v)?.id;return {g3:by('翔燕')||members[0]?.id||'',g4:by('央獅')||members[1]?.id||'',g5:by('煌魂')||members[2]?.id||''};}
 function renderRoutePanel(p){const m=p.source?.members||[];if(m.length<3)return '';
 const draft=p.routeDraft?.slots||defaultRouteSlots(m);
-return `<div class="card"><h3>3×4×5 祖先配置から仮ルートを作る</h3><p class="muted">因名違いの3頭を3・4・5代へ配置します。「仮ルートを別プランとして生成」を押すと元の保存プランは残したまま、9工程の新しい計画を作ります。</p><div class="route-grid"><label>3代目（父系 SSS）<select id="routeGen3">${routeMemberOptions(m,draft.g3)}</select></label><label>4代目（母系 DSSS）<select id="routeGen4">${routeMemberOptions(m,draft.g4)}</select></label><label>5代目（母系 DDDSS）<select id="routeGen5">${routeMemberOptions(m,draft.g5)}</select></label></div><div class="research"><b>配置の読み方：</b> Sは父、Dは母。たとえば SSS は「父の父の父」、DSSS は「母の父の父の父」、DDDSS は「母の母の母の父の父」です。交配できる血統の形だけを示した仮設計で、空き枠の親系統、血統重複、近親や特殊配合理論は未判定です。</div>${p.routeDraft?`<div class="notice warn">この計画には仮ルートが含まれています。原案は保存されています。</div>`:''}<button class="btn" id="generateRoute">9工程の仮ルートを別プランとして生成</button></div>`;
+return `<div class="card"><h3>3×4×5 祖先配置から仮ルートを作る</h3><p class="muted">因名違いの3頭を3・4・5代へ配置します。「仮ルートを別プランとして生成」を押すと元の保存プランは残したまま、9工程の新しい計画を作ります。</p><div class="route-grid"><label>3代目（父系 SSS）<select id="routeGen3">${routeMemberOptions(m,draft.g3)}</select></label><label>4代目（母系 DSSS）<select id="routeGen4">${routeMemberOptions(m,draft.g4)}</select></label><label>5代目（母系 DDDSS）<select id="routeGen5">${routeMemberOptions(m,draft.g5)}</select></label></div><div class="research"><b>配置の読み方：</b> Sは父、Dは母。たとえば SSS は「父の父の父」、DSSS は「母の父の父の父」、DDDSS は「母の母の母の父の父」です。交配できる血統の形だけを示した仮設計で、空き枠の親系統、血統重複、近親や特殊配合理論は未判定です。</div>${p.routeDraft?`<div class="notice warn">この計画には仮ルートが含まれています。原案は保存されています。</div>`:''}<button class="btn" id="generateRoute">9工程の仮ルートを別プランとして生成</button><div id="routeAuditor"></div></div>`;
 }
 function makeStep(title,cross,sex,note){return {uid:uid(),title,cross,sex,minSP:'',minST:'',result:'',note,done:false};}
 function buildDraftSteps(slots){const A=slots.g3,B=slots.g4,C=slots.g5;return [
@@ -128,7 +183,7 @@ function showPlanEditor(id){const p=getPlan(id);if(!p)return;openPlanId=id;const
 <h4 style="margin:18px 0 6px">保存時の候補データ（スナップショット）</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高・奇跡の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div>
 ${renderRoutePanel(p)}<h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length)).join('')}</div>
 <div class="btnrow"><button class="btn ghost" id="addPlanStep">＋ 工程を追加</button><button class="btn" id="savePlanNow">保存を確認</button></div><p class="muted" id="planSaveStatus">最終保存：${esc(dateJP(p.updatedAt))}</p>`;
-el.querySelector('#closePlanEditor').onclick=closeEditor;const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
+el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
 el.querySelector('#addPlanStep').onclick=()=>{p.steps.push({uid:uid(),title:`工程${p.steps.length+1}`,cross:'',sex:'',minSP:'',minST:'',result:'',note:'',done:false});touchPlan(p);showPlanEditor(p.id);};
 el.querySelector('#savePlanNow').onclick=()=>{touchPlan(p);alert('配合プランを保存しました。');};
 el.scrollIntoView({behavior:'instant',block:'start'});
@@ -144,10 +199,10 @@ $('candidates').addEventListener('click',e=>{const btn=e.target.closest('[data-s
 $('createPlan').onclick=()=>{const p=newPlan();state.plans.unshift(p);persist();renderSavedPlans();showPlanEditor(p.id);};
 $('planSearch').oninput=renderSavedPlans;$('planStatusFilter').onchange=renderSavedPlans;
 $('savedPlans').addEventListener('click',e=>{const open=e.target.closest('[data-open-plan]'),dup=e.target.closest('[data-duplicate-plan]'),del=e.target.closest('[data-delete-plan]');if(open){showPlanEditor(open.dataset.openPlan);return;}if(dup){const p=getPlan(dup.dataset.duplicatePlan);if(!p)return;const c=JSON.parse(JSON.stringify(p));c.id=uid();c.title+='（コピー）';c.createdAt=nowISO();c.updatedAt=c.createdAt;state.plans.unshift(c);persist();renderSavedPlans();return;}if(del){const p=getPlan(del.dataset.deletePlan);if(!p)return;if(!confirm('「'+p.title+'」を削除しますか？ この操作は元に戻せません。'))return;state.plans=state.plans.filter(x=>x.id!==p.id);persist();renderSavedPlans();}});
-$('planEditor').addEventListener('input',e=>{const p=getPlan(openPlanId);if(!p)return;const v=e.target;const f=v.dataset.planField;if(f){p[f]=v.value;touchPlan(p);return;}const sf=v.dataset.stepField;if(sf){const i=Number(v.closest('[data-step-index]')?.dataset.stepIndex);if(p.steps[i]){p.steps[i][sf]=sf==='done'?v.value==='true':v.value;touchPlan(p);}}});
+$('planEditor').addEventListener('input',e=>{const p=getPlan(openPlanId);if(!p)return;const v=e.target;const f=v.dataset.planField;if(f){p[f]=v.value;touchPlan(p);return;}const sf=v.dataset.stepField;if(sf){const i=Number(v.closest('[data-step-index]')?.dataset.stepIndex);if(p.steps[i]){p.steps[i][sf]=sf==='done'?v.value==='true':v.value;touchPlan(p);const missing=$('benchMissingCount');if(missing)missing.textContent=String(p.steps.filter(x=>!x.minSP||!x.minST).length);}}});
 $('planEditor').addEventListener('change',e=>{if(e.target.matches('select[data-plan-field],select[data-step-field]'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
 $('planEditor').addEventListener('click',e=>{const p=getPlan(openPlanId);if(!p)return;const step=e.target.closest('[data-step-index]'),i=Number(step?.dataset.stepIndex),mv=e.target.closest('[data-move-step]'),rm=e.target.closest('[data-remove-step]');if(!Number.isInteger(i)||!p.steps[i])return;if(rm){if(!confirm('この工程を削除しますか？'))return;p.steps.splice(i,1);touchPlan(p);showPlanEditor(p.id);}else if(mv){const k=i+(mv.dataset.moveStep==='up'?-1:1);if(k<0||k>=p.steps.length)return;[p.steps[i],p.steps[k]]=[p.steps[k],p.steps[i]];touchPlan(p);showPlanEditor(p.id);}});
-$('exportPlans').onclick=()=>dl('dabimas_saved_plans_v04.json',{version:4,plans:state.plans});
+$('exportPlans').onclick=()=>dl('dabimas_saved_plans_v05.json',{version:5,plans:state.plans});
 
 // wiring
 for(const b of document.querySelectorAll('[data-tab]'))b.addEventListener('click',()=>switchTab(b.dataset.tab));
@@ -157,7 +212,7 @@ $('horseList').onchange=e=>{const el=e.target.closest('input[data-owned]');if(!e
 $('closeDialog').onclick=()=>$('horseDialog').close();
 $('goal').onchange=renderCandidates;$('availableOnly').onchange=renderCandidates;
 $('pedAnalyze').onclick=renderPedigree;$('pedHorse').onkeydown=e=>{if(e.key==='Enter')renderPedigree();};$('pedDeep').onclick=()=>{$('pedHorse').value='ディープインパクト-央獅-';renderPedigree();};$('loadWebMaster').onclick=loadWeb;$('masterCsv').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await setMaster(await file.text());}catch(err){$('importStatus').textContent='CSV取込エラー: '+err.message;}e.target.value='';};
-$('exportInventory').onclick=()=>dl('dabimas_full_backup_v04.json',{version:4,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans});
+$('exportInventory').onclick=()=>dl('dabimas_full_backup_v05.json',{version:5,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans});
 $('importInventory').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{importJSON(JSON.parse(await file.text()));alert('所持馬・保存プランを読み込みました。');}catch(err){alert('JSON取込失敗：'+err.message);}e.target.value='';};
 $('resetOwned').onclick=()=>{if(!confirm('所持チェックを初期52頭の状態に戻しますか？'))return;state.owned=structuredClone(ownSeed);persist();renderAll();};
 $('saveGenome').onclick=()=>{const vals=['sp0','sp1','sp2','st0','st1','st2'].map(k=>$(k).value.trim());if(vals.some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)){alert('SP/STの最小・中央・最大を入力してください。');return;}const a=vals.map(Number);if(a[0]>a[1]||a[1]>a[2]||a[3]>a[4]||a[4]>a[5]){alert('最小 ≦ 中央 ≦ 最大の順序で入力してください。');return;}state.genomes.unshift({name:$('predName').value.trim(),sp0:a[0],sp1:a[1],sp2:a[2],st0:a[3],st1:a[4],st2:a[5],at:new Date().toLocaleDateString('ja-JP')});persist();$('genomeHistory').innerHTML=genomeRows();alert('ゲーム内解析値を保存しました。');};

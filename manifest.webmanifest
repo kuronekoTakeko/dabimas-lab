@@ -1,7 +1,7 @@
 {
   "name": "ダビマス配合研究所",
   "short_name": "ダビマス配合",
-  "description": "種牡馬所持・繁殖牝馬・自家製馬の世代継承・5代血統検証・保存プラン",
+  "description": "所持馬図鑑・血統分析・自家製馬・配合9工程の自動連結（仮設計）",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f4f7f7",

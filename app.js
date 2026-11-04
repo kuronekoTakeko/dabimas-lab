@@ -472,6 +472,21 @@ function chain09Summary(p){
  }
  return {linked,ready,stale,remaining};
 }
+// The next unfinished stage (not necessarily the next available one). This keeps the
+// user in numbered order and exposes missing parents instead of silently skipping them.
+function chain09NextUnfinished(p,start=1){
+ for(let n=Math.max(1,start);n<=9;n++)if(!chain09Output(p,n).horse)return n;
+ for(let n=1;n<Math.max(1,start);n++)if(!chain09Output(p,n).horse)return n;
+ return null;
+}
+function chain09MoveTo(root,n,notice=''){
+ const target=n?root.querySelector(`[data-chain-tile="${n}"]`):root.querySelector('.chain-final')||root.querySelector('.chain-summary');
+ if(!target)return;
+ target.classList.add('chain-current');
+ if(notice){const hint=document.createElement('p');hint.className='chain-jump-note';hint.textContent=notice;
+  const heading=target.querySelector('.chain-title');if(heading)heading.after(hint);else target.prepend(hint);}
+ requestAnimationFrame(()=>{target.scrollIntoView({behavior:'smooth',block:'start'});});
+}
 function chain09FinalAudit(p){
  const last=chain09Output(p,9);
  if(!last.horse)return '';
@@ -493,7 +508,7 @@ function renderChain09(p){
  const ch=chain09Data(p),ss=chain09Summary(p);
  const mareOpts=[...mareRows(),...getHomeParents('female')].map(r=>`<option value="${esc(r.id)}"></option>`).join('');
  const sireOpts=[...maleRows(),...getHomeParents('male')].map(r=>`<option value="${esc(r.id)}"></option>`).join('');
- let body=`<div class="card"><h3>v0.9｜9工程の血統を自動で連結</h3><p class="muted">P1・P2・Q1・Q2・R1・R2の繁殖牝馬を指定すると、親が揃った工程から仮馬を生成できます。生成した馬は<b>次の工程の親へ自動で接続</b>されます。<b>すべて未生産の計画馬として登録</b>し、実際に生まれた馬とは区別します。</p><div class="chain-summary"><b>有効な連結 ${ss.linked}/9工程</b> ／ 次に生成できる工程 ${ss.ready}件 ／ 再確認が必要 ${ss.stale}件<br><span class="chain-note">最初は工程1・3・5の繁殖牝馬から設定するのがおすすめです。あとから親馬を変更すると旧仮馬は記録に残り、新しい親で再作成できます。</span></div><datalist id="chainMareList09">${mareOpts}</datalist><datalist id="chainSireList09">${sireOpts}</datalist><div class="chain-grid">`;
+ let body=`<div class="card"><h3>v1.1｜9工程の血統を自動で連結</h3><p class="muted">登録済みのP1〜R2と補助種牡馬Xを使って仮馬を生成します。<b>順番に進める</b>場合は作成後に次の工程へ移動し、<b>一括連結</b>では親の揃った工程を1→9の順で自動生成します。途中で親馬が不足していればそこで止まります。生成する馬はすべて<b>未生産の計画上の仮馬</b>です。</p><div class="chain-summary"><b>有効な連結 ${ss.linked}/9工程</b> ／ 次に生成できる工程 ${ss.ready}件 ／ 再確認が必要 ${ss.stale}件<br><span class="chain-note">後から親を変更した場合は影響を受ける工程の仮馬を再生成します。古い仮馬の記録は削除されません。</span></div><div class="chain-actions"><button class="btn small ghost" id="chain09GoNext">次の未完了工程へ移動</button><button class="btn small" id="chain09AutoAll" ${ss.linked===9?'disabled':''}>残りを1→9で一括仮連結</button></div><p id="chain09Status" class="chain09-status" role="status" aria-live="polite"></p><datalist id="chainMareList09">${mareOpts}</datalist><datalist id="chainSireList09">${sireOpts}</datalist><div class="chain-grid">`;
  for(const d of CHAIN09_DEF){
   const pair=chain09Parents(p,d.n),out=chain09Output(p,d.n),status=out.horse?'次工程へ連結済み':pair.ready?'親が揃いました。仮馬を作成できます':pair.problems.join(' ／ ');
   const cls=out.horse?'ok':out.reason&&out.reason!=='産駒未登録'?'stale':'';
@@ -502,7 +517,7 @@ function renderChain09(p){
   const outcome=out.horse?`<strong>${esc(out.horse.name)}</strong> ${chip(out.horse.mode==='real'?'実馬':'仮馬','warn')}`:out.reason&&out.reason!=='産駒未登録'?`<span class="pill-status">${esc(out.reason)}</span>`:'未登録';
   body+=`<div class="chain-tile ${cls}" data-chain-tile="${d.n}"><div class="chain-title">工程${d.n}｜${esc(p.steps[d.n-1]?.title||d.output)}</div><div class="chain-parents"><label>父（種牡馬）${sireCtrl}</label><label>母（繁殖牝馬）${mareCtrl}</label></div><div class="chain-state">${esc(status)}</div><div class="chain-output">産駒：${outcome}</div>`;
   if(d.n===9)body+=`<label class="chain-note">最終仮馬の性別 <select data-chain-edit="sex"><option value="male" ${ch.finalSex==='male'?'selected':''}>牡馬</option><option value="female" ${ch.finalSex==='female'?'selected':''}>牝馬</option></select></label>`;
-  body+=`<div class="btnrow"><button class="btn small ghost" data-chain-preview="${d.n}" ${pair.sire&&pair.mare?'':'disabled'}>血統を確認</button><button class="btn small" data-chain-generate="${d.n}" ${pair.ready&&!out.horse?'':'disabled'}>${out.reason&&out.reason!=='産駒未登録'?'新しい仮馬を作成':'仮馬を作成・連結'}</button></div></div>`;
+  body+=`<div class="btnrow"><button class="btn small ghost" data-chain-preview="${d.n}" ${pair.sire&&pair.mare?'':'disabled'}>血統を確認</button><button class="btn small" data-chain-generate="${d.n}" ${pair.ready&&!out.horse?'':'disabled'}>${out.reason&&out.reason!=='産駒未登録'?'再作成して次へ':'仮馬を作成→次へ'}</button></div></div>`;
  }
  body+='</div>'+chain09FinalAudit(p)+'<div id="chain09Preview" class="chain-note"></div><p class="chain-note">配合理論・能力の自動保証は未実装。各工程のSP/ST最低許容値は従来どおり未設定で、入力した実測値だけ記録します。生成済みの仮馬は「自家製馬」タブで血統・親子関係を確認できます。</p></div>';
  return body;
@@ -523,7 +538,11 @@ function makeChain09Foal(p,n){
  return {horse:rec};
 }
 function setupChainPlanner09(el,p){const root=el.querySelector('#chainPlanner09');if(!root)return;
- const rerender=()=>{root.innerHTML=renderChain09(p);};rerender();
+ const rerender=(message='')=>{
+  root.innerHTML=renderChain09(p);
+  const status=root.querySelector('#chain09Status');if(status)status.textContent=message;
+ };
+ rerender();
  root.addEventListener('change',e=>{
   const t=e.target,edit=t.dataset.chainEdit;if(!edit)return;
   const ch=chain09Data(p),n=Number(t.dataset.chainNo);
@@ -534,14 +553,42 @@ function setupChainPlanner09(el,p){const root=el.querySelector('#chainPlanner09'
   p.updatedAt=nowISO();persist();rerender();
  });
  root.addEventListener('click',e=>{
+  if(e.target.closest('#chain09GoNext')){
+   const next=chain09NextUnfinished(p);
+   if(next){chain09MoveTo(root,next,'ここから続きを作成してください。');}
+   else chain09MoveTo(root,null,'9工程すべて連結済みです。');
+   return;
+  }
+  if(e.target.closest('#chain09AutoAll')){
+   const next=chain09NextUnfinished(p);
+   if(next===null){rerender('9工程すべて連結済みです。');chain09MoveTo(root,null);return;}
+   if(!confirm('未完了の工程を1→9の順に仮馬で連結します。途中で親の指定・血統が不足している場合は停止します。実際のゲームでは生産しません。よろしいですか？'))return;
+   let created=0,stopAt=null,reason='';
+   for(let n=1;n<=9;n++){
+    if(chain09Output(p,n).horse)continue;
+    const result=makeChain09Foal(p,n);
+    if(result.error){stopAt=n;reason=result.error;break;}
+    created++;
+   }
+   const finish=chain09NextUnfinished(p);
+   const info=finish===null?`一括仮連結：${created}工程を生成しました。全9工程の連結が完了しました。`:
+    `一括仮連結：${created}工程を生成し、工程${stopAt||finish}で停止しました。${reason}`;
+   rerender(info);refreshHomePlanDetail();
+   if(finish!==null)chain09MoveTo(root,stopAt||finish,created?'ここで停止しました。入力を確認して再開できます。':'必要な親馬・血統を確認してください。');
+   else chain09MoveTo(root,null,'連結が完了しました。最終血統を確認してください。');
+   return;
+  }
   const btn=e.target.closest('button[data-chain-generate],button[data-chain-preview]');if(!btn)return;
   const preview=btn.dataset.chainPreview!==undefined,n=Number(preview?btn.dataset.chainPreview:btn.dataset.chainGenerate);
   const pair=chain09Parents(p,n);
   if(preview){if(!pair.sire||!pair.mare){chain09Message(root,'父母を入力してください。');return;}
    const report=root.querySelector('#chain09Preview');report.innerHTML=`<h4>工程${n}：血統の確認</h4>${renderPairReport(pair.sire,pair.mare)}`;report.scrollIntoView({block:'nearest'});return;}
-  const result=makeChain09Foal(p,n);rerender();
-  const node=root.querySelector('#chain09Preview');node.innerHTML=result.error?`<div class="notice warn">${esc(result.error)}</div>`:`<div class="notice">工程${n}に「${esc(result.horse.name)}」を仮馬として登録し、後続工程へ接続しました。ゲーム内で実際に生まれた馬ではありません。</div>`;
-  node.scrollIntoView({block:'nearest'});refreshHomePlanDetail();
+  const result=makeChain09Foal(p,n);
+  if(result.error){rerender(`工程${n}：${result.error}`);chain09MoveTo(root,n,'内容を確認してください。');return;}
+  const next=chain09NextUnfinished(p,n+1);
+  const message=next?`工程${n}の仮馬を登録しました。次は工程${next}です。`:`工程${n}の仮馬を登録しました。9工程すべて連結済みです。`;
+  rerender(message);refreshHomePlanDetail();
+  chain09MoveTo(root,next,next?'次はこの工程です。':'最終血統を確認してください。');
  });
 }
 
@@ -756,7 +803,7 @@ $('mareFilter').onchange=()=>{mareLimit=35;renderMares();};
 $('mareMore').onclick=()=>{mareLimit+=35;renderMares();};
 $('mareList').onclick=e=>{const fav=e.target.closest('[data-mare-fav]'),detail=e.target.closest('[data-mare-detail]');if(fav){const id=fav.dataset.mareFav,k=key(id);if(state.mareFavorites[k])delete state.mareFavorites[k];else state.mareFavorites[k]=true;persist();renderMares();}else if(detail)mareDetail(detail.dataset.mareDetail);};
 $('pedAnalyze').onclick=renderPedigree;$('pedHorse').onkeydown=e=>{if(e.key==='Enter')renderPedigree();};$('pedDeep').onclick=()=>{$('pedHorse').value='ディープインパクト-央獅-';renderPedigree();};$('loadWebMaster').onclick=loadWeb;$('masterCsv').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await setMaster(await file.text());}catch(err){$('importStatus').textContent='CSV取込エラー: '+err.message;}e.target.value='';};
-$('exportInventory').onclick=()=>dl('dabimas_full_backup_v10.json',{version:10,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,homebreds:state.homebreds});
+$('exportInventory').onclick=()=>dl('dabimas_full_backup_v11.json',{version:11,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,homebreds:state.homebreds});
 $('importInventory').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{importJSON(JSON.parse(await file.text()));alert('所持馬・保存プランを読み込みました。');}catch(err){alert('JSON取込失敗：'+err.message);}e.target.value='';};
 $('resetOwned').onclick=()=>{if(!confirm('所持チェックを初期52頭の状態に戻しますか？'))return;state.owned=structuredClone(ownSeed);persist();renderAll();};
 $('saveGenome').onclick=()=>{const vals=['sp0','sp1','sp2','st0','st1','st2'].map(k=>$(k).value.trim());if(vals.some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)){alert('SP/STの最小・中央・最大を入力してください。');return;}const a=vals.map(Number);if(a[0]>a[1]||a[1]>a[2]||a[3]>a[4]||a[4]>a[5]){alert('最小 ≦ 中央 ≦ 最大の順序で入力してください。');return;}state.genomes.unshift({name:$('predName').value.trim(),sp0:a[0],sp1:a[1],sp2:a[2],st0:a[3],st1:a[4],st2:a[5],at:new Date().toLocaleDateString('ja-JP')});persist();$('genomeHistory').innerHTML=genomeRows();alert('ゲーム内解析値を保存しました。');};

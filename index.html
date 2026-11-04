@@ -50,6 +50,12 @@
 .chain-summary{padding:13px;background:#eff8f4;border-radius:10px;font-size:13px;line-height:1.7}
 .chain-final{margin:8px 0;padding:12px;border:1px solid #c6dfcf;border-radius:10px;background:#f3faf5}
 .chain-note{font-size:11px;color:#60756d;line-height:1.6}
+.chain-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
+.chain09-status{background:#eaf6f0;border-left:4px solid #358c6e;border-radius:6px;color:#1a5945;padding:10px;margin:8px 0;font-size:13px}
+.chain09-status:empty{display:none}
+.chain-tile{scroll-margin-top:20px}.chain-tile.chain-current{border-color:#278367;box-shadow:0 0 0 2px rgba(39,131,103,.15)}
+.chain-jump-note{font-size:12px;color:#21654e;background:#e4f5ed;border-radius:6px;padding:7px 8px;margin:7px 0}
+.chain-final{scroll-margin-top:20px}
 @media(max-width:720px){.chain-grid{grid-template-columns:1fr}}
 
 /* v1.0 pedigree-based what-if recommendation area */
@@ -73,7 +79,7 @@
 .opt10-empty{padding:12px;color:#5c6d63;background:#f5f7f6;border-radius:9px}
 @media(max-width:720px){.opt10-grid{grid-template-columns:1fr 1fr}.opt10-pairs{grid-template-columns:1fr}.opt10-tools{flex-direction:column;align-items:stretch}.opt10-tools select{max-width:100%}}
 </style></head><body>
-<header><div class="wrap"><div class="brand"><div class="logo">♞</div><div><h1>ダビマス配合研究所</h1><p>個人用の所持馬図鑑と配合プランナー｜v1.0 試作</p></div></div><div class="headstats" id="headStats"></div></div></header>
+<header><div class="wrap"><div class="brand"><div class="logo">♞</div><div><h1>ダビマス配合研究所</h1><p>個人用の所持馬図鑑と配合プランナー｜v1.1 試作</p></div></div><div class="headstats" id="headStats"></div></div></header>
 <main class="wrap"><nav class="nav" aria-label="画面切り替え"><button type="button" data-tab="catalog" aria-selected="true">種牡馬図鑑</button><button type="button" data-tab="mares" aria-selected="false">繁殖牝馬</button><button type="button" data-tab="homebreds" aria-selected="false">自家製馬</button><button type="button" data-tab="plans" aria-selected="false">至高候補</button><button type="button" data-tab="library" aria-selected="false">保存プラン</button><button type="button" data-tab="pedigree" aria-selected="false">血統分析</button><button type="button" data-tab="genome" aria-selected="false">能力記録</button><button type="button" data-tab="settings" aria-selected="false">データ管理</button></nav>
 <section class="panel active" id="catalog"><h2 class="heading">所持馬にチェック</h2><div class="notice">公開CSVを一度読み込めば、種牡馬・因名・因子・血統を検索できます。前回のスクショで確認した52頭は初期状態でチェック済みです。権利数0も所持馬として扱います。</div><div id="masterBanner" class="card"></div><input class="search" id="search" placeholder="種牡馬名・因名・因子・子系統で検索" aria-label="種牡馬検索"><div class="filter"><label>表示 <select id="ownedFilter"><option value="all">全種牡馬</option><option value="yes">所持のみ</option><option value="no">未所持のみ</option><option value="unmatched">未照合（要確認）</option></select></label><label>因子数 <select id="factorFilter"><option value="all">すべて</option><option value="3">3因子</option><option value="2">2因子</option><option value="1">1因子</option><option value="0">因子なし</option></select></label><label>並び <select id="sortFilter"><option value="name">名前順</option><option value="owned">所持優先</option><option value="factor">因子数優先</option></select></label></div><div class="muted" id="catalogCount"></div><div id="horseList"></div><div class="line" style="justify-content:center;margin-top:14px"><button class="btn ghost" id="more">さらに表示</button></div></section>
 <section class="panel" id="mares"><h2 class="heading">繁殖牝馬データベース</h2>

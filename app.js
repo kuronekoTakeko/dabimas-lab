@@ -64,8 +64,8 @@ const score=goal==='speed'?cnt['短']*5+cnt['速']*3+cnt['走']*2+cnt['中']*1:g
 out.push({base,set,kinds,score,count:cnt});}}}return out.sort((a,b)=>b.score-a.score||b.kinds.length-a.kinds.length||a.set.length-b.set.length).slice(0,40);}
 function renderCandidates(){const v=getCandidates();$('candidateSummary').textContent=`因子6種類以上の一次候補：${v.length}組（最多40組表示）。権利数0は既定で除外しません。`; $('candidates').innerHTML=v.length?v.map((c,i)=>`<div class="card"><div class="results-head"><h3>${i+1}. ${esc(c.set[0].name)}</h3><span class="score">${c.kinds.length}種類の因子</span></div><div class="metrics">${c.kinds.map(f=>chip(f)).join('')}</div>${c.set.map((r,j)=>`<div class="slot"><strong>構成候補 ${j+1}</strong><span>${esc(r.id)}　${r.factors.map(f=>chip(f)).join('')}　${chip('権利 '+getRights(r),getRights(r)?'':'warn')}</span></div>`).join('')}<div class="plan-actions"><button class="btn small" data-save-candidate="${i}">この候補を計画に保存</button></div><p class="muted">目的別に因子を重み付けして並び替えています。血統の配合プラン保存後に3×4×5の仮ルートを生成できます。成立の保証、完成産駒のニトロ・子系統補正、SP/ST予想は未実装です。</p></div>`).join(''):'<div class="empty">所持馬の中に、因子6種類が揃う同名種牡馬の組合せはありません。公開CSVを読み込み、所持馬にチェックを追加してください。</div>';}
 function genomeRows(){return (state.genomes||[]).map((v,i)=>`<div class="card"><div class="results-head"><b>${esc(v.name||'名称未設定')}</b><span class="muted">${esc(v.at||'')}</span></div><div class="muted">SP ${esc([v.spMin??v.sp0,v.spMid??v.sp1,v.spMax??v.sp2].join(' / '))}　ST ${esc([v.stMin??v.st0,v.stMid??v.st1,v.stMax??v.st2].join(' / '))}</div></div>`).join('')||'<div class="empty">まだ記録がありません。</div>';}
-function renderAll(){updateHeader();renderMares();renderHomebreds();renderCatalog();renderCandidates();renderSavedPlans();renderPedHorseList();$('genomeHistory').innerHTML=genomeRows();}
-function switchTab(id){currentTab=id;document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active',el.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===id?'true':'false'));if(id==='catalog')renderCatalog();if(id==='mares')renderMares();if(id==='homebreds')renderHomebreds();if(id==='plans')renderCandidates();if(id==='library')renderSavedPlans();if(id==='pedigree')renderPedigree();window.scrollTo(0,0);}
+function renderAll(){renderBCExplorer14();updateHeader();renderMares();renderHomebreds();renderCatalog();renderCandidates();renderSavedPlans();renderPedHorseList();$('genomeHistory').innerHTML=genomeRows();}
+function switchTab(id){currentTab=id;document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active',el.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===id?'true':'false'));if(id==='catalog')renderCatalog();if(id==='mares')renderMares();if(id==='homebreds')renderHomebreds();if(id==='plans')renderCandidates();if(id==='library')renderSavedPlans();if(id==='pedigree')renderPedigree();if(id==='bc14')renderBCExplorer14();window.scrollTo(0,0);}
 function parseCSV(txt){if(txt.charCodeAt(0)===0xFEFF)txt=txt.slice(1);let rows=[],row=[],field='',quoted=false;for(let i=0;i<txt.length;i++){const ch=txt[i];if(ch==='"'){if(quoted&&txt[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}else if(ch===','&&!quoted){row.push(field);field='';}else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(field);if(row.some(x=>x!==''))rows.push(row);row=[];field='';}else field+=ch;}if(field!==''||row.length){row.push(field);rows.push(row);}return rows;}
 function processCSV(txt){const parsed=parseCSV(txt);const hdr=parsed.shift()||[];const ind=s=>hdr.indexOf(s);if(ind('馬名')<0||ind('因子1')<0||ind('chi:父')<0)throw Error('たかな牧場データのCSV形式を確認してください（必要な列がありません）');let rows=[];for(const cols of parsed){const get=s=>String(cols[ind(s)]||'').trim(),id=get('馬名');if(!id)continue;const a=splitName(id),f=['因子1','因子2','因子3'].map(get).filter(Boolean);const ancestry=PED_FIELDS.map(path=>({path,horse:get(path),factors:[get(path+'_因子1'),get(path+'_因子2')].filter(Boolean),line:get('chi:'+path)})).filter(x=>x.horse);rows.push({id,name:a.name,variant:a.variant,display:id,factors:f,lineage:get('子系統'),ancestry,talent:get('非凡'),distance:get('距離'),sex:get('距離')?'male':'female',start:get('成長'),rating:get('実績')});}if(rows.length<100)throw Error('データ件数が少なすぎます。別のCSVを選んでいませんか？');return rows;}
 function idb(){return new Promise((res,rej)=>{try{const req=indexedDB.open('dabimas_lab_v02',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('db'))req.result.createObjectStore('db');};req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);}catch(e){rej(e);}});}
@@ -261,7 +261,7 @@ const copy=JSON.parse(JSON.stringify(p));copy.id=uid();copy.title=p.title.replac
 
 function showPlanEditor(id){const p=getPlan(id);if(!p)return;openPlanId=id;const members=p.source?.members||[];const el=$('planEditor');el.classList.remove('hidden');$('savedPlans').classList.add('hidden');el.innerHTML=`<div class="card"><div class="plan-head"><h3 style="margin:0">配合プランの編集</h3><button class="btn grey small" id="closePlanEditor">一覧へ戻る</button></div><p class="muted">入力を変更すると端末に自動保存します。新しい検索をしても、この計画はそのまま残ります。</p>
 <div class="plan-fields"><label class="wide"><span class="plan-label">計画名</span><input class="plan-input" data-plan-field="title" value="${esc(p.title)}" maxlength="160"></label><label class="wide"><span class="plan-label">目標レース・距離</span><input class="plan-input" data-plan-field="target" value="${esc(p.target||'')}" maxlength="160"></label><label><span class="plan-label">育成方針</span><select class="plan-input" data-plan-field="goal">${Object.entries(GOAL_LABELS).map(([k,v])=>`<option value="${k}" ${p.goal===k?'selected':''}>${v}</option>`).join('')}</select></label><label><span class="plan-label">進捗</span><select class="plan-input" data-plan-field="status">${PLAN_STATUSES.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></label><label class="wide"><span class="plan-label">全体メモ</span><textarea class="plan-textarea" data-plan-field="note">${esc(p.note||'')}</textarea></label></div>
-<h4 style="margin:18px 0 6px">保存時の候補データ（スナップショット）</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高・奇跡の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div>
+<h4 style="margin:18px 0 6px">保存時の候補データ（スナップショット）</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div>
 <div id="routeOptimizer10"></div><div id="chainPlanner09"></div><div id="review12"></div><div id="productionGuide13"></div>${renderRoutePanel(p)}<div id="pairMateEditor"></div><div id="homePlanInline">${renderLinkedHomebreds(p)}</div><h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length)).join('')}</div>
 <div class="btnrow"><button class="btn ghost" id="addPlanStep">＋ 工程を追加</button><button class="btn" id="savePlanNow">保存を確認</button></div><p class="muted" id="planSaveStatus">最終保存：${esc(dateJP(p.updatedAt))}</p>`;
 el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);setupChainPlanner09(el,p);setupOptimizer10(el,p);renderReview12(p);setupProductionGuide13(el,p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
@@ -1059,6 +1059,97 @@ function setupProductionGuide13(el,p){
   }
  });
 }
+
+
+// v1.4: distinction between potential pedigree patterns and game-confirmed theories.
+// Official/specialist rules:
+// 至高: same named stallion at 3x4x5 and >=6 distinct factor types. Full siblings can invalidate it.
+// 奇跡: perfect mating + the stallion's paternal 4th-depth sire matching mare's maternal-grandsire DDS.
+// Perfect: interesting family >=7 types across eight codes, same four parent-system codes in sire's
+// migo set and mare's omoshiro set. CSV provides child lines, NOT these verified parent-system codes.
+let bc14SupCandidates=[];
+const bc14BaseName=r=>key(r?.name||splitName(r?.id||'').name);
+function bc14Interest(r,goal){
+ const factors=(r.factors||[]),count=fs=>fs.reduce((v,f)=>v+factors.filter(x=>x===f).length,0);
+ return goal==='speed'?count(['短','速','走'])*3+count(['中','長'])
+       :goal==='stamina'?count(['長','中'])*3+count(['速','短'])
+       :count(['短','速','走','長','中'])*2+count(['底']);
+}
+function bc14SupremeSets(goal){
+ const groups=new Map();for(const r of maleRows()){
+  if(!isOwned(r)||!(r.factors||[]).length)continue;
+  const k=bc14BaseName(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);
+ }
+ const res=[];
+ for(const arr of groups.values()){
+  if(arr.length<3)continue;
+  for(const set of combinations(arr,3)){
+   const ff=set.flatMap(r=>r.factors||[]),types=[...new Set(ff)];if(types.length<6)continue;
+   const score=set.reduce((a,r)=>a+bc14Interest(r,goal),0);
+   res.push({set,types,score,base:set[0].name,factors:ff});
+  }
+ }
+ return res.sort((a,b)=>b.score-a.score||b.types.length-a.types.length||a.base.localeCompare(b.base,'ja')).slice(0,30);
+}
+// A 4x3 cross alone is NOT a miracle mating: verify perfection/interesting lineages separately.
+function bc14PlanReady(p){
+ if(!p.routeDraft?.slots||p.steps?.length<9)return null;
+ const m=reviewMetrics12(p);if(!m.ready)return {ok:false,reason:`現在の連結 ${m.linked||0}/9`};
+ const th=product13Theory(p,m);
+ const meta=p.production13||{};
+ const verified=meta.theory==='ゲームで至高成立を確認'&&meta.theoryParentsKey===product13Fingerprint(p,9);
+ const freq=m.freq||{};
+ const sum=fs=>fs.reduce((n,f)=>n+(freq[f]||0),0);
+ return {ok:true,m,th,verified,sp:sum(['短','速','走']),st:sum(['長','中']),bottom:sum(['底']),
+  omitted:m.missingFactorPositions,early:m.repeats.filter(x=>x.paths.some(q=>q.length<=2)).length};
+}
+function bc14PlanIndex(d,goal){
+ if(!d?.ok)return -1;
+ // Transparent research sorting only. This IS NOT a statistical prediction of horse ability.
+ const base=goal==='speed'?d.sp*2+d.st+d.m.kindsSP.length*2
+ :goal==='stamina'?d.st*2+d.sp+d.m.kindsST.length*2
+ :d.sp+d.st+d.m.kindsSP.length+d.m.kindsST.length;
+ return base-(d.early*2);
+}
+function bc14SummaryBox(){
+ const result=$('bc14Result');if(!result)return;
+ const goal=$('bc14Goal')?.value||'balance';
+ bc14SupCandidates=bc14SupremeSets(goal);
+ const intro=`<p class="bc14-note">所持馬から、異なる因名の3頭で因子6種類以上となる一次候補を${bc14SupCandidates.length}組抽出しました。上限30件。権利数0の馬も含みます。</p>`;
+ const cards=bc14SupCandidates.map((v,i)=>`<div class="bc14-item"><h4>${i+1}. ${esc(v.base)}｜至高の因子候補</h4><div class="bc14-row"><span class="bc14-tag">因子${v.types.length}種類</span><span class="bc14-tag warn">至高の成立未確認</span></div><div class="bc14-factor">${v.types.map(f=>chip(f)).join('')}</div><p class="bc14-note">${v.set.map(r=>esc(r.id)+'（'+esc(r.factors.join('・'))+'）').join(' ／ ')}</p><div class="bc14-actions"><button type="button" class="btn small" data-bc14-sup="${i}">9工程の新プランを作成</button></div></div>`).join('')||'<p class="bc14-note">現在の所持馬で条件に合う候補は確認できませんでした。所持チェック・CSVの取り込み状況を確認してください。</p>';
+ result.innerHTML=intro+cards+'<p class="bc14-method">判定できているのは、同名・異因名の3頭を集めた因子の一次条件までです。3×4×5の血統配置は作成する9工程で確認します。正式な至高成立・SP/ST補正・公式BC勝率はこの順位からは分かりません。</p>';
+}
+function bc14RenderPlans(){
+ const target=$('bc14Plans');if(!target)return;
+ const goal=$('bc14Goal')?.value||'balance';
+ const items=(state.plans||[]).filter(p=>p.routeDraft?.slots&&p.steps?.length>=9).map(p=>({p,d:bc14PlanReady(p)}));
+ items.sort((a,b)=>Number(!!b.d?.verified)-Number(!!a.d?.verified)||Number(!!b.d?.th?.premise)-Number(!!a.d?.th?.premise)||bc14PlanIndex(b.d,goal)-bc14PlanIndex(a.d,goal));
+ target.innerHTML=items.length?items.map(({p,d},i)=>{
+  const status=!d?.ok?'未連結':d.verified?'ゲームで成立確認済み（当該血統）':d.th?.premise?'至高の一次条件を満たす':'祖先条件を再確認';
+  return `<div class="bc14-rank"><div><b>${esc(p.title)}</b> <span class="bc14-tag ${d?.verified?'':'warn'}">${esc(status)}</span><div class="bc14-note">${d?.ok?`最終血統${d.m.ped.known}/31・指定祖先${d.m.anchorCount}/3／短速走 ${d.sp}・長中 ${d.st}・底 ${d.bottom}／SP系統${d.m.kindsSP.length}種・ST系統${d.m.kindsST.length}種 ／ 指数${bc14PlanIndex(d,goal)}`:esc(d?.reason||'計画未完成')}</div></div><button class="btn small ghost" data-bc14-plan="${esc(p.id)}">開く</button></div>`;
+ }).join('')+'<p class="bc14-method">参考指数は位置ごとの因子と研究対象系統を使った比較専用値です。至高の正式成立、ニトロ加点、公式BCの成績予想とは無関係です。</p>':'<p class="bc14-note">保存済みの9工程プランはありません。上の至高候補から計画を作成して、名牝限定の探索を実行してください。</p>';
+}
+function renderBCExplorer14(){bc14RenderPlans();}
+function bc14OpenPlan(id){switchTab('library');showPlanEditor(id);}
+function bc14SaveSup(index){
+ const entry=bc14SupCandidates[index];if(!entry)return;
+ const cand={set:entry.set,kinds:entry.types,score:entry.score};const p=newPlan(cand);p.title=`${entry.base} 至高・公式BC研究（成立未確認）`;p.goal=$('bc14Goal')?.value||'balance';
+ const members=p.source.members;const slots=defaultRouteSlots(members);
+ p.routeDraft={slots,paths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},validated:false};
+ p.steps=buildDraftSteps(slots);p.source.basis='所持種牡馬の3因名・因子6種以上から作った至高一次候補。ゲーム成立未確認。';
+ p.note='v1.4 所持馬から生成。名牝限定の候補探索後、9工程の仮連結とゲーム内成立確認が必要。';
+ state.plans.unshift(p);persist();renderSavedPlans();bc14OpenPlan(p.id);
+}
+// Avoid global re-render while users edit other panels, but always refresh after search.
+$('bc14Search')?.addEventListener('click',()=>{bc14SummaryBox();bc14RenderPlans();});
+$('bc14Goal')?.addEventListener('change',()=>{bc14RenderPlans();});
+$('bc14Result')?.addEventListener('click',e=>{
+ const sup=e.target.closest('[data-bc14-sup]');
+ if(sup)bc14SaveSup(Number(sup.dataset.bc14Sup));
+});
+$('bc14Plans')?.addEventListener('click',e=>{
+ const btn=e.target.closest('[data-bc14-plan]');if(btn)bc14OpenPlan(btn.dataset.bc14Plan);
+});
 
 // wiring
 $('homeSire').oninput=()=>{homeDraftPair=null;$('homePreviewArea').innerHTML='';};

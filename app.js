@@ -262,9 +262,9 @@ const copy=JSON.parse(JSON.stringify(p));copy.id=uid();copy.title=p.title.replac
 function showPlanEditor(id){const p=getPlan(id);if(!p)return;openPlanId=id;const members=p.source?.members||[];const el=$('planEditor');el.classList.remove('hidden');$('savedPlans').classList.add('hidden');el.innerHTML=`<div class="card"><div class="plan-head"><h3 style="margin:0">配合プランの編集</h3><button class="btn grey small" id="closePlanEditor">一覧へ戻る</button></div><p class="muted">入力を変更すると端末に自動保存します。新しい検索をしても、この計画はそのまま残ります。</p>
 <div class="plan-fields"><label class="wide"><span class="plan-label">計画名</span><input class="plan-input" data-plan-field="title" value="${esc(p.title)}" maxlength="160"></label><label class="wide"><span class="plan-label">目標レース・距離</span><input class="plan-input" data-plan-field="target" value="${esc(p.target||'')}" maxlength="160"></label><label><span class="plan-label">育成方針</span><select class="plan-input" data-plan-field="goal">${Object.entries(GOAL_LABELS).map(([k,v])=>`<option value="${k}" ${p.goal===k?'selected':''}>${v}</option>`).join('')}</select></label><label><span class="plan-label">進捗</span><select class="plan-input" data-plan-field="status">${PLAN_STATUSES.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></label><label class="wide"><span class="plan-label">全体メモ</span><textarea class="plan-textarea" data-plan-field="note">${esc(p.note||'')}</textarea></label></div>
 <h4 style="margin:18px 0 6px">保存時の候補データ（スナップショット）</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高・奇跡の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div>
-<div id="routeOptimizer10"></div><div id="chainPlanner09"></div><div id="review12"></div>${renderRoutePanel(p)}<div id="pairMateEditor"></div><div id="homePlanInline">${renderLinkedHomebreds(p)}</div><h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length)).join('')}</div>
+<div id="routeOptimizer10"></div><div id="chainPlanner09"></div><div id="review12"></div><div id="productionGuide13"></div>${renderRoutePanel(p)}<div id="pairMateEditor"></div><div id="homePlanInline">${renderLinkedHomebreds(p)}</div><h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length)).join('')}</div>
 <div class="btnrow"><button class="btn ghost" id="addPlanStep">＋ 工程を追加</button><button class="btn" id="savePlanNow">保存を確認</button></div><p class="muted" id="planSaveStatus">最終保存：${esc(dateJP(p.updatedAt))}</p>`;
-el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);setupChainPlanner09(el,p);setupOptimizer10(el,p);renderReview12(p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
+el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);setupChainPlanner09(el,p);setupOptimizer10(el,p);renderReview12(p);setupProductionGuide13(el,p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
 el.querySelector('#addPlanStep').onclick=()=>{p.steps.push({uid:uid(),title:`工程${p.steps.length+1}`,cross:'',sex:'',minSP:'',minST:'',result:'',note:'',done:false});touchPlan(p);showPlanEditor(p.id);};
 el.querySelector('#savePlanNow').onclick=()=>{touchPlan(p);alert('配合プランを保存しました。');};
 el.scrollIntoView({behavior:'instant',block:'start'});
@@ -283,7 +283,7 @@ $('savedPlans').addEventListener('click',e=>{const open=e.target.closest('[data-
 $('planEditor').addEventListener('input',e=>{const p=getPlan(openPlanId);if(!p)return;const v=e.target;const f=v.dataset.planField;if(f){p[f]=v.value;touchPlan(p);return;}const sf=v.dataset.stepField;if(sf){const i=Number(v.closest('[data-step-index]')?.dataset.stepIndex);if(p.steps[i]){p.steps[i][sf]=sf==='done'?v.value==='true':v.value;touchPlan(p);const missing=$('benchMissingCount');if(missing)missing.textContent=String(p.steps.filter(x=>!x.minSP||!x.minST).length);}}});
 $('planEditor').addEventListener('change',e=>{if(e.target.matches('select[data-plan-field],select[data-step-field]'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
 $('planEditor').addEventListener('click',e=>{const p=getPlan(openPlanId);if(!p)return;const step=e.target.closest('[data-step-index]'),i=Number(step?.dataset.stepIndex),mv=e.target.closest('[data-move-step]'),rm=e.target.closest('[data-remove-step]');if(!Number.isInteger(i)||!p.steps[i])return;if(rm){if(!confirm('この工程を削除しますか？'))return;p.steps.splice(i,1);touchPlan(p);showPlanEditor(p.id);}else if(mv){const k=i+(mv.dataset.moveStep==='up'?-1:1);if(k<0||k>=p.steps.length)return;[p.steps[i],p.steps[k]]=[p.steps[k],p.steps[i]];touchPlan(p);showPlanEditor(p.id);}});
-$('exportPlans').onclick=()=>dl('dabimas_saved_plans_v10.json',{version:10,plans:state.plans,homebreds:state.homebreds});
+$('exportPlans').onclick=()=>dl('dabimas_saved_plans_v13.json',{version:13,plans:state.plans,homebreds:state.homebreds});
 
 
 // v0.7: Broodmare search and verified-by-source, direct sire x broodmare 5-generation display.
@@ -557,7 +557,7 @@ function makeChain09Foal(p,n){
 function setupChainPlanner09(el,p){const root=el.querySelector('#chainPlanner09');if(!root)return;
  const rerender=(message='')=>{
   root.innerHTML=renderChain09(p);
-  renderReview12(p);renderCompare12();
+  renderReview12(p);renderProductionGuide13(p);renderCompare12();
   const status=root.querySelector('#chain09Status');if(status)status.textContent=message;
  };
  rerender();
@@ -568,7 +568,9 @@ function setupChainPlanner09(el,p){const root=el.querySelector('#chainPlanner09'
   else if(edit==='sire'&&n===7)ch.xId=t.value.trim();
   else if(edit==='sex')ch.finalSex=t.value;
   else return;
-  p.updatedAt=nowISO();persist();rerender();
+  p.updatedAt=nowISO();persist();
+  // Defer the replacement of the focused input to avoid reentrant change/blur DOM updates.
+  setTimeout(()=>{if(root.isConnected)rerender();},0);
  });
  root.addEventListener('click',e=>{
   if(e.target.closest('#chain09GoNext')){
@@ -915,6 +917,149 @@ function reviewExport12(m){return {known:m.ped.known,match:m.anchorCount,spFacto
  sp4:m.spByDepth[0],sp5:m.spByDepth[1],st4:m.stByDepth[0],st5:m.stByDepth[1],spLineKinds:m.kindsSP,stLineKinds:m.kindsST,
  repeats:m.repeats,missingFactorPositions:m.missingFactorPositions,foalId:m.foalId};}
 
+
+
+// v1.3: breeding production navigator. Only user-entered game results are used for SP/ST.
+// "至高" is NEVER auto-confirmed; pedigree is a checkable prerequisite only.
+const PROD13_ROLES=[
+ '父系の中継牡馬','最終種牡馬A2の候補','母父系の中継牡馬','母父系の牡馬B2','母母系の中継牡馬',
+ '母母系の繁殖牝馬C2','母母系の繁殖牝馬C3','最終繁殖牝馬M','公式BC用の最終産駒'];
+const PROD13_CHOICES=['未確認','ゲームで至高成立を確認','ゲームで不成立を確認'];
+function productionData13(p){
+ if(!p.production13||typeof p.production13!=='object')p.production13={};
+ if(!p.production13.genomes||typeof p.production13.genomes!=='object')p.production13.genomes={};
+ if(!PROD13_CHOICES.includes(p.production13.theory))p.production13.theory='未確認';
+ return p.production13;
+}
+function product13Theory(p,m){
+ const refs=p.routeDraft?.slots||{},ids=['g3','g4','g5'].map(k=>refs[k]||'');
+ let byPath=m?.ready?new Map(m.rows.map(r=>[r.path,r])):new Map();
+ const anchors=['SSS','DSSS','DDDSS'].map((path,i)=>({path,id:ids[i],row:byPath.get(path)}));
+ const names=anchors.map(x=>key(x.row?.name||''));
+ const sameBase=names.every(x=>!!x&&x===names[0]);
+ const factors=[...new Set(anchors.flatMap(x=>x.row?.factors||[]))];
+ const distinct=ids.filter(Boolean).length===3&&new Set(ids.map(key)).size===3;
+ const premise=!!m?.ready&&m.anchorCount===3&&sameBase&&factors.length>=6&&distinct;
+ return {premise,anchors,distinct,sameBase,factors,known:m?.ready?m.ped.known:0};
+}
+// A previously saved genome/theory check must not silently follow a revised pedigree.
+function product13Fingerprint(p,n){
+ const pair=chain09Parents(p,n);
+ if(!pair.ready||!pair.ped)return '';
+ const seq=[key(pair.sireId),key(pair.mareId),...pair.ped.rows.map(r=>[r.path,key(r.name),(r.factors||[]).slice().sort().join(','),canonicalLine(r.line)].join(':'))].join('|');
+ let h=2166136261;for(let i=0;i<seq.length;i++)h=Math.imul(h^seq.charCodeAt(i),16777619)>>>0;
+ return String(h>>>0);
+}
+function product13Usable(p,n,g){return !!g&&product13Metric(g)&&!!g.parentsKey&&g.parentsKey===product13Fingerprint(p,n);}
+function product13Metric(s){
+ const all=['sp0','sp1','sp2','st0','st1','st2'].map(k=>s?.[k]);
+ return s&&all.every(x=>typeof x==='number'&&Number.isFinite(x))&&s.sp0<=s.sp1&&s.sp1<=s.sp2&&s.st0<=s.st1&&s.st1<=s.st2;
+}
+function product13Decision(p,n,g){
+ const step=p.steps?.[n-1]||{},sp=String(step.minSP??'').trim(),st=String(step.minST??'').trim();
+ if(!g)return 'ゲノム解析未登録。数値の予測は表示しません。';
+ if(!sp&&!st)return 'ゲノム範囲を記録済み。最低合格基準は未設定です。';
+ const criteria=[['SP',sp,g.sp0,g.sp1,g.sp2],['ST',st,g.st0,g.st1,g.st2]];
+ return criteria.map(([label,target,low,mid,high])=>{
+  if(!target)return `${label}：基準未設定`;
+  // Ranks such as B/C cannot be safely compared to numerical genome observations.
+  if(!/^\d+(?:\.\d+)?$/.test(target))return `${label}：基準「${target}」は数値ゲノムと直接比較不可`;
+  const x=Number(target);
+  if(high<x)return `${label}：登録した最大値${high}が合格基準${x}未満`;
+  if(low>=x)return `${label}：登録した最小値${low}も基準${x}以上`;
+  if(mid>=x)return `${label}：中央値${mid}は基準${x}以上（実際の産駒は未確定）`;
+  return `${label}：最大値${high}は基準${x}以上、中央値${mid}は未達`;
+ }).join(' ／ ');
+}
+function renderProductionGuide13(p){
+ const target=$('productionGuide13');if(!target)return;
+ if(!p.routeDraft?.slots||!(p.steps?.length>=9)){target.innerHTML='';return;}
+ const m=reviewMetrics12(p),th=product13Theory(p,m),data=productionData13(p);
+ const recorded=Object.keys(data.genomes).filter(k=>product13Usable(p,Number(k),data.genomes[k])).length;
+ const oldCount=Object.keys(data.genomes).filter(k=>product13Metric(data.genomes[k])&&!product13Usable(p,Number(k),data.genomes[k])).length;
+ const theoryCurrent=!!data.theoryParentsKey&&data.theoryParentsKey===product13Fingerprint(p,9);
+ const minCount=p.steps.slice(0,9).filter(s=>s.minSP||s.minST).length;
+ const lead=!m.ready?'まず「9工程を一括仮連結」して最終血統を完成させてください。':
+  !th.premise?'指定位置・因子条件を再確認してください。血統構成の一次条件が未達です。':
+  (data.theory==='未確認'||!theoryCurrent)?'次はゲームの配合補助機能で「至高」の表示を確認し、結果を登録してください。':
+  data.theory==='ゲームで不成立を確認'?'ゲーム側で不成立です。祖先や兄弟クロス・配合条件を見直してください。':
+  !product13Usable(p,9,data.genomes[9])?'次はゲーム内ゲノム解析のSP/ST最小・中央値・最大を工程9へ登録してください。':
+  '現在の数値と合格基準を照らし、実際の生産結果を記録してください。';
+ const mark=(ok)=>ok?'✓':'未';
+ const pill=(txt)=>`<span class="p13-pill">${esc(txt)}</span>`;
+ const stepHtml=Array.from({length:9},(_,i)=>{
+  const n=i+1,d=CHAIN09_DEF[i],out=chain09Output(p,n),pair=chain09Parents(p,n),g=data.genomes[n];
+  const role=PROD13_ROLES[i],step=p.steps[i]||{},ready=!!out.horse,gOk=product13Usable(p,n,g);
+  const inputs=['sp0','sp1','sp2','st0','st1','st2'].map((k,j)=>`<label>${['SP 最小','SP 中央','SP 最大','ST 最小','ST 中央','ST 最大'][j]}<input inputmode="decimal" type="number" min="0" step="any" data-p13-g="${k}" value="${g&&product13Metric(g)?esc(g[k]):''}" placeholder="未記録"></label>`).join('');
+  return `<details class="p13-step" data-p13-step="${n}"><summary><b>工程${n}・${esc(role)}</b><span class="p13-flag">${ready?'仮連結済み':'未連結'} ／ ${g?(gOk?'ゲノム記録あり':'過去記録・要再確認'):'解析未記録'}</span></summary>
+  <p class="r12-foot">父：${esc(pair.sireId||'前工程待ち')} ／ 母：${esc(pair.mareId||'前工程待ち')}<br>${esc(ready?'仮馬の血統連結済み。実際の競走馬ではありません。':pair.problems.join('・')||'前工程待ち')}</p>
+  <p class="p13-role">${n===2||n===8?'重要工程：次世代に引き継ぐ親馬の能力と血統を確認':n===9?'最終産駒：公式BCに出す馬の候補を選別':'中継工程：必要な性別と血統の維持を優先（能力基準は手動設定）'}</p>
+  <div class="p13-mini"><label>最低許容SP（任意）<input data-p13-floor="sp" value="${esc(step.minSP||'')}" placeholder="例：B、120"></label><label>最低許容ST（任意）<input data-p13-floor="st" value="${esc(step.minST||'')}" placeholder="例：C、110"></label></div>
+  <h5>実際のゲーム内ゲノム解析を記録</h5><div class="p13-inputs">${inputs}</div>
+  <div class="btnrow topgap"><button type="button" class="btn small" data-p13-save="${n}">この工程の記録を保存</button><button type="button" class="btn small ghost" data-p13-clear="${n}" ${g?'':'disabled'}>この工程のゲノム記録を解除</button></div>
+  <p class="p13-result">${esc(g&&!gOk?'このゲノム記録は過去の父母・血統のものです。現在の組み合わせで再確認してください。':product13Decision(p,n,gOk?g:null))}</p></details>`;
+ }).join('');
+ target.innerHTML=`<section class="r12-card p13-guide" aria-label="生産ナビ"><div class="line between"><h3>v1.3｜最短生産ナビ・判定チェック</h3><span class="p13-badge">研究用</span></div>
+ <p class="r12-foot">名牝限定の配合案→9工程→至高の条件確認→ゲノム解析→能力採用を1つのプランで管理します。<b>未確認の効果を数値化しません。</b></p>
+ <div class="p13-stats">${pill(`仮連結 ${m.linked||0}/9`)}${pill(`指定祖先 ${m.anchorCount||0}/3`)}${pill(`指定3頭の因子 ${th.factors.length}種類`)}${pill(`ゲノム記録 ${recorded}/9`)}${oldCount?pill(`再確認 ${oldCount}工程`):''}</div>
+ <div class="p13-next"><b>次にやること</b><p>${esc(lead)}</p></div>
+ <div class="p13-checks"><div><b>${mark(m.ready)} 血統31枠</b><small>${m.ready?'現在の最終血統を照合済み':'9工程が未完了または血統不足'}</small></div>
+ <div><b>${mark(th.premise)} 至高の祖先構成条件（研究上）</b><small>3×4×5の同名祖先・異なる因名3頭・因子6種類以上を確認。全兄弟姉妹や特殊な重複条件は未判定</small></div>
+ <div><b>${data.theory==='未確認'||!theoryCurrent?'未':data.theory==='ゲームで至高成立を確認'?'✓':'×'} ゲーム内の成立表示</b><small>${esc(!theoryCurrent&&data.theory!=='未確認'?'過去の血統での確認。現在の血統は要再確認':data.theory)}（ユーザーが選択した記録）</small></div>
+ <div><b>${mark(product13Usable(p,9,data.genomes[9]))} 最終工程ゲノム記録</b><small>${data.genomes[9]?(product13Usable(p,9,data.genomes[9])?'現在の配合での解析範囲あり':'過去の配合の記録。要再確認'):'未記録。予想能力値を捏造しない'}</small></div></div>
+ <div class="p13-game"><label>ゲームの配合補助で確認した結果<select id="p13Theory">${PROD13_CHOICES.map(v=>`<option value="${esc(v)}" ${data.theory===v?'selected':''}>${esc(v)}</option>`).join('')}</select></label>
+ <label>確認メモ（任意）<input id="p13TheoryNote" value="${esc(data.theoryNote||'')}" placeholder="ゲーム表示・特殊条件など"></label>
+ <button type="button" class="btn small" id="p13SaveTheory">成立確認の結果を保存</button></div>
+ <div class="r12-warn">「至高の成立」は血統の3×4×5だけで自動確定しません。全兄弟姉妹クロスなど未収録の条件はゲーム画面で確認してください。名牝ランク・因子数・子系統数からSP/STの確定値は計算できません。</div>
+ <details class="p13-overview"><summary><b>9工程のゲノム解析と採用ラインを記録する（${recorded}/9工程記録済）</b></summary><p class="r12-foot">各工程でゲーム内解析が得られた場合だけ入力します。最低許容SP/STは任意の手動基準で、アプリが勝手に設定しません。数値基準を設定すると実測の解析範囲と比較します。</p>${stepHtml}</details>
+ <div class="btnrow topgap"><button type="button" class="btn small ghost" id="p13Export">このプランの判断レポートをJSON保存</button><button type="button" class="btn small ghost" id="p13ToChain">9工程に移動</button></div><p id="p13Status" class="p13-status" role="status" aria-live="polite"></p></section>`;
+}
+function setupProductionGuide13(el,p){
+ const root=el.querySelector('#productionGuide13');if(!root)return;
+ renderProductionGuide13(p);
+ root.addEventListener('click',e=>{
+  const btn=e.target.closest('button');if(!btn)return;
+  if(btn.id==='p13ToChain'){el.querySelector('#chainPlanner09')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+  if(btn.id==='p13Export'){
+   const metrics=reviewMetrics12(p),d=productionData13(p);
+   dl('dabimas_production_plan_'+new Date().toISOString().slice(0,10)+'.json',{
+    version:13,kind:'production-check',savedAt:nowISO(),planTitle:p.title,planId:p.id,target:p.target||'',
+    chainSummary:chain09Summary(p),theory:product13Theory(p,metrics),userGameTheory:d.theory,userGameNote:d.theoryNote||'',
+    genomeStages:d.genomes,currentTheoryCheck:!!d.theoryParentsKey&&d.theoryParentsKey===product13Fingerprint(p,9),acceptance:p.steps.slice(0,9).map((s,i)=>({step:i+1,sp:s.minSP||'',st:s.minST||'',result:s.result||''})),
+    warning:'ゲーム内成立記録はユーザー入力。ゲノム値もユーザー入力。血統の位置別集計は公式能力予測ではない。'});return;
+  }
+  if(btn.id==='p13SaveTheory'){
+   const d=productionData13(p),v=root.querySelector('#p13Theory').value;
+   d.theory=PROD13_CHOICES.includes(v)?v:'未確認';d.theoryNote=root.querySelector('#p13TheoryNote').value.trim().slice(0,500);
+   d.theoryUpdatedAt=nowISO();d.theoryParentsKey=product13Fingerprint(p,9);touchPlan(p);renderProductionGuide13(p);root.querySelector('#p13Status').textContent='ゲーム内の確認結果を保存しました。';return;
+  }
+  if(btn.dataset.p13Save||btn.dataset.p13Clear){
+   const n=Number(btn.dataset.p13Save||btn.dataset.p13Clear),panel=root.querySelector(`[data-p13-step="${n}"]`);
+   if(!panel)return;
+   const d=productionData13(p),isClear=!!btn.dataset.p13Clear;
+   if(isClear){delete d.genomes[n];touchPlan(p);renderProductionGuide13(p);root.querySelector('#p13Status').textContent=`工程${n}のゲノム記録だけを解除しました。`;return;}
+   const raw=Object.fromEntries(['sp0','sp1','sp2','st0','st1','st2'].map(k=>[k,panel.querySelector(`[data-p13-g="${k}"]`).value.trim()]));
+   const any=Object.values(raw).some(Boolean),every=Object.values(raw).every(Boolean);
+   if(any&&!every){root.querySelector('#p13Status').textContent='SP/STの6項目はすべて入力するか、すべて空欄にしてください。';return;}
+   if(any){
+    const vals=Object.fromEntries(Object.entries(raw).map(([k,v])=>[k,Number(v)]));
+    if(Object.values(vals).some(x=>!Number.isFinite(x)||x<0)||!product13Metric(vals)){
+     root.querySelector('#p13Status').textContent='数値は0以上、各SP/STの最小≦中央値≦最大の順序で入力してください。';return;
+    }
+    d.genomes[n]={...vals,source:'ゲーム内ゲノム解析（手入力）',recordedAt:nowISO(),parentsKey:product13Fingerprint(p,n)};
+   }else delete d.genomes[n];
+   if(!p.steps?.[n-1])return;
+   p.steps[n-1].minSP=panel.querySelector('[data-p13-floor="sp"]').value.trim().slice(0,30);
+   p.steps[n-1].minST=panel.querySelector('[data-p13-floor="st"]').value.trim().slice(0,30);
+   touchPlan(p);renderProductionGuide13(p);
+   // Preserve open stage after redraw so the user can continue comfortably.
+   root.querySelector('.p13-overview').open=true;
+   const stage=root.querySelector(`[data-p13-step="${n}"]`);if(stage)stage.open=true;
+   root.querySelector('#p13Status').textContent=`工程${n}を保存しました。${product13Decision(p,n,d.genomes[n]||null)}`;
+  }
+ });
+}
+
 // wiring
 $('homeSire').oninput=()=>{homeDraftPair=null;$('homePreviewArea').innerHTML='';};
 $('homeMare').oninput=()=>{homeDraftPair=null;$('homePreviewArea').innerHTML='';};
@@ -943,7 +1088,7 @@ $('mareList').onchange=e=>{const sel=e.target.closest('select[data-mare-grade12]
 $('mareMore').onclick=()=>{mareLimit+=35;renderMares();};
 $('mareList').onclick=e=>{const fav=e.target.closest('[data-mare-fav]'),detail=e.target.closest('[data-mare-detail]');if(fav){const id=fav.dataset.mareFav,k=key(id);if(state.mareFavorites[k])delete state.mareFavorites[k];else state.mareFavorites[k]=true;persist();renderMares();}else if(detail)mareDetail(detail.dataset.mareDetail);};
 $('pedAnalyze').onclick=renderPedigree;$('pedHorse').onkeydown=e=>{if(e.key==='Enter')renderPedigree();};$('pedDeep').onclick=()=>{$('pedHorse').value='ディープインパクト-央獅-';renderPedigree();};$('loadWebMaster').onclick=loadWeb;$('masterCsv').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await setMaster(await file.text());}catch(err){$('importStatus').textContent='CSV取込エラー: '+err.message;}e.target.value='';};
-$('exportInventory').onclick=()=>dl('dabimas_full_backup_v12.json',{version:12,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,mareGrades:state.mareGrades,homebreds:state.homebreds});
+$('exportInventory').onclick=()=>dl('dabimas_full_backup_v13.json',{version:13,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,mareGrades:state.mareGrades,homebreds:state.homebreds});
 $('importInventory').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{importJSON(JSON.parse(await file.text()));alert('所持馬・保存プランを読み込みました。');}catch(err){alert('JSON取込失敗：'+err.message);}e.target.value='';};
 $('resetOwned').onclick=()=>{if(!confirm('所持チェックを初期52頭の状態に戻しますか？'))return;state.owned=structuredClone(ownSeed);persist();renderAll();};
 $('saveGenome').onclick=()=>{const vals=['sp0','sp1','sp2','st0','st1','st2'].map(k=>$(k).value.trim());if(vals.some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)){alert('SP/STの最小・中央・最大を入力してください。');return;}const a=vals.map(Number);if(a[0]>a[1]||a[1]>a[2]||a[3]>a[4]||a[4]>a[5]){alert('最小 ≦ 中央 ≦ 最大の順序で入力してください。');return;}state.genomes.unshift({name:$('predName').value.trim(),sp0:a[0],sp1:a[1],sp2:a[2],st0:a[3],st1:a[4],st2:a[5],at:new Date().toLocaleDateString('ja-JP')});persist();$('genomeHistory').innerHTML=genomeRows();alert('ゲーム内解析値を保存しました。');};

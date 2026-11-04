@@ -10,9 +10,9 @@ const normalize=s=>String(s||'').normalize('NFKC').replace(/[\s　]/g,'').replac
 const key=s=>normalize(s).toLowerCase();
 function splitName(display){let v=String(display||'').trim();let m=v.match(/^(.*?)-([^-]+)-$/);if(m)return{name:m[1],variant:m[2]};let m2=v.match(/^(.*?)[-－]([^-－]+)$/);return m2?{name:m2[1],variant:m2[2]}:{name:v,variant:''};}
 const ownSeed=Object.fromEntries(SEED.map(s=>[key(s.display_name),{owned:true,rights:s.rights_remaining||0,verified:'screenshot'}]));
-let state={owned:ownSeed,added:[],genomes:[],plans:[],mareFavorites:{}};
+let state={owned:ownSeed,added:[],genomes:[],plans:[],mareFavorites:{},homebreds:[]};
 try{const saved=JSON.parse(localStorage.getItem(SAVE_KEY));if(saved&&saved.owned)state={...state,...saved,owned:{...ownSeed,...saved.owned},plans:Array.isArray(saved.plans)?saved.plans:[]};else{const old=JSON.parse(localStorage.getItem('dabimas_lab_v01'));if(old&&Array.isArray(old.stallions)){for(const s of old.stallions)state.owned[key(s.display_name||`${s.name}-${s.variant}-`)]={owned:true,rights:s.rights_remaining||0,verified:s.verification||'manual'};if(Array.isArray(old.predictions))state.genomes=old.predictions;}}}catch(e){}
-if(!Array.isArray(state.plans))state.plans=[];if(!state.mareFavorites||typeof state.mareFavorites!=="object")state.mareFavorites={};
+if(!Array.isArray(state.plans))state.plans=[];if(!Array.isArray(state.homebreds))state.homebreds=[];if(!state.mareFavorites||typeof state.mareFavorites!=="object")state.mareFavorites={};
 let master=[], map=new Map(),visible=40, currentTab='catalog', loading=false;
 function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return true;}catch(e){$('importStatus').textContent='端末に保存できません。空き容量・ブラウザの設定を確認してください。';return false;}}
 function toSeed(s){return{id:s.display_name||`${s.name}-${s.variant}-`,name:s.name,variant:s.variant||'',factors:s.factors||[],rights:s.rights_remaining||0,lineage:s.lineage||'',ancestry:[],isSeed:true};}
@@ -51,8 +51,8 @@ const score=goal==='speed'?cnt['短']*5+cnt['速']*3+cnt['走']*2+cnt['中']*1:g
 out.push({base,set,kinds,score,count:cnt});}}}return out.sort((a,b)=>b.score-a.score||b.kinds.length-a.kinds.length||a.set.length-b.set.length).slice(0,40);}
 function renderCandidates(){const v=getCandidates();$('candidateSummary').textContent=`因子6種類以上の一次候補：${v.length}組（最多40組表示）。権利数0は既定で除外しません。`; $('candidates').innerHTML=v.length?v.map((c,i)=>`<div class="card"><div class="results-head"><h3>${i+1}. ${esc(c.set[0].name)}</h3><span class="score">${c.kinds.length}種類の因子</span></div><div class="metrics">${c.kinds.map(f=>chip(f)).join('')}</div>${c.set.map((r,j)=>`<div class="slot"><strong>構成候補 ${j+1}</strong><span>${esc(r.id)}　${r.factors.map(f=>chip(f)).join('')}　${chip('権利 '+getRights(r),getRights(r)?'':'warn')}</span></div>`).join('')}<div class="plan-actions"><button class="btn small" data-save-candidate="${i}">この候補を計画に保存</button></div><p class="muted">目的別に因子を重み付けして並び替えています。血統の配合プラン保存後に3×4×5の仮ルートを生成できます。成立の保証、完成産駒のニトロ・子系統補正、SP/ST予想は未実装です。</p></div>`).join(''):'<div class="empty">所持馬の中に、因子6種類が揃う同名種牡馬の組合せはありません。公開CSVを読み込み、所持馬にチェックを追加してください。</div>';}
 function genomeRows(){return (state.genomes||[]).map((v,i)=>`<div class="card"><div class="results-head"><b>${esc(v.name||'名称未設定')}</b><span class="muted">${esc(v.at||'')}</span></div><div class="muted">SP ${esc([v.spMin??v.sp0,v.spMid??v.sp1,v.spMax??v.sp2].join(' / '))}　ST ${esc([v.stMin??v.st0,v.stMid??v.st1,v.stMax??v.st2].join(' / '))}</div></div>`).join('')||'<div class="empty">まだ記録がありません。</div>';}
-function renderAll(){updateHeader();renderMares();renderCatalog();renderCandidates();renderSavedPlans();renderPedHorseList();$('genomeHistory').innerHTML=genomeRows();}
-function switchTab(id){currentTab=id;document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active',el.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===id?'true':'false'));if(id==='catalog')renderCatalog();if(id==='mares')renderMares();if(id==='plans')renderCandidates();if(id==='library')renderSavedPlans();if(id==='pedigree')renderPedigree();window.scrollTo(0,0);}
+function renderAll(){updateHeader();renderMares();renderHomebreds();renderCatalog();renderCandidates();renderSavedPlans();renderPedHorseList();$('genomeHistory').innerHTML=genomeRows();}
+function switchTab(id){currentTab=id;document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active',el.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===id?'true':'false'));if(id==='catalog')renderCatalog();if(id==='mares')renderMares();if(id==='homebreds')renderHomebreds();if(id==='plans')renderCandidates();if(id==='library')renderSavedPlans();if(id==='pedigree')renderPedigree();window.scrollTo(0,0);}
 function parseCSV(txt){if(txt.charCodeAt(0)===0xFEFF)txt=txt.slice(1);let rows=[],row=[],field='',quoted=false;for(let i=0;i<txt.length;i++){const ch=txt[i];if(ch==='"'){if(quoted&&txt[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}else if(ch===','&&!quoted){row.push(field);field='';}else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(field);if(row.some(x=>x!==''))rows.push(row);row=[];field='';}else field+=ch;}if(field!==''||row.length){row.push(field);rows.push(row);}return rows;}
 function processCSV(txt){const parsed=parseCSV(txt);const hdr=parsed.shift()||[];const ind=s=>hdr.indexOf(s);if(ind('馬名')<0||ind('因子1')<0||ind('chi:父')<0)throw Error('たかな牧場データのCSV形式を確認してください（必要な列がありません）');let rows=[];for(const cols of parsed){const get=s=>String(cols[ind(s)]||'').trim(),id=get('馬名');if(!id)continue;const a=splitName(id),f=['因子1','因子2','因子3'].map(get).filter(Boolean);const ancestry=PED_FIELDS.map(path=>({path,horse:get(path),factors:[get(path+'_因子1'),get(path+'_因子2')].filter(Boolean),line:get('chi:'+path)})).filter(x=>x.horse);rows.push({id,name:a.name,variant:a.variant,display:id,factors:f,lineage:get('子系統'),ancestry,talent:get('非凡'),distance:get('距離'),sex:get('距離')?'male':'female',start:get('成長'),rating:get('実績')});}if(rows.length<100)throw Error('データ件数が少なすぎます。別のCSVを選んでいませんか？');return rows;}
 function idb(){return new Promise((res,rej)=>{try{const req=indexedDB.open('dabimas_lab_v02',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('db'))req.result.createObjectStore('db');};req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);}catch(e){rej(e);}});}
@@ -62,8 +62,8 @@ async function setMaster(csv){let data=processCSV(csv);master=data;buildMap();co
 async function loadWeb(){if(loading)return;loading=true;$('loadWebMaster').disabled=true;$('importStatus').textContent='公開CSVを読み込んでいます…';try{const r=await fetch(RAW_URL,{cache:'no-store'});if(!r.ok)throw Error(`HTTP ${r.status}`);await setMaster(await r.text());}catch(e){$('importStatus').textContent='Web取り込みに失敗しました（通信制限/CORSなど）：'+e.message+'。CSVを保存してファイル選択から読み込む方法も使えます。';}finally{loading=false;$('loadWebMaster').disabled=false;}}
 function dl(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function importJSON(obj){if(obj&&Array.isArray(obj.stallions)){for(const s of obj.stallions){const id=s.display_name||`${s.name}-${s.variant}-`,k=key(id);state.owned[k]={owned:s.owned!==false,rights:Number(s.rights_remaining)||0,verified:'import'};if(!map.has(k))state.added.push(toSeed(s));}if(Array.isArray(obj.predictions))state.genomes.push(...obj.predictions);}
-else if(obj?.owned&&typeof obj.owned==='object'){state.owned={...state.owned,...obj.owned};if(Array.isArray(obj.added))state.added=obj.added;if(Array.isArray(obj.genomes))state.genomes=obj.genomes;if(Array.isArray(obj.plans))mergePlans(obj.plans);if(obj.mareFavorites&&typeof obj.mareFavorites==='object')state.mareFavorites={...state.mareFavorites,...obj.mareFavorites};}
-else if(obj&&Array.isArray(obj.plans)){mergePlans(obj.plans);}else throw Error('所持馬・プランJSONの形式ではありません');buildMap();persist();renderAll();}
+else if(obj?.owned&&typeof obj.owned==='object'){state.owned={...state.owned,...obj.owned};if(Array.isArray(obj.added))state.added=obj.added;if(Array.isArray(obj.genomes))state.genomes=obj.genomes;if(Array.isArray(obj.plans))mergePlans(obj.plans);if(obj.mareFavorites&&typeof obj.mareFavorites==='object')state.mareFavorites={...state.mareFavorites,...obj.mareFavorites};if(Array.isArray(obj.homebreds))mergeHomebreds(obj.homebreds);}
+else if(obj&&Array.isArray(obj.plans)){mergePlans(obj.plans);if(Array.isArray(obj.homebreds))mergeHomebreds(obj.homebreds);}else throw Error('所持馬・プランJSONの形式ではありません');buildMap();persist();renderAll();}
 
 
 // v0.4 pedigree explorer: 15 sire-ancestor slots as published; NO foal stats claims
@@ -248,9 +248,9 @@ const copy=JSON.parse(JSON.stringify(p));copy.id=uid();copy.title=p.title.replac
 function showPlanEditor(id){const p=getPlan(id);if(!p)return;openPlanId=id;const members=p.source?.members||[];const el=$('planEditor');el.classList.remove('hidden');$('savedPlans').classList.add('hidden');el.innerHTML=`<div class="card"><div class="plan-head"><h3 style="margin:0">配合プランの編集</h3><button class="btn grey small" id="closePlanEditor">一覧へ戻る</button></div><p class="muted">入力を変更すると端末に自動保存します。新しい検索をしても、この計画はそのまま残ります。</p>
 <div class="plan-fields"><label class="wide"><span class="plan-label">計画名</span><input class="plan-input" data-plan-field="title" value="${esc(p.title)}" maxlength="160"></label><label class="wide"><span class="plan-label">目標レース・距離</span><input class="plan-input" data-plan-field="target" value="${esc(p.target||'')}" maxlength="160"></label><label><span class="plan-label">育成方針</span><select class="plan-input" data-plan-field="goal">${Object.entries(GOAL_LABELS).map(([k,v])=>`<option value="${k}" ${p.goal===k?'selected':''}>${v}</option>`).join('')}</select></label><label><span class="plan-label">進捗</span><select class="plan-input" data-plan-field="status">${PLAN_STATUSES.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></label><label class="wide"><span class="plan-label">全体メモ</span><textarea class="plan-textarea" data-plan-field="note">${esc(p.note||'')}</textarea></label></div>
 <h4 style="margin:18px 0 6px">保存時の候補データ（スナップショット）</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高・奇跡の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div>
-${renderRoutePanel(p)}<div id="pairMateEditor"></div><h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length)).join('')}</div>
+${renderRoutePanel(p)}<div id="pairMateEditor"></div><div id="homePlanInline">${renderLinkedHomebreds(p)}</div><h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length)).join('')}</div>
 <div class="btnrow"><button class="btn ghost" id="addPlanStep">＋ 工程を追加</button><button class="btn" id="savePlanNow">保存を確認</button></div><p class="muted" id="planSaveStatus">最終保存：${esc(dateJP(p.updatedAt))}</p>`;
-el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
+el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
 el.querySelector('#addPlanStep').onclick=()=>{p.steps.push({uid:uid(),title:`工程${p.steps.length+1}`,cross:'',sex:'',minSP:'',minST:'',result:'',note:'',done:false});touchPlan(p);showPlanEditor(p.id);};
 el.querySelector('#savePlanNow').onclick=()=>{touchPlan(p);alert('配合プランを保存しました。');};
 el.scrollIntoView({behavior:'instant',block:'start'});
@@ -269,7 +269,7 @@ $('savedPlans').addEventListener('click',e=>{const open=e.target.closest('[data-
 $('planEditor').addEventListener('input',e=>{const p=getPlan(openPlanId);if(!p)return;const v=e.target;const f=v.dataset.planField;if(f){p[f]=v.value;touchPlan(p);return;}const sf=v.dataset.stepField;if(sf){const i=Number(v.closest('[data-step-index]')?.dataset.stepIndex);if(p.steps[i]){p.steps[i][sf]=sf==='done'?v.value==='true':v.value;touchPlan(p);const missing=$('benchMissingCount');if(missing)missing.textContent=String(p.steps.filter(x=>!x.minSP||!x.minST).length);}}});
 $('planEditor').addEventListener('change',e=>{if(e.target.matches('select[data-plan-field],select[data-step-field]'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
 $('planEditor').addEventListener('click',e=>{const p=getPlan(openPlanId);if(!p)return;const step=e.target.closest('[data-step-index]'),i=Number(step?.dataset.stepIndex),mv=e.target.closest('[data-move-step]'),rm=e.target.closest('[data-remove-step]');if(!Number.isInteger(i)||!p.steps[i])return;if(rm){if(!confirm('この工程を削除しますか？'))return;p.steps.splice(i,1);touchPlan(p);showPlanEditor(p.id);}else if(mv){const k=i+(mv.dataset.moveStep==='up'?-1:1);if(k<0||k>=p.steps.length)return;[p.steps[i],p.steps[k]]=[p.steps[k],p.steps[i]];touchPlan(p);showPlanEditor(p.id);}});
-$('exportPlans').onclick=()=>dl('dabimas_saved_plans_v07.json',{version:7,plans:state.plans});
+$('exportPlans').onclick=()=>dl('dabimas_saved_plans_v08.json',{version:8,plans:state.plans,homebreds:state.homebreds});
 
 
 // v0.7: Broodmare search and verified-by-source, direct sire x broodmare 5-generation display.
@@ -287,7 +287,7 @@ function mareDetail(id){const r=map.get(key(id));if(!r||horseSex(r)!=='female')r
  $('marePreview').innerHTML=`<h3>${esc(r.id)}</h3><p class="muted">${esc(r.lineage||'子系統不明')} ／ 公開祖先 ${r.ancestry?.length||0}/15枠。繁殖牝馬の所持状況は確認していません。</p><div class="audit-table-wrap"><table><thead><tr><th>位置</th><th>祖先馬</th><th>因子</th><th>子系統</th></tr></thead><tbody>${(r.ancestry||[]).map(a=>`<tr><td>${esc(a.path)}</td><td>${esc(a.horse)}</td><td>${esc((a.factors||[]).join('・')||'—')}</td><td>${esc(a.line||'未登録')}</td></tr>`).join('')}</tbody></table></div><p class="muted">この血統を配合計算に使うには、「保存プラン」の直接配合チェックで牝馬名を選択してください。</p>`;
  $('marePreview').scrollIntoView({block:'nearest'});
 }
-function getPairParents(p){const x=p.pairCheck||{}; const sire=(x.sireId&&map.get(key(x.sireId)))||(x.sireSnapshot?.id?x.sireSnapshot:null);const mare=(x.mareId&&map.get(key(x.mareId)))||(x.mareSnapshot?.id?x.mareSnapshot:null);return {sire,mare};}
+function getPairParents(p){const x=p.pairCheck||{}; const sire=(x.sireId&&findParentHorse(x.sireId))||(x.sireSnapshot?.id?x.sireSnapshot:null);const mare=(x.mareId&&findParentHorse(x.mareId))||(x.mareSnapshot?.id?x.mareSnapshot:null);return {sire,mare};}
 function getFoalPedigree(sire,mare){
  // 1 sire root + 15 male ancestors of each selected parent -> all 31 possible sire positions.
  const at=new Map(),conflicts=[];
@@ -317,7 +317,7 @@ function renderPairReport(sire,mare){const a=getFoalPedigree(sire,mare);
  <p class="muted">これは選択した公開種牡馬と繁殖牝馬の<strong>直接配合</strong>の検査です。仮ルートの最終自家製種牡馬・繁殖牝馬の代替ではありません。また因子の数はそのままニトロやSP/ST補正にはなりません。</p>`;
 }
 function renderPairEditor(p){const x=p.pairCheck||{}, saved=x.sireId&&x.mareId;
- const sireRows=maleRows().filter(r=>r.ancestry?.length),mRows=mareRows().filter(r=>r.ancestry?.length);
+ const sireRows=[...maleRows().filter(r=>r.ancestry?.length),...getHomeParents('male')],mRows=[...mareRows().filter(r=>r.ancestry?.length),...getHomeParents('female')];
  return `<div class="card"><h3>v0.7｜繁殖牝馬と種牡馬の直接配合チェック</h3><p class="muted">種牡馬＋繁殖牝馬の公開血統を結合し、産駒の5代血統31枠を照合。<b>これは現在の9工程とは別の検証メモ</b>としてプランに保存できます。</p>
  <div class="pair-input-row"><label>父（種牡馬・因名）<input class="plan-input" id="pairSire" list="pairSireList" value="${esc(x.sireId||'')}" placeholder="例：ディープインパクト-央獅-" autocomplete="off"></label><label>母（繁殖牝馬）<input class="plan-input" id="pairMare" list="pairMareList" value="${esc(x.mareId||'')}" placeholder="繁殖牝馬名を入力" autocomplete="off"></label></div>
  <datalist id="pairSireList">${sireRows.map(r=>`<option value="${esc(r.id)}"></option>`).join('')}</datalist><datalist id="pairMareList">${mRows.map(r=>`<option value="${esc(r.id)}"></option>`).join('')}</datalist>
@@ -327,9 +327,9 @@ function renderPairEditor(p){const x=p.pairCheck||{}, saved=x.sireId&&x.mareId;
 }
 function setupPairEditor(el,p){let report=el.querySelector('#pairMateEditor');if(!report)return;
  report.innerHTML=renderPairEditor(p);
- const resolve=()=>{const sid=report.querySelector('#pairSire').value.trim(),mid=report.querySelector('#pairMare').value.trim();const sire=map.get(key(sid))||(p.pairCheck?.sireSnapshot?.id===sid?p.pairCheck.sireSnapshot:null),mare=map.get(key(mid))||(p.pairCheck?.mareSnapshot?.id===mid?p.pairCheck.mareSnapshot:null);
- if(!sire||horseSex(sire)==='female')return {error:'父に、公開マスターに登録された種牡馬を指定してください。'};
- if(!mare||horseSex(mare)==='male')return {error:'母に、公開マスターに登録された繁殖牝馬を指定してください。'};
+ const resolve=()=>{const sid=report.querySelector('#pairSire').value.trim(),mid=report.querySelector('#pairMare').value.trim();const sire=findParentHorse(sid)||(p.pairCheck?.sireSnapshot?.id===sid?p.pairCheck.sireSnapshot:null),mare=findParentHorse(mid)||(p.pairCheck?.mareSnapshot?.id===mid?p.pairCheck.mareSnapshot:null);
+ if(!sire||horseSex(sire)!=='male')return {error:'父に、公開マスターに登録された種牡馬を指定してください。'};
+ if(!mare||horseSex(mare)!=='female')return {error:'母に、公開マスターに登録された繁殖牝馬を指定してください。'};
  if(!sire.ancestry?.length||!mare.ancestry?.length)return {error:'父か母の血統が未収録です。公開CSVを読み込んでください。'};
  return {sire,mare};};
  const preview=()=>{const pair=resolve();if(pair.error){report.querySelector('#pairStatus').textContent=pair.error;return null;}report.querySelector('#pairReport').innerHTML=renderPairReport(pair.sire,pair.mare);report.querySelector('#pairStatus').textContent='直接配合の確認結果です（まだ保存していません）。';return pair;};
@@ -339,7 +339,77 @@ function setupPairEditor(el,p){let report=el.querySelector('#pairMateEditor');if
  if(p.pairCheck){const pair=getPairParents(p);if(pair.sire&&pair.mare)report.querySelector('#pairReport').innerHTML=renderPairReport(pair.sire,pair.mare);}
 }
 
+
+// v0.8: offspring from either publicly documented or self-bred parents.
+// A foal's 15 ancestor entries (at depths 1..4) are derived from the combined 31-sire-slot pedigree.
+// Unknown sire's own factors and in-game performance are NEVER invented.
+const homeId = name => `自家製:${String(name||'').trim()}`;
+let homeDraftPair=null;
+function homeHorseObj(rec){return {id:rec.id,name:rec.name,variant:'',factors:(rec.factors||[]),lineage:rec.lineage||'',sex:rec.sex,ancestry:(rec.ancestry||[]),isHomebred:true,mode:rec.mode,sp:rec.sp,st:rec.st};}
+function getHomeParents(sex){return state.homebreds.filter(h=>h.sex===sex).map(homeHorseObj);}
+function findParentHorse(id){if(!id)return null;return getHomeParents('male').concat(getHomeParents('female')).find(x=>key(x.id)===key(id))||map.get(key(id))||null;}
+function mergeHomebreds(items){const byId=new Map(state.homebreds.map(h=>[key(h.id),h]));for(const h of items){if(!h||typeof h.name!=='string'||!['male','female'].includes(h.sex)||!Array.isArray(h.ancestry))continue;const id=String(h.id||homeId(h.name));const clean={...h,id,ancestry:h.ancestry.slice(0,15),factors:Array.isArray(h.factors)?h.factors.slice(0,3):[]};const existing=byId.get(key(id));if(!existing||String(clean.updatedAt||'')>String(existing.updatedAt||''))byId.set(key(id),clean);}state.homebreds=[...byId.values()];}
+function getPlanTitle(id){return getPlan(id)?.title||'（計画削除または未設定）';}
+function renderLinkedHomebreds(p){const list=state.homebreds.filter(h=>h.planId===p.id);return `<div class="card"><h3>v0.8｜このプランの自家製馬記録（${list.length}頭）</h3><p class="muted">自家製馬タブで登録した産駒を、計画と工程に紐づけて管理します。現在の9工程を自動変更しません。</p>${list.length?list.map(h=>`<div class="slot"><strong>${esc(h.name)}</strong><span>${esc(h.sex==='male'?'牡':'牝')}・${esc(h.mode==='real'?'実際に生産':'仮案')} ／ ${esc(h.stepNo?'工程 '+h.stepNo:'工程未指定')} ／ 父 ${esc(h.fatherId)} × 母 ${esc(h.motherId)} ／ SP ${esc(h.sp||'未確認')}・ST ${esc(h.st||'未確認')}</span></div>`).join(''):'<p class="muted">まだこの計画に紐づく馬はありません。</p>'}<button class="btn small ghost" id="linkHomebred">自家製馬タブへ</button></div>`;}
+function initHomeSources(prefer={}){
+ const sireList=$('homeSireList'),mareList=$('homeMareList');if(!sireList||!mareList)return;
+ sireList.innerHTML=maleRows().filter(r=>r.ancestry?.length).map(r=>`<option value="${esc(r.id)}"></option>`).join('')+getHomeParents('male').map(r=>`<option value="${esc(r.id)}"></option>`).join('');
+ mareList.innerHTML=mareRows().filter(r=>r.ancestry?.length).map(r=>`<option value="${esc(r.id)}"></option>`).join('')+getHomeParents('female').map(r=>`<option value="${esc(r.id)}"></option>`).join('');
+ const sel=$('homePlan');const chosen=prefer.planId||sel.value;sel.innerHTML='<option value="">紐づけない</option>'+state.plans.map(p=>`<option value="${esc(p.id)}" ${p.id===chosen?'selected':''}>${esc(p.title)}</option>`).join('');
+ refreshHomeSteps(prefer.stepNo);
+}
+function refreshHomeSteps(forced){const plan=getPlan($('homePlan').value),el=$('homeStep');if(!el)return;const selected=forced?String(forced):el.value;el.innerHTML='<option value="">工程を指定しない</option>'+(plan?.steps||[]).map((st,i)=>`<option value="${i+1}" ${selected===String(i+1)?'selected':''}>${i+1}. ${esc(st.title)}</option>`).join('');}
+function renderHomebreds(){if(!$('homeList'))return;initHomeSources();const q=key($('homeSearch')?.value);const all=state.homebreds.filter(h=>!q||key([h.id,h.fatherId,h.motherId,getPlanTitle(h.planId)].join(' ')).includes(q));
+ $('homeCount').textContent=`登録済み ${state.homebreds.length}頭／表示 ${all.length}頭。記録はこの端末に保存しています。`;
+ $('homeList').innerHTML=all.length?all.slice().reverse().map(h=>{const a=(h.ancestry||[]).length;const child=state.homebreds.filter(x=>x.fatherId===h.id||x.motherId===h.id).length;return `<div class="home-row" data-home-id="${esc(h.id)}"><div><b>${esc(h.name)}</b><div class="home-badges">${chip(h.sex==='male'?'牡馬':'牝馬')}${chip(h.mode==='real'?'生産記録':'仮配合','warn')}${chip('祖先'+a+'/15枠')}</div><div class="muted">父：${esc(h.fatherId)} ／ 母：${esc(h.motherId)}<br>SP：${esc(h.sp||'未確認')} ／ ST：${esc(h.st||'未確認')} ／ ${h.planId?esc(getPlanTitle(h.planId)):'計画なし'} ${h.stepNo?'工程'+h.stepNo:''}</div></div><div class="btnrow"><button class="btn small ghost" data-home-view="${esc(h.id)}">血統</button>${h.sex==='male'?`<button class="btn small ghost" data-home-use="sire">父に使う</button>`:`<button class="btn small ghost" data-home-use="mare">母に使う</button>`}<button class="btn small grey" data-home-edit="${esc(h.id)}">記録を編集</button><button class="btn small danger" data-home-delete="${esc(h.id)}" ${child?'disabled title="子孫がいるので削除不可"':''}>削除</button></div></div>`;}).join(''):'<div class="empty">自家製馬はまだありません。父母を選んで産駒を登録してください。</div>';
+}
+function getHomePair(){const sid=$('homeSire').value.trim(),mid=$('homeMare').value.trim();const sire=findParentHorse(sid),mare=findParentHorse(mid);
+ if(!sire||horseSex(sire)!=='male')return {error:'父には公開種牡馬または登録済み自家製牡馬を指定してください。'};
+ if(!mare||horseSex(mare)!=='female')return {error:'母には公開繁殖牝馬または登録済み自家製牝馬を指定してください。'};
+ if(!sire.ancestry?.length||!mare.ancestry?.length)return {error:'選択した親の5代血統データが不足しています。公開CSVの読み込みを確認してください。'};
+ return {sire,mare};
+}
+function previewHomePair(){const pair=getHomePair();homeDraftPair=null;if(pair.error){$('homeStatus').textContent=pair.error;$('homePreviewArea').innerHTML='';return null;}
+ const a=getFoalPedigree(pair.sire,pair.mare);homeDraftPair={sireId:pair.sire.id,mareId:pair.mare.id};
+ $('homePreviewArea').innerHTML=renderPairReport(pair.sire,pair.mare);$('homeStatus').textContent=`父 ${pair.sire.id} × 母 ${pair.mare.id}：判明${a.known}/31枠。本人因子と能力はまだ推定していません。`;return pair;
+}
+function refreshHomePlanDetail(){if(openPlanId){const card=$('planEditor')?.querySelector('#homePlanInline');if(card){const p=getPlan(openPlanId);card.innerHTML=renderLinkedHomebreds(p);const btn=card.querySelector('#linkHomebred');if(btn)btn.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};}}}
+function registerHomebred(){const pair=getHomePair();if(pair.error){$('homeSaveStatus').textContent=pair.error;return;}
+ const name=$('homeName').value.trim(),sex=$('homeSex').value,mode=$('homeMode').value;
+ if(!name||name.length>70){$('homeSaveStatus').textContent='自家製馬の名前を入力してください（70文字以内）。';return;}
+ if(!['male','female'].includes(sex)||!['draft','real'].includes(mode)){ $('homeSaveStatus').textContent='性別と登録区分を確認してください。';return; }
+ if(name.startsWith('自家製:')){ $('homeSaveStatus').textContent='馬名に「自家製:」という接頭辞は使えません。';return; }
+ const id=homeId(name);if(state.homebreds.some(h=>key(h.id)===key(id))){$('homeSaveStatus').textContent='同じ名前の自家製馬が登録済みです。別の名前を付けてください。';return;}
+ if(key(pair.sire.id)===key(id)||key(pair.mare.id)===key(id)){ $('homeSaveStatus').textContent='自分自身を親にすることはできません。';return;}
+ const ped=getFoalPedigree(pair.sire,pair.mare),anc=ped.rows.filter(x=>x.path.length<=4&&x.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||''}));
+ const now=nowISO();const r={id,name,sex,mode,sp:$('homeSP').value.trim(),st:$('homeST').value.trim(),note:$('homeNote').value.trim(),fatherId:pair.sire.id,motherId:pair.mare.id,ancestry:anc,factors:[],lineage:pair.sire.lineage||'',lineageAssumed:!!pair.sire.lineage,planId:$('homePlan').value||'',stepNo:Number($('homeStep').value)||null,createdAt:now,updatedAt:now};
+ state.homebreds.push(r);if(!persist()){state.homebreds.pop();$('homeSaveStatus').textContent='端末に保存できませんでした。空き容量を確認してください。';return;}
+ $('homeSaveStatus').textContent=`${r.name}を${mode==='real'?'実際の生産記録':'仮配合の記録'}として保存しました。祖先 ${anc.length}/15枠。次の交配で親に選べます。`;
+ $('homeName').value='';$('homeSP').value='';$('homeST').value='';$('homeNote').value='';renderHomebreds();refreshHomePlanDetail();
+}
+function displayHomePedigree(id){const rec=state.homebreds.find(h=>key(h.id)===key(id));if(!rec)return;const row=$('homeList').querySelectorAll('[data-home-id]');const el=[...row].find(x=>key(x.dataset.homeId)===key(id));if(!el)return;let target=el.querySelector('.home-info');if(target){target.remove();return;}
+ target=document.createElement('div');target.className='home-info';target.style.width='100%';target.innerHTML=`<b>${esc(rec.name)}：血統の引き継ぎ</b><p class="muted">父：${esc(rec.fatherId)} ／ 母：${esc(rec.motherId)}。親血統から判明した祖先${rec.ancestry.length}/15枠。自家製馬本人の因子は未判定です。${rec.lineageAssumed?'子系統は父系からの推定で、ゲーム表示とは照合していません。':''}</p><div class="audit-table-wrap"><table><thead><tr><th>位置</th><th>祖先馬</th><th>因子</th><th>子系統</th></tr></thead><tbody>${rec.ancestry.map(a=>`<tr><td>${esc(a.path)}</td><td>${esc(a.horse)}</td><td>${esc((a.factors||[]).join('・')||'—')}</td><td>${esc(a.line||'—')}</td></tr>`).join('')}</tbody></table></div>`;el.after(target);
+}
+function editHomebred(id){const rec=state.homebreds.find(h=>key(h.id)===key(id));if(!rec)return;const el=[...$('homeList').querySelectorAll('[data-home-id]')].find(x=>key(x.dataset.homeId)===key(id));if(!el)return;let target=el.querySelector('.home-edit');if(target){target.remove();return;}target=document.createElement('div');target.className='home-edit';target.innerHTML=`<div class="home-fields"><label>区分<select class="plan-input" data-home-field="mode"><option value="draft" ${rec.mode==='draft'?'selected':''}>仮馬</option><option value="real" ${rec.mode==='real'?'selected':''}>実際に生産</option></select></label><label>SP（実測、任意）<input class="plan-input" data-home-field="sp" value="${esc(rec.sp||'')}"></label><label>ST（実測、任意）<input class="plan-input" data-home-field="st" value="${esc(rec.st||'')}"></label><label class="wide">メモ<textarea class="plan-textarea" data-home-field="note">${esc(rec.note||'')}</textarea></label></div><div class="btnrow topgap"><button class="btn small" data-home-commit="${esc(id)}">記録を更新</button></div>`;el.after(target);
+}
+function updateHomebred(id){const rec=state.homebreds.find(h=>key(h.id)===key(id));if(!rec)return;const edit=[...$('homeList').querySelectorAll('.home-edit')].find(e=>key(e.previousElementSibling?.dataset.homeId||'')===key(id));if(!edit)return;for(const f of ['sp','st','note','mode'])rec[f]=edit.querySelector(`[data-home-field="${f}"]`)?.value||'';rec.updatedAt=nowISO();persist();renderHomebreds();refreshHomePlanDetail();$('homeSaveStatus').textContent=`${rec.name}の記録を更新しました。`;
+}
+
 // wiring
+$('homeSire').oninput=()=>{homeDraftPair=null;$('homePreviewArea').innerHTML='';};
+$('homeMare').oninput=()=>{homeDraftPair=null;$('homePreviewArea').innerHTML='';};
+$('homePreview').onclick=previewHomePair;
+$('homeSave').onclick=registerHomebred;
+$('homeSearch').oninput=renderHomebreds;
+$('homePlan').onchange=()=>refreshHomeSteps();
+$('homeList').onclick=e=>{const home=e.target.closest('[data-home-id]')||e.target.previousElementSibling;const view=e.target.closest('[data-home-view]'),use=e.target.closest('[data-home-use]'),edit=e.target.closest('[data-home-edit]'),save=e.target.closest('[data-home-commit]'),del=e.target.closest('[data-home-delete]');
+if(view){displayHomePedigree(view.dataset.homeView);return;}
+if(use){const container=e.target.closest('[data-home-id]');const id=container?.dataset.homeId;if(!id)return;const target=use.dataset.homeUse==='sire'?'homeSire':'homeMare';$(target).value=id;window.scrollTo({top:$('homebreds').offsetTop,behavior:'smooth'});$('homeStatus').textContent=`${id}を${target==='homeSire'?'父':'母'}に設定しました。もう一方の親を選んでください。`;return;}
+if(edit){editHomebred(edit.dataset.homeEdit);return;}
+if(save){updateHomebred(save.dataset.homeCommit);return;}
+if(del){const id=del.dataset.homeDelete,rec=state.homebreds.find(x=>key(x.id)===key(id));if(!rec)return;if(state.homebreds.some(x=>x.fatherId===rec.id||x.motherId===rec.id)){alert('子孫の血統を守るため、別の馬の親になっている自家製馬は削除できません。');return;}if(!confirm(`${rec.name}の記録を削除しますか？（元に戻せません）`))return;state.homebreds=state.homebreds.filter(x=>key(x.id)!==key(id));persist();renderHomebreds();refreshHomePlanDetail();}
+};
+
 for(const b of document.querySelectorAll('[data-tab]'))b.addEventListener('click',()=>switchTab(b.dataset.tab));
 for(const el of ['search','ownedFilter','factorFilter','sortFilter'])$(el).addEventListener(el==='search'?'input':'change',()=>{visible=40;renderCatalog();});$('more').onclick=()=>{visible+=40;renderCatalog();};
 $('horseList').onclick=e=>{const el=e.target.closest('button[data-detail]');if(el)showDetail(el.dataset.detail);};
@@ -351,7 +421,7 @@ $('mareFilter').onchange=()=>{mareLimit=35;renderMares();};
 $('mareMore').onclick=()=>{mareLimit+=35;renderMares();};
 $('mareList').onclick=e=>{const fav=e.target.closest('[data-mare-fav]'),detail=e.target.closest('[data-mare-detail]');if(fav){const id=fav.dataset.mareFav,k=key(id);if(state.mareFavorites[k])delete state.mareFavorites[k];else state.mareFavorites[k]=true;persist();renderMares();}else if(detail)mareDetail(detail.dataset.mareDetail);};
 $('pedAnalyze').onclick=renderPedigree;$('pedHorse').onkeydown=e=>{if(e.key==='Enter')renderPedigree();};$('pedDeep').onclick=()=>{$('pedHorse').value='ディープインパクト-央獅-';renderPedigree();};$('loadWebMaster').onclick=loadWeb;$('masterCsv').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await setMaster(await file.text());}catch(err){$('importStatus').textContent='CSV取込エラー: '+err.message;}e.target.value='';};
-$('exportInventory').onclick=()=>dl('dabimas_full_backup_v07.json',{version:7,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites});
+$('exportInventory').onclick=()=>dl('dabimas_full_backup_v08.json',{version:8,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,homebreds:state.homebreds});
 $('importInventory').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{importJSON(JSON.parse(await file.text()));alert('所持馬・保存プランを読み込みました。');}catch(err){alert('JSON取込失敗：'+err.message);}e.target.value='';};
 $('resetOwned').onclick=()=>{if(!confirm('所持チェックを初期52頭の状態に戻しますか？'))return;state.owned=structuredClone(ownSeed);persist();renderAll();};
 $('saveGenome').onclick=()=>{const vals=['sp0','sp1','sp2','st0','st1','st2'].map(k=>$(k).value.trim());if(vals.some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)){alert('SP/STの最小・中央・最大を入力してください。');return;}const a=vals.map(Number);if(a[0]>a[1]||a[1]>a[2]||a[3]>a[4]||a[4]>a[5]){alert('最小 ≦ 中央 ≦ 最大の順序で入力してください。');return;}state.genomes.unshift({name:$('predName').value.trim(),sp0:a[0],sp1:a[1],sp2:a[2],st0:a[3],st1:a[4],st2:a[5],at:new Date().toLocaleDateString('ja-JP')});persist();$('genomeHistory').innerHTML=genomeRows();alert('ゲーム内解析値を保存しました。');};

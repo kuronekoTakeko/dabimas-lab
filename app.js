@@ -1003,14 +1003,17 @@ function prep17Mare(sire,baseMare,tag){
  const mare={id,name:'準備'+tag+'牝',sex:'female',isHomebred:true,mode:'draft',factors:[],lineage:sire.lineage||'',ancestry:ped.rows.filter(x=>x.name&&x.path.length<=4).map(x=>({path:x.path,horse:x.name,factors:[...x.factors],line:x.line,factorVariant:x.factorVariant||''}))};
  return {mare,ped};
 }
-function prep17Trial(p,selectedA,selectedB){
- const choices=prep17PairChoices(p),a=choices.find(x=>x.id===selectedA),b=choices.find(x=>x.id===selectedB);
+function prep17Trial(p,selectedA,selectedB,choicePool=null){
+ const choices=choicePool||prep17PairChoices(p),a=choices.find(x=>x.id===selectedA),b=choices.find(x=>x.id===selectedB);
  if(!a||!b)return {error:'所持済みの3因子・異因名2頭を、それぞれ2組選択してください。公開マスターの血統読込も必要です。'};
  if(key(a.name)===key(b.name))return {error:'2組の追加クロスには異なる種牡馬名を指定してください。'};
  const ch=chain09Data(p),parents={},preps={};
  const assigned={P1:b.a,P2:a.a,Q1:a.b,R2:b.b};
  for(const slot of PREP17_SLOTS){
-  const baseId=ch.mares[slot.step]||'',base=findParentHorse(baseId);
+  // If opening an existing 13-stage saved plan, REPLACE its four preparation horses,
+  // not layer a second four-horse preparation onto their descendants.
+  const previous=(p.prep17?.steps||[]).find(x=>Number(x.targetStep)===slot.step);
+  const baseId=previous?.mother||ch.mares[slot.step]||'',base=findParentHorse(baseId);
   if(!base||horseSex(base)!=='female')return {error:`${slot.name}の元になる繁殖牝馬が未指定・未登録です。現在の9工程で先に牝馬を設定してください。`};
   const built=prep17Mare(assigned[slot.name],base,slot.name);
   if(built.error)return {error:built.error};
@@ -1046,7 +1049,7 @@ function prep17Render(p){
  const eligible=prep17Selection(p);
  const opt=(id)=>prep18SortPairs(eligible.items,p.goal||'balance').map(x=>`<option value="${esc(x.id)}" ${id===x.id?'selected':''}>${esc(x.name)}〔${esc(x.a.variant)} × ${esc(x.b.variant)}〕・${x.sp}SP系／${x.st}ST系・所持済</option>`).join('');
  const old=p.prep17?.steps||[];
- return `<section class="r12-card" aria-label="至高配合の追加仕込み"><h3>v1.8｜追加2クロスの仕込み牝馬（4工程追加）</h3>
+ return `<section class="r12-card" aria-label="至高配合の追加仕込み"><h3>v1.9｜追加2クロスの仕込み牝馬（4工程追加）</h3>
  <p class="r12-foot"><b>ディープ3×4×5は固定</b>。4頭の自家製牝馬を先に作り、既存の9工程へ接続する13工程プランを別保存します。自家製牝馬本人が3因子になるという意味ではなく、<b>3因子種牡馬を牝馬の父として祖先に仕込む</b>方法です。</p>
  <label class="p18-goal-label">公式BCの目標<select id="prep18Goal" class="plan-input"><option value="balance" ${p.goal!=='speed'&&p.goal!=='stamina'?'selected':''}>万能・合計能力</option><option value="speed" ${p.goal==='speed'?'selected':''}>短距離・スピード優先</option><option value="stamina" ${p.goal==='stamina'?'selected':''}>中長距離・スタミナ優先</option></select></label>
  <p class="r12-foot">この選択は因子構成を参考順に並べ替え、試算結果に研究上の評価を表示します。実際のSP/ST・公式BC勝率を予測するものではありません。</p>
@@ -1054,6 +1057,12 @@ function prep17Render(p){
  <div><b>追加B：4×5</b><p class="r12-foot">父系P1の父（SSDS） × 母系R2の父（DDDDS）</p><label>別名の異因名種牡馬<select id="prep17B" class="plan-input">${opt(eligible.b)}</select></label></div></div>
  <p class="r12-foot">対象は所持チェック済みで、各馬に3因子・詳細血統がある異因名の組のみ。権利数0も除外しません。ディープは追加クロス対象から除外。元の6頭の繁殖牝馬、補助Xは現プランの設定を継承します。</p>
  ${p.prep17?`<div class="notice"><b>このプランには仕込み工程が登録済みです：</b> ${esc(old.map(x=>x.label+' '+x.father+' × '+x.mother).join('／'))}<p class="r12-foot">まだゲーム内で生産したという意味ではありません。</p></div>`:''}
+ <section class="p19-autoplacement" aria-label="所持種牡馬の自動配置">
+ <h4>v1.9｜所持種牡馬から自動配置</h4>
+ <p class="r12-foot">選択中の公式BC目標に合わせて、<b>所持済みの異因名ペアを全候補から組み合わせ</b>、父系・母系の4枠を自動試算します。至高3×4×5と元の繁殖牝馬6頭・補助Xは固定。権利数は判定に使いません。</p>
+ <button class="btn small" id="prep19Optimize" type="button">取得済み種牡馬から配置を自動探索</button>
+ <div id="prep19Results" class="p19-results" aria-live="polite"></div>
+ </section>
  <div class="btnrow"><button class="btn small ghost" id="prep17Preview">13工程を試算</button><button class="btn small" id="prep17Save" disabled>試算した13工程を別プランに保存</button></div><div id="prep17Result" aria-live="polite"></div></section>`;
 }
 function prep17Report(p,t,goal=p.goal||'balance'){
@@ -1075,6 +1084,8 @@ function prep17Save(p,t,goal=p.goal||'balance'){
  if(t.error||!t.parents)return {error:'保存できる試算がありません。'};
  const copy=JSON.parse(JSON.stringify(p)),now=nowISO();copy.id=uid();copy.createdAt=now;copy.updatedAt=now;
  copy.title=(p.title||'至高の配合').replace(/（研究案\d+）$/,'').slice(0,105)+'（追加2クロス・13工程）';copy.status='構想';copy.goal=goal;
+ delete copy.autoPlacement19;
+ if(t.auto19){copy.autoPlacement19={createdAt:now,sourcePlanId:p.id,goal:t.auto19.goal,score:t.auto19.score,tested:t.auto19.tested,valid:t.auto19.valid,metrics:t.auto19.metrics};}
  const cp=chain09Data(copy);cp.outputs={};
  copy.prep17={sourcePlanId:p.id,createdAt:now,pairA:[t.a.a.id,t.a.b.id],pairB:[t.b.a.id,t.b.b.id],steps:[],expectedCrosses:t.extras.map(x=>x.name),researchGoal:goal,theory:'未確認'};
  copy.production13={genomes:{},theory:'未確認'};
@@ -1082,7 +1093,7 @@ function prep17Save(p,t,goal=p.goal||'balance'){
  const names={1:'P1',2:'P2',3:'Q1',6:'R2'},records=[];
  for(const step of [1,2,3,6]){
   const tag=names[step],r=t.parents[tag],name='仕込み'+tag+'_'+copy.id.slice(0,8),id=homeId(name);
-  const record={id,name,sex:'female',mode:'draft',sp:'',st:'',note:`v1.8 追加クロス仕込み。元の繁殖牝馬：${r.base.id}。自家製牝馬本人に因子を保証しない。`,fatherId:r.sire.id,motherId:r.base.id,
+  const record={id,name,sex:'female',mode:'draft',sp:'',st:'',note:`v1.9 追加クロス仕込み。元の繁殖牝馬：${r.base.id}。自家製牝馬本人に因子を保証しない。`,fatherId:r.sire.id,motherId:r.base.id,
    ancestry:r.mare.ancestry.map(x=>({...x})),factors:[],lineage:r.sire.lineage||'',lineageAssumed:!!r.sire.lineage,planId:copy.id,stepNo:null,createdAt:now,updatedAt:now};
   records.push(record);cp.mares[step]=id;
   copy.prep17.steps.push({label:tag,father:r.sire.id,mother:r.base.id,foal:id,targetStep:step,path:r.path,done:false});
@@ -1090,21 +1101,107 @@ function prep17Save(p,t,goal=p.goal||'balance'){
  const slots=copy.routeDraft.slots,x=cp.xId,mares=cp.mares;
  const texts=[`${slots.g3} × ${mares[1]} → A1牡`,`A1牡 × ${mares[2]} → A2牡`,`${slots.g4} × ${mares[3]} → B1牡`,`B1牡 × ${mares[4]} → B2牡`,`${slots.g5} × ${mares[5]} → C1牡`,`C1牡 × ${mares[6]} → C2牝`,`${x} × C2牝 → C3牝`,'B2牡 × C3牝 → M牝','A2牡 × M牝 → 公式BC候補'];
  copy.steps.slice(0,9).forEach((s,i)=>{s.cross=texts[i];});
- copy.note=(copy.note?copy.note+'\n':'')+'【v1.8】準備4工程を先に実施、続けて従来9工程。仮馬は生産済みではない。至高成立・クロス効果・能力・全兄弟条件は未確認。';
+ copy.note=(copy.note?copy.note+'\n':'')+(copy.autoPlacement19?`【v1.9自動配置】目標${copy.autoPlacement19.goal}・研究用評価${copy.autoPlacement19.score}。ゲーム内能力値ではない。\n`:'')+'【v1.9】準備4工程を先に実施、続けて従来9工程。仮馬は生産済みではない。至高成立・クロス効果・能力・全兄弟条件は未確認。';
  state.plans.unshift(copy);state.homebreds.push(...records);
  if(!persist()){state.plans.shift();state.homebreds.splice(-records.length);return {error:'データの保存に失敗しました。バックアップを確認してください。'};}
  return {id:copy.id};
 }
+
+// v1.9 — finite, reproducible optimization of the FOUR preparatory SIRE slots only.
+// No purchased rights, race result, game nitro, or gamete factors are inferred.
+// Base six mares, X sire and the deep 3x4x5 anchor stay fixed.
+const PREP19_MAX_TRIALS=1800;
+function prep19Score(t,goal='balance'){
+ const freq=t.cross.frequency, f=k=>freq[k]||0;
+ const rows=t.final.rows;
+ const byGen=(depth,set)=>rows.filter(r=>r.path.length===depth&&set.has(canonicalLine(r.line))).length;
+ const sp4=byGen(4,BONUS_SPEED),st4=byGen(4,BONUS_STAMINA),sp5=byGen(5,BONUS_SPEED),st5=byGen(5,BONUS_STAMINA);
+ const factor4_5=Object.fromEntries(['短','速','長','走','中','底'].map(k=>[k,rows.filter(r=>r.path.length>=4&&r.path.length<=5).reduce((n,r)=>n+(r.factors||[]).filter(x=>x===k).length,0)]));
+ // Pure RESEARCH ranking weights, not in-game SP/ST increases or verified nitro coefficients.
+ const weights={
+  speed:{'短':1.0,'速':3.0,'長':0.7,'走':4.5,'中':3.3,'底':0.1,'雷':-.6},
+  balance:{'短':0.7,'速':2.7,'長':2.5,'走':4.5,'中':4.5,'底':0.35,'雷':-.7},
+  stamina:{'短':-.5,'速':0.9,'長':3.5,'走':1.8,'中':4.8,'底':0.5,'雷':-1.1}
+ }[goal]||null;
+ const w=weights||{'短':0.7,'速':2.7,'長':2.5,'走':4.5,'中':4.5,'底':0.35,'雷':-.7};
+ const crossPart=Object.entries(freq).reduce((a,[k,n])=>a+n*(w[k]??0),0);
+ const linePart=goal==='speed'?sp4*4+st4*.8+sp5*1.1+st5*.2:
+  goal==='stamina'?st4*4+sp4*.7+st5*1.1+sp5*.2:
+  sp4*3.2+st4*3.2+sp5*.8+st5*.8+Math.min(sp4,st4)*1.5;
+ // Factor positions are supporting evidence only. Do not call this a nitro calculation.
+ const desired=goal==='speed'?['速','走','中']:goal==='stamina'?['長','中']:['速','長','走','中'];
+ const positionPart=desired.reduce((a,k)=>a+Math.min(8,factor4_5[k]||0)*.15,0);
+ const uncertain=t.cross.uncertain.length,conflicts=t.cross.conflicts.length;
+ const riskPart=uncertain*2.5+conflicts*10;
+ const independent=t.cross.independentCount;
+ const bonusPart=Math.max(0,independent-1)*2;
+ const score=crossPart+linePart+positionPart+bonusPart-riskPart;
+ return {score:Math.round(score*10)/10,sp4,st4,sp5,st5,factor4_5,
+  crossPart:Math.round(crossPart*10)/10,linePart:Math.round(linePart*10)/10,
+  independent,uncertain,conflicts,frequency:{...freq}};
+}
+function prep19Optimize(p,goal='balance',maxTrials=PREP19_MAX_TRIALS){
+ if(!p.routeDraft?.slots)return {results:[],tested:0,valid:0,message:'至高3×4×5の指定が必要です。'};
+ const pool=prep17PairChoices(p);
+ if(!pool.length)return {results:[],tested:0,valid:0,message:'所持済みの異因名ペアが見つかりません。公開CSV・所持チェックを確認してください。'};
+ const grouped=new Map();for(const pair of pool){const k=key(pair.name);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(pair);}
+ if(grouped.size<2)return {results:[],tested:0,valid:0,message:'追加2クロスには別名の種牡馬ペアが2組必要です。取得済みの異因名ペアを確認してください。'};
+ const results=[];let tested=0,valid=0;
+ // Full enumeration until the published safety limit. Keep iteration deterministic for reproducibility.
+ outer:for(const a of pool){for(const b of pool){
+  if(key(a.name)===key(b.name))continue;
+  if(tested>=maxTrials)break outer;
+  tested++;
+  const t=prep17Trial(p,a.id,b.id,pool);
+  if(t.error)continue;
+  valid++;
+  const metrics=prep19Score(t,goal);
+  results.push({pairA:a.id,pairB:b.id,a,b,metrics,trial:t});
+ }}
+ results.sort((a,b)=>b.metrics.score-a.metrics.score||b.trial.cross.total-a.trial.cross.total||
+  b.metrics.sp4-a.metrics.sp4||a.pairA.localeCompare(b.pairA,'ja')||a.pairB.localeCompare(b.pairB,'ja'));
+ // Keep 5 distinct unordered pair-combinations / orientations when possible;
+ // include same-name combo with reversed factor variants when it actually scores differently.
+ return {results:results.slice(0,5),tested,valid,eligible:pool.length,limited:tested>=maxTrials,
+  message:valid?'':`${tested}配置を試しましたが、至高3×4×5と追加2クロスを維持できる候補がありませんでした。`};
+}
+function prep19Render(result,goal){
+ if(result.message&&!result.results.length)return `<div class="r12-warn">${esc(result.message)}</div>`;
+ const limited=result.limited?'（上限到達・部分探索）':'（候補内を全探索）';
+ const list=result.results.map((r,i)=>{
+  const m=r.metrics,counts=Object.entries(m.frequency).filter(([k])=>['短','速','長','走','中'].includes(k)).map(([k,n])=>`${k}${n}`).join('・');
+  return `<div class="p19-choice"><div class="p19-choice-main"><b>候補${i+1}｜研究用評価 ${m.score.toFixed(1)}</b>
+   <p class="r12-foot">追加A 3×5：${esc(r.a.a.id)} ／ ${esc(r.a.b.id)}</p>
+   <p class="r12-foot">追加B 4×5：${esc(r.b.a.id)} ／ ${esc(r.b.b.id)}</p>
+   <p class="r12-foot">独立クロス${m.independent}組・判明クロス因子${r.trial.cross.total}個 ｜ ${esc(counts)} ｜ 4代目SP/ST ${m.sp4}/${m.st4}・5代目 ${m.sp5}/${m.st5}${m.uncertain?' ／ 因名未確認'+m.uncertain+'枠':''}</p></div>
+   <button type="button" class="btn small ghost" data-p19-apply="${i}">この配置を試算</button></div>`;
+ }).join('');
+ return `<p class="r12-foot"><b>自動配置の結果：</b>${result.tested}通り試算・${result.valid}通り適合・上位${result.results.length}案 ${limited}。異因名ペア${result.eligible}組を対象。元のプランは未変更です。</p>
+ <div class="p19-list">${list}</div>
+ <p class="r12-foot">評価点は<b>ゲームの能力値ではありません</b>。独立クロスの判明因子を中心に、4代目のSP/ST系統、5代目の系統、因子位置数を参考加点しています。ニトロの段階・兄弟姉妹の成立阻害・実際の肌馬能力は未判定です。複製保存するまではプランを変更しません。</p>`;
+}
 function setupPrep17(el,p){const root=el.querySelector('#prep17');if(!root)return;
  root.innerHTML=prep17Render(p);
- const a=root.querySelector('#prep17A'),b=root.querySelector('#prep17B'),goal=root.querySelector('#prep18Goal'),preview=root.querySelector('#prep17Preview'),save=root.querySelector('#prep17Save'),out=root.querySelector('#prep17Result');
+ const a=root.querySelector('#prep17A'),b=root.querySelector('#prep17B'),goal=root.querySelector('#prep18Goal'),preview=root.querySelector('#prep17Preview'),save=root.querySelector('#prep17Save'),out=root.querySelector('#prep17Result'),auto=root.querySelector('#prep19Optimize'),autoOut=root.querySelector('#prep19Results');
  if(!a||!b||!goal)return;let trial=null;
  const invalidate=()=>{trial=null;save.disabled=true;out.innerHTML='';};a.onchange=invalidate;b.onchange=invalidate;
  goal.onchange=()=>{const left=a.value,right=b.value;
   const sorted=prep18SortPairs(prep17PairChoices(p),goal.value);
   for(const select of [a,b]){select.innerHTML=sorted.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}〔${esc(x.a.variant)} × ${esc(x.b.variant)}〕・${x.sp}SP系／${x.st}ST系・所持済</option>`).join('');}
-  a.value=left;b.value=right;invalidate();};
+  a.value=left;b.value=right;invalidate();autoOut.innerHTML='';};
  preview.onclick=()=>{try{trial=prep17Trial(p,a.value,b.value);out.innerHTML=prep17Report(p,trial,goal.value);save.disabled=!!trial.error;}catch(e){trial=null;out.innerHTML='<div class="r12-warn">試算エラー：'+esc(e.message)+'</div>';save.disabled=true;}};
+ auto.onclick=()=>{try{
+  const found=prep19Optimize(p,goal.value);
+  autoOut.innerHTML=prep19Render(found,goal.value);
+  autoOut.querySelectorAll('[data-p19-apply]').forEach(button=>button.onclick=()=>{
+   const chosen=found.results[Number(button.dataset.p19Apply)];if(!chosen)return;
+   a.value=chosen.pairA;b.value=chosen.pairB;
+   if(a.value!==chosen.pairA||b.value!==chosen.pairB){autoOut.insertAdjacentHTML('afterbegin','<div class="r12-warn">候補の選択に失敗しました。再読込して確認してください。</div>');return;}
+   trial=chosen.trial;trial.auto19={goal:goal.value,score:chosen.metrics.score,tested:found.tested,valid:found.valid,metrics:{...chosen.metrics}};out.innerHTML=prep17Report(p,trial,goal.value);save.disabled=false;
+   out.scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+ }catch(e){autoOut.innerHTML='<div class="r12-warn">自動探索エラー：'+esc(e.message)+'</div>';}};
+
  save.onclick=()=>{if(!trial||trial.error)return;const result=prep17Save(p,trial,goal.value);if(result.error){out.innerHTML='<div class="r12-warn">'+esc(result.error)+'</div>';return;}showPlanEditor(result.id);};
 }
 

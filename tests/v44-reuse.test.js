@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');const path=require('node:path');
+const api=require('../research-reuse.js');let pass=0;
+function test(label,fn){fn();pass++;console.log('PASS '+label);}
+const paths=api.expectedPaths();
+const ancestry=()=>paths.map((p,i)=>({path:p,horse:'祖先'+i,factors:['速'],factorVariant:'甲',line:'Ne'}));
+const mk=(id,mode,sex='female',anc=ancestry())=>({id,name:id,mode,sex,planId:'P',stepNo:1,ancestry:anc});
+const draft=mk('draft','draft'),actual=mk('real','real');
+const plan={id:'P',chain09:{outputs:{1:'draft'}}};
+test('31 unique canonical slots',()=>assert.equal(new Set(paths).size,31));
+test('complete signatures match',()=>assert.equal(api.signature(draft),api.signature(actual)));
+test('candidate real horse identified without mutation',()=>{const arr=[draft,actual],before=JSON.stringify(arr);const result=api.inspect(plan,arr);assert.equal(result.reusable.length,1);assert.equal(result.reusable[0].candidates[0].id,'real');assert.equal(JSON.stringify(arr),before);assert.equal(result.automaticSubstitution,false);});
+test('draft duplicates never counted',()=>assert.equal(api.inspect(plan,[draft,mk('other','draft')]).reusable.length,0));
+test('different sex rejected',()=>assert.equal(api.inspect(plan,[draft,mk('male','real','male')]).reusable.length,0));
+test('unknown factor data fails closed',()=>{const a=ancestry();a[0].factors=[];assert.equal(api.signature(mk('x','real','female',a)),null);});
+test('missing factor variant fails closed',()=>{const a=ancestry();a[4].factorVariant='';assert.equal(api.signature(mk('x','real','female',a)),null);});
+test('different variant cannot match',()=>{const a=ancestry();a[5].factorVariant='乙';assert.equal(api.inspect(plan,[draft,mk('x','real','female',a)]).reusable.length,0);});
+test('different lineage cannot match',()=>{const a=ancestry();a[7].line='Ro';assert.equal(api.inspect(plan,[draft,mk('x','real','female',a)]).reusable.length,0);});
+test('missing path cannot match',()=>assert.equal(api.signature(mk('x','real','female',ancestry().slice(1))),null));
+test('duplicate path cannot match',()=>{const a=ancestry();a[3].path=a[2].path;assert.equal(api.signature(mk('x','real','female',a)),null);});
+test('factor order is not significant',()=>{const a=ancestry();a[0].factors=['長','速'];const b=ancestry();b[0].factors=['速','長'];assert.equal(api.signature(mk('x','real','female',a)),api.signature(mk('y','real','female',b)));});
+test('assets and version linked',()=>{const root=path.join(__dirname,'..');const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8'),app=fs.readFileSync(path.join(root,'app.js'),'utf8');assert(html.indexOf('research-reuse.js?v=44')<html.indexOf('app.js?v=44'));assert(sw.includes("'./research-reuse.js'"));assert(sw.includes('dbms-v44-1'));assert(app.includes('reuse44Html(plan)'));});
+test('315 owned JSON not touched',()=>{const p=process.argv[2];const obj=JSON.parse(fs.readFileSync(p,'utf8'));assert.equal(Object.keys(obj.owned).length,315);assert.equal(obj.plans.length,0);});
+console.log(`${pass} v4.4 tests passed`);

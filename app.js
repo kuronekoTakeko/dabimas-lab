@@ -596,7 +596,7 @@ const copy=JSON.parse(JSON.stringify(p));copy.id=uid();copy.title=p.title.replac
 function showPlanEditor(id){const p=getPlan(id);if(!p)return;openPlanId=id;const members=p.source?.members||[];const el=$('planEditor');el.classList.remove('hidden');$('savedPlans').classList.add('hidden');el.innerHTML=`<div class="card"><div class="plan-head"><h3 style="margin:0">配合プランの編集</h3><button class="btn grey small" id="closePlanEditor">一覧へ戻る</button></div><p class="muted">入力を変更すると端末に自動保存します。新しい検索をしても、この計画はそのまま残ります。</p>
 <div class="plan-fields"><label class="wide"><span class="plan-label">計画名</span><input class="plan-input" data-plan-field="title" value="${esc(p.title)}" maxlength="160"></label><label class="wide"><span class="plan-label">目標レース・距離</span><input class="plan-input" data-plan-field="target" value="${esc(p.target||'')}" maxlength="160"></label><label><span class="plan-label">育成方針</span><select class="plan-input" data-plan-field="goal">${Object.entries(GOAL_LABELS).map(([k,v])=>`<option value="${k}" ${p.goal===k?'selected':''}>${v}</option>`).join('')}</select></label><label><span class="plan-label">進捗</span><select class="plan-input" data-plan-field="status">${PLAN_STATUSES.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></label></div><details class="prod-optional"><summary>計画メモ・保存した種牡馬の因子（必要なときだけ表示）</summary><div class="card"><label class="field"><span class="plan-label">計画メモ</span><textarea class="plan-textarea" data-plan-field="note">${esc(p.note||'')}</textarea></label>
 <h4 style="margin:18px 0 6px">種牡馬・因子</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div></details>
-${mild30Html(p)}
+${mild30Html(p)}${reuse44Html(p)}
 ${p.hard23?`<details class="prod-optional"><summary>本気型の事前仕込み工程（${p.hard23.preparations?.length||0}工程）</summary>${renderHard23Panel(p)}</details>`:''}
 ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：実測因子を反映した最終血統（未測定の場合は参考値）</summary>${v28LivePanel(p)}</details>`:''}
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
@@ -2371,6 +2371,19 @@ function mild30Html(plan){
  <p class="m30-notice"><b>現在は実際の生産開始をまだ案内していません。</b> 初めて試すときは本気型ではなくマイルド型を選び、配合の成立確認を段階的に行います。</p></section>`;
 }
 
+// v4.4: no steps are discarded unless the exact 31 positions and factor
+// variants are verified. These are audit suggestions, not automatic rewiring.
+function reuse44Html(plan){
+ if(plan?.autoDesign21?.mode!=='mild'&&!plan?.routeDraft?.slots)return '';
+ const api=window.DabimasReuse44;
+ if(!api)return '<p class="notice warn">v4.4再利用監査が読み込まれていません。工程短縮は未確認です。</p>';
+ const r=api.inspect(plan,state.homebreds);
+ const matches=r.steps.filter(x=>x.candidates.length);
+ return `<details class="a21-flow"><summary>v4.4｜既存実馬の再利用監査（厳密照合 ${r.comparable}/${r.checked}工程、候補 ${matches.length}工程）</summary>
+ <p class="muted">本人因子・異因名・祖先31枠・子系統の記録がすべて揃う実馬のみ照合します。情報不足は一致とみなしません。${matches.length?'一致候補があっても、親馬を実馬IDへつなぎ直し、生産順と最終血統を再検証するまで工程を省略しません。':'現在、安全な代替実馬を確認できません。9工程の省略は行いません。'}</p>
+ ${matches.map(x=>`<p>工程${x.step}：${x.candidates.map(h=>esc(h.name)+'（'+esc(h.id)+'）').join('／')}</p>`).join('')}
+ <p class="muted">ゲーム内の至高成立・能力は別途検証が必要です。既存の保存プラン・自家製馬は書き換えません。</p></details>`;
+}
 function auto21Flow(plan){
  let lines=[];
  for(const step of plan.hard23?.preparations||[]){
@@ -2435,6 +2448,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
  ${mild30Html(plan)}
+ ${reuse44Html(plan)}
  ${auto21Flow(plan)}
  ${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}
  <div class="notice warn">これは研究用の血統シミュレーションです。至高の成立・全兄弟姉妹の除外条件・クロス効果・本人因子・SP/STは未確認です。牝馬の採用SP/ST基準は実際のゲノム解析を確認してから設定してください。${meta.limited?'追加クロスは上限付きの部分探索です。':''}</div>

@@ -762,11 +762,12 @@ function getFoalPedigree(sire,mare){
  if(mare){for(const a of mare.ancestry||[])add('D'+kanaPath(a.path),a.horse,a.factors,a.line,mare.id,a.factorVariant||a.variant||'');}
  const all=[];for(let d=1;d<=5;d++){const n=2**(d-1);for(let j=0;j<n;j++){let p='';for(let k=d-2;k>=0;k--)p+=j>>k&1?'D':'S';all.push(p+'S');}}
  const rows=all.map(path=>at.get(path)||{path,name:'',factors:[],line:''}),known=rows.filter(x=>x.name);
+ const transmission=window.DabimasResearchTransmission39?.verify({rows},sire,mare)||null;
  const byName=new Map();for(const a of known){const k=key(a.name);if(!byName.has(k))byName.set(k,[]);byName.get(k).push(a);}
  const repeats=[...byName.values()].filter(x=>x.length>1).map(x=>({name:x[0].name,paths:x.map(a=>a.path)}));
  const triple=[...byName.values()].filter(x=>[3,4,5].every(d=>x.some(a=>a.path.length===d))).map(x=>x[0].name);
  const factorCounts=countItems(known.flatMap(x=>x.factors));const lineCounts=countItems(known.map(x=>x.line));
- return {rows,known:known.length,repeats,triple,factorCounts,lineCounts,conflicts,
+ return {rows,known:known.length,repeats,triple,factorCounts,lineCounts,conflicts,transmission,
   crossCheck:classifyIndependentCross15(rows)};
 }
 function renderPairReport(sire,mare){const a=getFoalPedigree(sire,mare);
@@ -777,6 +778,7 @@ function renderPairReport(sire,mare){const a=getFoalPedigree(sire,mare);
  <div class="notice"><b>独立した父母間クロス候補：</b>${esc(a.crossCheck.candidates.map(x=>x.name).join('、')||'未検出')}（${a.crossCheck.candidates.length}種類）<br><b>同じクロスに由来する祖先の派生重複：</b>${esc(a.crossCheck.inherited.map(x=>x.name+'［'+x.via.join('・')+'由来］').join('、')||'なし')}。後者は独立クロスとして二重に加点しません。ゲーム内のクロス表示は別途確認が必要です。</div>
  ${a.repeats.length?`<details class="details"><summary>血統上の同名祖先の重複位置（${a.repeats.length}種類、クロス確定数ではありません）</summary>${a.repeats.map(x=>`<div class="pair-list-row"><b>${esc(x.name)}</b><span>${esc(x.paths.join(' / '))}</span></div>`).join('')}</details>`:''}
  ${a.conflicts.length?`<div class="notice warn">血統の矛盾：${a.conflicts.map(esc).join('、')}</div>`:''}
+ ${a.transmission?`<div class="notice ${a.transmission.conflicts.length?'warn':''}"><b>v3.9 親子血統継承：</b>${esc(a.transmission.status)}。照合${a.transmission.compared}枠・矛盾${a.transmission.conflicts.length}件・未収録${a.transmission.unresolved.length}枠。${a.transmission.conflicts.map(x=>esc(x.path+'（'+x.field+'）')).join('、')}。血統上の一致は至高成立を保証しません。</div>`:''}
  ${renderGamePedigree20(sire,mare,a)}
  <details class="details"><summary>産駒の5代血統31枠を表示</summary><div class="audit-table-wrap"><table><thead><tr><th>位置</th><th>代</th><th>祖先馬</th><th>因子</th><th>子系統</th></tr></thead><tbody>${a.rows.map(x=>`<tr><td>${x.path}</td><td>${x.path.length}</td><td>${esc(x.name||'未確認')}</td><td>${esc((x.factors||[]).join('・')||'—')}</td><td>${esc(x.line||'—')}</td></tr>`).join('')}</tbody></table></div></details>
  <p class="muted">これは選択した公開種牡馬と繁殖牝馬の<strong>直接配合</strong>の検査です。仮ルートの最終自家製種牡馬・繁殖牝馬の代替ではありません。また因子の数はそのままニトロやSP/ST補正にはなりません。</p>`;
@@ -1395,7 +1397,7 @@ function prep17Selection(p){const items=prep17PairChoices(p);
 }
 function prep17Mare(sire,baseMare,tag){
  const ped=getFoalPedigree(sire,baseMare);
- if(ped.known!==31||ped.conflicts.length)return {error:`${tag}：基礎牝馬または種牡馬の血統が不足・矛盾しています（${ped.known}/31）`};
+ if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`${tag}：基礎牝馬または種牡馬の血統が不足・矛盾しています（${ped.known}/31）`};
  const id='__prep17_'+tag;
  const mare={id,name:'準備'+tag+'牝',sex:'female',isHomebred:true,mode:'draft',fatherId:sire.id,motherId:baseMare.id,factors:[],lineage:sire.lineage||'',ancestry:ped.rows.filter(x=>x.name&&x.path.length<=5).map(x=>({path:x.path,horse:x.name,factors:[...x.factors],line:x.line,factorVariant:x.factorVariant||''}))};
  return {mare,ped};
@@ -1441,7 +1443,7 @@ function prep17Trial(p,selectedA,selectedB,choicePool=null,extra22=null){
   const mare=d.mareStep?outputs[d.mareStep]:preps[n]||findParentHorse(ch.mares[n]);
   if(!sire||!mare||horseSex(sire)!=='male'||horseSex(mare)!=='female')return {error:`通常工程${n}の親馬が見つからないか、牡牝の条件が合いません。`};
   const ped=getFoalPedigree(sire,mare);
-  if(ped.known!==31||ped.conflicts.length)return {error:`通常工程${n}の血統が不完全です（${ped.known}/31）。祖先情報のある公開CSVが必要です。`};
+  if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`通常工程${n}の血統が不完全です（${ped.known}/31）。祖先情報のある公開CSVが必要です。`};
   outputs[n]={id:'__prep17_foal_'+n,name:'追加クロス計画の仮馬'+n,sex:d.sex,isHomebred:true,factors:[],lineage:sire.lineage||'',ancestry:ped.rows.filter(x=>x.name&&x.path.length<=5).map(x=>({path:x.path,horse:x.name,factors:[...x.factors],line:x.line,factorVariant:x.factorVariant||''}))};
   final=ped;if(n===9){finalSire=sire;finalMare=mare;}
  }
@@ -2085,7 +2087,7 @@ function hard23Trial(p,grafts={},goal=p.goal||'balance',xPlan=null){
    const sire=findParentHorse(stack[j]);
    if(!sire||!isOwned(sire)||horseSex(sire)!=='male'||!(sire.ancestry||[]).length)return {error:`仕込み工程${n}-${j+1}の取得済み種牡馬が未登録`};
    const ped=getFoalPedigree(sire,mare);
-   if(ped.known!==31||ped.conflicts.length)return {error:`仕込み工程${n}-${j+1}の血統が未完成です`};
+   if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`仕込み工程${n}-${j+1}の血統が未完成です`};
    const child={id:`__h23_${n}_${j}`,name:`仕込み${n}-${j+1}`,sex:'female',isHomebred:true,factors:[],lineage:sire.lineage||'',fatherId:sire.id,motherId:mare.id,
     ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}))};
    prepared[n].push({sire,mother:mare,child,path:def.prefix+'D'.repeat(stack.length-1-j)+'S',baseStep:n});
@@ -2105,7 +2107,7 @@ function hard23Trial(p,grafts={},goal=p.goal||'balance',xPlan=null){
    const mare=findParentHorse(xPlan.mareIds[j]);
    if(!mare||horseSex(mare)!=='female'||!(mare.ancestry||[]).length)return {error:'補助X用の公開牝馬が不明です'};
    const ped=getFoalPedigree(sire,mare);
-   if(ped.known!==31||ped.conflicts.length)return {error:'補助X用の血統が不完全です'};
+   if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:'補助X用の血統が不完全です'};
    const child={id:`__h24_x${j}`,name:`補助種牡馬X${j+1}`,sex:'male',isHomebred:true,factors:[],lineage:sire.lineage||'',fatherId:sire.id,motherId:mare.id,
     ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}))};
    preparedX.push({sire,mother:mare,child,path:'DDS'+'S'.repeat(xPlan.mareIds.length-j)});
@@ -2119,7 +2121,7 @@ function hard23Trial(p,grafts={},goal=p.goal||'balance',xPlan=null){
   const mare=d.mareStep?outputs[d.mareStep]:parents[n];
   if(!sire||!mare||horseSex(sire)!=='male'||horseSex(mare)!=='female')return {error:`通常工程${n}の親馬が不明です`};
   const ped=getFoalPedigree(sire,mare);
-  if(ped.known!==31||ped.conflicts.length)return {error:`通常工程${n}の血統が不完全（${ped.known}/31）です`};
+  if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`通常工程${n}の血統が不完全（${ped.known}/31）です`};
   outputs[n]={id:`__h23_foal_${n}`,name:`通常工程${n}の仮馬`,sex:d.sex,isHomebred:true,factors:[],lineage:sire.lineage||'',fatherId:sire.id,motherId:mare.id,
    ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}))};
   if(n===9){final=ped;finalSire=sire;finalMare=mare;}

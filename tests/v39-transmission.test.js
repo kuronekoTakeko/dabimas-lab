@@ -1,0 +1,30 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const api=require('../research-transmission.js');
+let n=0;function test(name,fn){fn();console.log('PASS',name);n++;}
+const sire={id:'SIRE-A',name:'種牡馬A',variant:'央獅',factors:['短','速'],ancestry:[{path:'S',horse:'祖父S',factors:['長'],factorVariant:'甲'},{path:'DS',horse:'祖父D',factors:['速']},{path:'SSSSS',horse:'6代外'}]};
+const mare={id:'MARE-A',name:'牝馬A',ancestry:[{path:'S',horse:'母父S',factors:['短']},{path:'DDS',horse:'母系祖先',factors:['中']}]};
+const rows=[{path:'S',name:'種牡馬A',factors:['短','速'],factorVariant:'央獅'},{path:'SS',name:'祖父S',factors:['長'],factorVariant:'甲'},{path:'SDS',name:'祖父D',factors:['速']},{path:'DS',name:'母父S',factors:['短']},{path:'DDDS',name:'母系祖先',factors:['中']}];
+test('all five observed positions inherit',()=>{const v=api.verify({rows},sire,mare);assert.equal(v.compared,5);assert.equal(v.conflicts.length,0);assert.equal(v.status,'判明範囲の継承一致');});
+test('sire ancestor mismatch detected',()=>{const changed=rows.map(x=>({...x}));changed[1].name='誤祖父';assert.deepEqual(api.verify({rows:changed},sire,mare).conflicts.map(x=>x.path),['SS']);});
+test('maternal ancestor mismatch detected',()=>{const changed=rows.map(x=>({...x}));changed[4].name='誤祖先';assert.deepEqual(api.verify({rows:changed},sire,mare).conflicts.map(x=>x.path),['DDDS']);});
+test('factor multiset mismatch detected, not treating same kinds as sufficient',()=>{const changed=rows.map(x=>({...x}));changed[0].factors=['短','短'];assert.equal(api.verify({rows:changed},sire,mare).conflicts[0].field,'factors');});
+test('unknown factors do not imply disagreement',()=>{const changed=rows.map(x=>({...x}));changed[0].factors=[];assert.equal(api.verify({rows:changed},sire,mare).conflicts.length,0);});
+test('missing recorded ancestor is unknown',()=>{const changed=rows.slice(1);const x=api.verify({rows:changed},sire,mare);assert.equal(x.unresolved.length,1);assert.equal(x.status,'継承一部未確認');});
+test('parent 5th generation not projected into the child window',()=>{assert.equal(api.verify({rows},sire,mare).compared,5);});
+test('duplicate and invalid positions are reported',()=>{const x=api.verify({rows:[...rows,rows[0],{path:'XXXX',name:'X'}]},sire,mare);assert.equal(x.duplicates.length,1);assert.equal(x.invalid.length,1);});
+test('factor variant mismatches detected when both are known',()=>{const changed=rows.map(x=>({...x}));changed[1].factorVariant='乙';assert.equal(api.verify({rows:changed},sire,mare).conflicts[0].field,'factorVariant');});
+test('module does not write any user state',()=>{const original=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const snap=JSON.stringify(original);api.verify({rows},sire,mare);assert.equal(JSON.stringify(original),snap);assert.equal(Object.keys(original.owned).length,315);});
+test('runtime integrates audit and fails closed for hard-mode pedigree conflicts',()=>{const s=fs.readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');assert(s.includes('DabimasResearchTransmission39?.verify'));assert(s.includes('ped.transmission?.conflicts.length'));});
+test('owned Deep Impact three variants carry six independent factor types',()=>{
+ const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+ const m=html.match(/const SEED=(\[[^;]+\]);<\/script>/);
+ assert(m,'embedded seed not found');
+ const seed=JSON.parse(m[1]);
+ const variants=['央獅','煌魂','翔燕'].map(v=>seed.find(x=>x.name==='ディープインパクト'&&x.variant===v));
+ assert(variants.every(Boolean));
+ const factors=variants.flatMap(x=>x.factors);
+ assert.equal(factors.length,9);
+ assert.equal(new Set(factors).size,6);
+});
+console.log(`${n} v3.9 transmission tests passed`);

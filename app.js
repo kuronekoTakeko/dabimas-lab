@@ -565,7 +565,7 @@ const copy=JSON.parse(JSON.stringify(p));copy.id=uid();copy.title=p.title.replac
 function showPlanEditor(id){const p=getPlan(id);if(!p)return;openPlanId=id;const members=p.source?.members||[];const el=$('planEditor');el.classList.remove('hidden');$('savedPlans').classList.add('hidden');el.innerHTML=`<div class="card"><div class="plan-head"><h3 style="margin:0">配合プランの編集</h3><button class="btn grey small" id="closePlanEditor">一覧へ戻る</button></div><p class="muted">入力を変更すると端末に自動保存します。新しい検索をしても、この計画はそのまま残ります。</p>
 <div class="plan-fields"><label class="wide"><span class="plan-label">計画名</span><input class="plan-input" data-plan-field="title" value="${esc(p.title)}" maxlength="160"></label><label class="wide"><span class="plan-label">目標レース・距離</span><input class="plan-input" data-plan-field="target" value="${esc(p.target||'')}" maxlength="160"></label><label><span class="plan-label">育成方針</span><select class="plan-input" data-plan-field="goal">${Object.entries(GOAL_LABELS).map(([k,v])=>`<option value="${k}" ${p.goal===k?'selected':''}>${v}</option>`).join('')}</select></label><label><span class="plan-label">進捗</span><select class="plan-input" data-plan-field="status">${PLAN_STATUSES.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></label><label class="wide"><span class="plan-label">全体メモ</span><textarea class="plan-textarea" data-plan-field="note">${esc(p.note||'')}</textarea></label></div>
 <h4 style="margin:18px 0 6px">保存時の候補データ（スナップショット）</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div>
-${renderHard23Panel(p)}${v28LivePanel(p)}<details class="legacy-tools"><summary>詳細設定・血統の手動調整（必要な場合だけ開く）</summary><div id="routeOptimizer10"></div><div id="prep17"></div><div id="chainPlanner09"></div>${renderRoutePanel(p)}<div id="pairMateEditor"></div></details><details class="legacy-tools"><summary>ゲーム内の成立確認・ゲノム記録（生産後に使用）</summary><div id="productionGuide13"></div></details><div id="homePlanInline">${renderLinkedHomebreds(p)}</div><h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
+${mild30Html(p)}${renderHard23Panel(p)}${v28LivePanel(p)}<details class="legacy-tools"><summary>詳細設定・血統の手動調整（必要な場合だけ開く）</summary><div id="routeOptimizer10"></div><div id="prep17"></div><div id="chainPlanner09"></div>${renderRoutePanel(p)}<div id="pairMateEditor"></div></details><details class="legacy-tools"><summary>ゲーム内の成立確認・ゲノム記録（生産後に使用）</summary><div id="productionGuide13"></div></details><div id="homePlanInline">${renderLinkedHomebreds(p)}</div><h3 class="heading">工程と最低許容能力</h3><div class="notice warn">SP/ST欄は、配合設計後に決める合格基準です。現在のアプリは自動計算できないため、未設定欄に架空の数値を入れません。実測・ゲノム解析結果をメモして検証できます。</div><div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 <div class="btnrow"><button class="btn ghost" id="addPlanStep">＋ 工程を追加</button><button class="btn" id="savePlanNow">保存を確認</button></div><p class="muted" id="planSaveStatus">最終保存：${esc(dateJP(p.updatedAt))}</p>`;
 el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);setupChainPlanner09(el,p);setupOptimizer10(el,p);setupPrep17(el,p);setupProductionGuide13(el,p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
 el.querySelector('#addPlanStep').onclick=()=>{p.steps.push({uid:uid(),title:`工程${p.steps.length+1}`,cross:'',sex:'',minSP:'',minST:'',result:'',note:'',done:false});touchPlan(p);showPlanEditor(p.id);};
@@ -2230,6 +2230,51 @@ function hard23Save(p,t,goal,summary={}){
  return {id:copy.id};
 }
 
+// v3.0: A read-only PRE-BREEDING audit for the nine-step mild plan.
+// A complete sire pedigree is not proof of the in-game theory. In particular,
+// full siblings on either side may be invisible in a sire-only CSV pedigree.
+function mild30Check(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return null;
+ // Take a plan snapshot: the legacy chain09Data helper may fill missing keys.
+ const p={...plan,chain09:JSON.parse(JSON.stringify(plan.chain09||{}))};
+ const observations=[],blocks=[];
+ if(!p.routeDraft?.slots||!Array.isArray(p.steps)||p.steps.length<9){
+  blocks.push('至高用の指定祖先または9工程の記録が不足');
+  return {ok:false,observations,blocks,gamePending:true};
+ }
+ const review=reviewMetrics12(p),theory=product13Theory(p,review);
+ const anchors=review.ready?review.anchorCount:0;
+ observations.push({label:'最終産駒の5代血統',value:review.ready?`${review.ped.known}/31枠`:'未連結'});
+ observations.push({label:'指定3×4×5の位置・因子',value:`${anchors}/3箇所`});
+ observations.push({label:'同名3頭の因子種類',value:`${theory.factors.length}種類`});
+ if(!review.ready)blocks.push('9工程の親子連結・最終血統が未完成');
+ if(anchors!==3)blocks.push('3×4×5の指定位置または因子が不一致');
+ if(!theory.sameBase||!theory.distinct||theory.factors.length<6)blocks.push('同名の異なる登録3頭・因子6種類の一次条件が不足');
+ let verifiedPairs=0;
+ for(let n=1;n<=9;n++){
+  const parents=chain09Parents(p,n),output=chain09Output(p,n);
+  if(parents.ready&&output.horse)verifiedPairs++;
+  // Rights 0 is still an owned sire; a cleared ownership check is different.
+  if(parents.sire&&!parents.sire.isHomebred&&!isOwned(parents.sire))blocks.push(`工程${n}：${parents.sire.id}は現在の所持チェックがありません`);
+  else if(parents.problems?.length)blocks.push(`工程${n}：${parents.problems.join('・')}`);
+  else if(!output.horse)blocks.push(`工程${n}：${output.reason||'仮馬が未連結'}`);
+ }
+ observations.push({label:'親馬・性別・工程の紐付け',value:`${verifiedPairs}/9工程`});
+ const statuses=new Set((p.source?.members||[]).map(x=>x.id));
+ if(statuses.size!==3)blocks.push('中心種牡馬3頭の保存IDに重複・欠落があります');
+ return {ok:blocks.length===0,blocks,observations,gamePending:true,
+  needsYearCheck:(p.source?.members||[]).some(x=>/^(.*?)(19\d{2}|20\d{2})$/.test(x.id||''))};
+}
+function mild30Html(plan){
+ const result=mild30Check(plan);if(!result)return '';
+ const summary=result.ok?'血統上の一次点検は通過（ゲーム内成立は未確認）':'血統上の確認が必要です';
+ const rows=result.observations.map(x=>`<span class="m30-item">${esc(x.label)}：<b>${esc(x.value)}</b></span>`).join('');
+ const errors=result.blocks.length?`<p class="m30-block"><b>要確認：</b>${esc(result.blocks.slice(0,5).join('／'))}${result.blocks.length>5?` ほか${result.blocks.length-5}件`:''}</p>`:'';
+ return `<section class="m30-preflight" aria-label="マイルド型の生産前点検"><h4>マイルド型｜生産前の自動点検</h4><p><b>${esc(summary)}</b></p><div class="m30-grid">${rows}</div>${errors}
+ <p class="m30-notice">全兄弟姉妹による成立阻害や、血統表に現れない牝馬側の血縁関係は現在の公開マスターだけでは判定できません。${result.needsYearCheck?'年号付き種牡馬の同名扱いもゲーム内では未確認です。':''} 産駒本人因子・SP/ST・ニトロ・最終的な至高成立は推定しません。</p>
+ <p class="m30-notice"><b>現在は実際の生産開始をまだ案内していません。</b> 初めて試すときは本気型ではなくマイルド型を選び、配合の成立確認を段階的に行います。</p></section>`;
+}
+
 function auto21Flow(plan){
  let lines=[];
  for(const step of plan.hard23?.preparations||[]){
@@ -2261,6 +2306,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
+ ${mild30Html(plan)}
  ${auto21Flow(plan)}
  <details class="a21-flow"><summary>最終産駒・種牡馬・肌馬の血統表（赤文字：クロス候補）</summary>${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}</details>
  <div class="notice warn">これは研究用の血統シミュレーションです。至高の成立・全兄弟姉妹の除外条件・クロス効果・本人因子・SP/STは未確認です。牝馬の採用SP/ST基準は実際のゲノム解析を確認してから設定してください。${meta.limited?'追加クロスは上限付きの部分探索です。':''}</div>

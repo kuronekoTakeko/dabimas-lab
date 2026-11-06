@@ -2452,12 +2452,23 @@ function auto37Compare(a,b){
  const api=window.DabimasResearchEvidence37;
  return api?api.compare(a,b):0;
 }
+function auto38Validation(pedigree,plan){
+ const api=window.DabimasResearchValidation38;
+ const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
+ return api?api.inspect(pedigree,ids):null;
+}
+function auto38Compare(a,b){
+ const api=window.DabimasResearchValidation38;
+ return api&&a&&b?api.compare(a,b):0;
+}
 function evidence37Html(ped,plan){
  const x=auto37Evidence(ped,plan);
+ const v38=auto38Validation(ped,plan);
  if(x.unavailable)return '<p class="notice warn">v3.7根拠比較モジュールが未読込です。評価根拠は未確認です。</p>';
- return `<details class="a21-flow"><summary>v3.7｜探索に用いた判定根拠：${x.anchorObserved?'指定祖先の一次条件を確認':'指定祖先の確認が必要'}</summary>
+ return `<details class="a21-flow"><summary>v3.8｜探索に用いた判定根拠：${x.anchorObserved?'指定祖先の一次条件を確認':'指定祖先の確認が必要'}</summary>
  <p class="muted">3×4×5同名：${x.anchorSameName?'一致':'要確認'} ／ 登録ID：${x.anchorDistinctIds?'別ID3頭':'要確認'} ／ 指定箇所の判明因子：${x.anchorFactorKinds}種類。</p>
  <p class="muted">父母共通の同名祖先：${x.bothSideNames}種類 ／ 因名・因子が全位置で判明した候補：${x.fullyDocumented}種類 ／ 未確認の候補：${x.unresolvedCrossNames}種類。</p>
+ <p class="muted"><b>追加検証：</b>${v38?esc(v38.state):"検証モジュール未読込"}。${v38?`3箇所の判明因子は計${v38.totalKnownFactors}個・${v38.distinctFactorTypes}種類。因名と因子の衝突${v38.variantFactorConflicts.length}件。`:""}4種類・6因子の報告例は独立検証前のため、成立確定とは扱いません。全兄弟姉妹の阻害条件も未確認です。</p>
  <p class="muted">データ構造が同等の候補同士では、判明している根拠が多い候補を優先します。クロス数は効果の強さではなく候補数です。ゲーム内の至高成立、独立クロスの有効性、ニトロ、SP/STは保証できません。</p></details>`;
 }
 function auto21Create(){
@@ -2490,7 +2501,7 @@ function auto21Create(){
    // Evaluate two of the best 6-mare/X foundations jointly with their optional
    // graft graphs; keep the full nine-step baseline as a legitimate outcome.
    const foundations=ranked.slice(0,3).map(x=>x.candidate);
-   let chosen=null,search=null,chosenDraft=null,chosenQuality=null,chosenEvidence=null,compared=0;
+   let chosen=null,search=null,chosenDraft=null,chosenQuality=null,chosenEvidence=null,chosenValidation=null,compared=0;
    for(const foundation of foundations){
     const variant=JSON.parse(JSON.stringify(draft));
     auto21SetResearch(variant,foundation);
@@ -2499,14 +2510,17 @@ function auto21Create(){
     compared++;
     const trialQuality=auto35Quality(found.best.final,variant);
     const trialEvidence=auto37Evidence(found.best.final,variant);
+    const trialValidation=auto38Validation(found.best.final,variant);
     const qualityOrder=chosenQuality?auto35CompareQuality(trialQuality,chosenQuality):-1;
     const scoreDiff=chosen?found.best.metrics.score-chosen.metrics.score:0;
     const evidenceOrder=chosenEvidence?auto37Compare(trialEvidence,chosenEvidence):-1;
+    const validationOrder=chosenValidation?auto38Compare(trialValidation,chosenValidation):-1;
     if(!chosen||qualityOrder<0||(qualityOrder===0&&
        (scoreDiff>0.05||
-       (Math.abs(scoreDiff)<=0.05&&(evidenceOrder<0||
-       (evidenceOrder===0&&found.best.stages<chosen.stages)))))){
-     chosen=found.best;search=found;chosenDraft=variant;chosenQuality=trialQuality;chosenEvidence=trialEvidence;
+       (Math.abs(scoreDiff)<=0.05&&(validationOrder<0||
+       (validationOrder===0&&(evidenceOrder<0||
+       (evidenceOrder===0&&found.best.stages<chosen.stages)))))))){
+     chosen=found.best;search=found;chosenDraft=variant;chosenQuality=trialQuality;chosenEvidence=trialEvidence;chosenValidation=trialValidation;
     }
    }
    if(!chosen){out.innerHTML='<div class="notice warn">9工程の完全な血統を再現できませんでした。データの祖先枠を確認してください。</div>';return;}

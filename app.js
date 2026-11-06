@@ -47,7 +47,8 @@ const v25UserReportedKey=key(v25UserReportedId);
 const v25OwnershipAdded=!Object.prototype.hasOwnProperty.call(state.owned,v25UserReportedKey);
 if(v25OwnershipAdded)state.owned[v25UserReportedKey]={owned:true,rights:0,verified:'user_report_2026-11-06'};
 let master=[], map=new Map(),visible=40, currentTab='auto21', loading=false;
-function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return true;}catch(e){$('importStatus').textContent='端末に保存できません。空き容量・ブラウザの設定を確認してください。';return false;}}
+let stagingAuto21=false;
+function persist(){if(stagingAuto21)return true;try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return true;}catch(e){$('importStatus').textContent='端末に保存できません。空き容量・ブラウザの設定を確認してください。';return false;}}
 if(v25OwnershipAdded||!localStorage.getItem(SAVE_KEY))persist();
 function toSeed(s){return{id:s.display_name||`${s.name}-${s.variant}-`,name:s.name,variant:s.variant||'',factors:s.factors||[],rights:s.rights_remaining||0,lineage:s.lineage||'',ancestry:[],isSeed:true};}
 function buildMap(){
@@ -2532,9 +2533,34 @@ function auto21Create(){
    parents={sire:chosen.finalSire,mare:chosen.finalMare,limited:search.pruned,stages:chosen.stages,
     searchNote:`v2.4可変工程探索：名牝/X基礎構成${compared}案、2因子を含む追加クロス候補ペア${search.eligiblePairs}組から${search.shortlist}組を優先。${search.tested}通り試算。9工程基準評価${search.baseline.metrics.score.toFixed(1)} → 採用案${chosen.metrics.score.toFixed(1)}。5代を超える仕込みは加点しません。部分探索です。`};
     }else{
-   draft.note=`【v2.1自動設計】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。至高成立、予想能力は未確認。`;
-   state.plans.unshift(draft);
-   if(!persist()){state.plans.shift();out.innerHTML='<div class="notice warn">ローカル保存に失敗しました。空き容量を確認してください。</div>';return;}
+   // Build all nine offspring in memory first. A missing parent must not
+   // leave an attractive-looking partial production plan in persistent data.
+   const oldPlans=state.plans.slice(),oldHomebreds=state.homebreds.slice();
+   const problems=[];
+   draft.note=`【v4.1自動設計】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。至高成立、予想能力は未確認。`;
+   stagingAuto21=true;
+   try{
+    state.plans.unshift(draft);
+    for(let n=1;n<=9;n++){
+     const result=makeChain09Foal(draft,n);
+     if(result.error){problems.push(`工程${n}：${result.error}`);break;}
+    }
+    if(!problems.length){
+     const guard=window.DabimasFlowGuard41?.verify(draft,state.homebreds);
+     if(!guard?.ok)problems.push(...(guard?.failures||['生産工程検査モジュールが利用できません']));
+    }
+   }catch(error){problems.push(error.message||'仮連結処理に失敗');}
+   finally{stagingAuto21=false;}
+   if(problems.length){
+    state.plans=oldPlans;state.homebreds=oldHomebreds;
+    out.innerHTML=`<div class="notice warn">マイルド型の9工程を完成できませんでした。部分的なプラン・仮馬は保存せず破棄しました：${esc(problems.slice(0,4).join('／'))}</div>`;
+    return;
+   }
+   if(!persist()){
+    state.plans=oldPlans;state.homebreds=oldHomebreds;
+    out.innerHTML='<div class="notice warn">保存容量不足のため、生成した9工程は取り消しました。既存データは変更していません。</div>';
+    return;
+   }
    saved=draft;
   }
   const chosenQuality=auto35Quality(pedigree,saved);
@@ -2546,7 +2572,6 @@ function auto21Create(){
     bothSideNames:evidence37.bothSideNames??null,fullyDocumented:evidence37.fullyDocumented??null,
     unresolvedCrossNames:evidence37.unresolvedCrossNames??null,verifiedTheory:false}};
   const errors=[];
-  if(mode!=='hard')for(let n=1;n<=9;n++){const a=makeChain09Foal(saved,n);if(a.error){errors.push(`工程${n}：${a.error}`);break;}}
   persist();auto21LastPlanId=saved.id;
   renderSavedPlans();
   out.innerHTML=auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');

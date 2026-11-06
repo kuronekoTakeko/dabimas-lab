@@ -155,16 +155,16 @@
 .a21-flow p{font-size:12px;margin:9px 13px;overflow-wrap:anywhere}
 @media(max-width:600px){.a21-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style></head><body>
-<header><div class="wrap"><div class="brand"><div class="logo">♞</div><div><h1>ダビマス配合研究所</h1><p>個人用の所持馬図鑑と配合プランナー｜v2.3 本気型・可変工程探索</p></div></div><div class="headstats" id="headStats"></div></div></header>
+<header><div class="wrap"><div class="brand"><div class="logo">♞</div><div><h1>ダビマス配合研究所</h1><p>個人用の所持馬図鑑と配合プランナー｜v2.4 本気型・2因子と補助X拡張</p></div></div><div class="headstats" id="headStats"></div></div></header>
 <main class="wrap"><nav class="nav" aria-label="画面切り替え"><button type="button" data-tab="auto21" aria-selected="true">自動設計</button><button type="button" data-tab="bc14" aria-selected="false">至高探索</button><button type="button" data-tab="catalog" aria-selected="false">種牡馬図鑑</button><button type="button" data-tab="mares" aria-selected="false">繁殖牝馬</button><button type="button" data-tab="homebreds" aria-selected="false">自家製馬</button><button type="button" data-tab="plans" aria-selected="false">至高候補</button><button type="button" data-tab="library" aria-selected="false">保存プラン</button><button type="button" data-tab="pedigree" aria-selected="false">血統分析</button><button type="button" data-tab="genome" aria-selected="false">能力記録</button><button type="button" data-tab="settings" aria-selected="false">データ管理</button></nav>
 <section class="panel active" id="auto21"><h2 class="heading">至高の配合｜条件を選んで自動作成</h2>
-<div class="notice"><b>取得済み種牡馬 × 名牝から、配合の材料と工程をまとめて自動選択します。</b> マイルド型は9工程、本気型は追加2クロスを仕込む13～15工程の範囲で探索します。権利数0でも所持済みなら対象です。</div>
+<div class="notice"><b>取得済み種牡馬 × 名牝から、配合の材料と工程をまとめて自動選択します。</b> マイルド型は9工程。本気型は2因子・3因子の取得済み種牡馬と補助Xの仕込みを含め、血統の改善が見込める範囲で9〜20工程を部分探索します。至高成立は未確認です。権利数0でも所持済みなら対象です。</div>
 <div class="card a21-wizard"><h3>新規配合プラン</h3><div class="a21-fields">
 <label>① 配合理論<select id="auto21Theory"><option>至高の配合</option><option disabled>奇跡の配合（将来対応）</option><option disabled>超完璧の配合（将来対応）</option></select></label>
 <label>② 至高の中心種牡馬<select id="auto21Horse"></select><small id="auto21CandidateNote"></small></label>
 <label>③ 目標レース・距離<select id="auto21Race"></select><small>現在は芝・ダートと距離を設定。競馬場別のコース補正は未実装です。</small></label>
 <label>④ 能力方針<select id="auto21Goal"><option value="balance">バランス型（SP/ST両立）</option><option value="speed">スピード型</option><option value="stamina">スタミナ型</option></select></label>
-<label>⑤ 配合規模<select id="auto21Mode"><option value="mild">マイルド型｜9工程</option><option value="hard">本気型｜5代血統から仕込みを自動調整</option></select><small>本気型は9工程を基礎に、5代血統内に効果が残る仕込みだけを増減。9〜18工程が構造上の探索範囲で、候補数制限付きの部分探索です。20工程以上の血統外仕込みや実SP/ST推定は対象外。</small></label></div>
+<label>⑤ 配合規模<select id="auto21Mode"><option value="mild">マイルド型｜9工程</option><option value="hard">本気型｜5代血統から仕込みを自動調整</option></select><small>本気型は9工程を基礎に、5代血統内に効果が残る仕込みだけを増減。9〜20工程が構造上の探索範囲で、候補数制限付きの部分探索です。20工程を超える全枝探索や実SP/ST推定は対象外。</small></label></div>
 <button class="btn a21-run" type="button" id="auto21Run">この条件で配合プランを自動作成・保存</button>
 <p class="muted">候補を探索し、保存プランに新規登録します。元のプランは変更せず、仮馬は「未生産」として生成します。名牝ランクは公開の過去情報を含みます。</p></div>
 <div id="auto21Result" aria-live="polite"><div class="card"><p class="muted">条件を選び、上のボタンを押すと生産フロー・ゲーム風血統表・クロス因子をまとめて表示します。ゲーム内での配合理論の成立、SP/STの数値予測は未確認です。</p></div></div>

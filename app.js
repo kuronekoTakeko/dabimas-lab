@@ -8,7 +8,17 @@ const ST_LINES=['ハイペリオン系','ブレニム系','ネヴァーセイダ
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').normalize('NFKC').replace(/[\s　]/g,'').replace(/[－―ｰ]/g,'-');
 const key=s=>normalize(s).toLowerCase();
-function splitName(display){let v=String(display||'').trim();let m=v.match(/^(.*?)-([^-]+)-$/);if(m)return{name:m[1],variant:m[2]};let m2=v.match(/^(.*?)[-－]([^-－]+)$/);return m2?{name:m2[1],variant:m2[2]}:{name:v,variant:''};}
+function splitName(display){
+ const v=String(display||'').trim();
+ const m=v.match(/^(.*?)-([^-]+)-$/);if(m)return{name:m[1],variant:m[2]};
+ const m2=v.match(/^(.*?)[-－]([^-－]+)$/);if(m2)return {name:m2[1],variant:m2[2]};
+ // CSV has numbered releases such as キングカメハメハ2012. Keep the exact ID
+ // unchanged for ownership/save lookup, but treat the 4-digit suffix as a variant
+ // when finding same-name pedigree candidates. This is a RESEARCH grouping;
+ // actual in-game mating theory still needs confirmation.
+ const year=v.match(/^(.+?)(19\d{2}|20\d{2})$/);
+ return year?{name:year[1],variant:year[2]}:{name:v,variant:''};
+}
 // Historic user-editable mare rank reference (Gamerch, updated 2016-12-11).
 // This is a partial historical list, NOT the current complete 2026 in-game master.
 // Rows not listed are '未確認', not '名牝以外'.
@@ -26,10 +36,25 @@ const ownSeed=Object.fromEntries(SEED.map(s=>[key(s.display_name),{owned:true,ri
 let state={owned:ownSeed,added:[],genomes:[],plans:[],mareFavorites:{},mareGrades:{},homebreds:[]};
 try{const saved=JSON.parse(localStorage.getItem(SAVE_KEY));if(saved&&saved.owned)state={...state,...saved,owned:{...ownSeed,...saved.owned},plans:Array.isArray(saved.plans)?saved.plans:[]};else{const old=JSON.parse(localStorage.getItem('dabimas_lab_v01'));if(old&&Array.isArray(old.stallions)){for(const s of old.stallions)state.owned[key(s.display_name||`${s.name}-${s.variant}-`)]={owned:true,rights:s.rights_remaining||0,verified:s.verification||'manual'};if(Array.isArray(old.predictions))state.genomes=old.predictions;}}}catch(e){}
 if(!Array.isArray(state.plans))state.plans=[];if(!Array.isArray(state.homebreds))state.homebreds=[];if(!state.mareFavorites||typeof state.mareFavorites!=="object")state.mareFavorites={};if(!state.mareGrades||typeof state.mareGrades!=="object")state.mareGrades={};
+// Personal PWA: owner explicitly reported キングカメハメハ2012 as acquired on
+// 2026-11-06. Add it only when the saved inventory has no decision for that ID.
+// Never overwrite a later manual uncheck, rights count, or another device's data.
+const v25UserReportedId='キングカメハメハ2012';
+const v25UserReportedKey=key(v25UserReportedId);
+const v25OwnershipAdded=!Object.prototype.hasOwnProperty.call(state.owned,v25UserReportedKey);
+if(v25OwnershipAdded)state.owned[v25UserReportedKey]={owned:true,rights:0,verified:'user_report_2026-11-06'};
 let master=[], map=new Map(),visible=40, currentTab='auto21', loading=false;
 function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return true;}catch(e){$('importStatus').textContent='端末に保存できません。空き容量・ブラウザの設定を確認してください。';return false;}}
+if(v25OwnershipAdded)persist();
 function toSeed(s){return{id:s.display_name||`${s.name}-${s.variant}-`,name:s.name,variant:s.variant||'',factors:s.factors||[],rights:s.rights_remaining||0,lineage:s.lineage||'',ancestry:[],isSeed:true};}
-function buildMap(){map=new Map(master.map(r=>[key(r.id),r]));for(const s of SEED){const k=key(s.display_name);if(map.has(k)){const v=map.get(k);if(!v.factors.length)v.factors=s.factors||[];}else if(!master.length||state.owned[k]?.owned)map.set(k,toSeed(s));}for(const m of state.added||[]){const k=key(m.id||`${m.name}-${m.variant}-`);if(!map.has(k))map.set(k,m);}}
+function buildMap(){
+ // Old IndexedDB masters may retain the pre-v2.5 name "キングカメハメハ2012".
+ // Re-derive name/variant from the ORIGINAL ID every time without replacing the
+ // actual ID, so existing owner flags, pedigrees and JSON exports remain stable.
+ for(const r of master){const parsed=splitName(r.id);if(r.name!==parsed.name||r.variant!==parsed.variant){
+  r.name=parsed.name;r.variant=parsed.variant;
+ }}
+ map=new Map(master.map(r=>[key(r.id),r]));for(const s of SEED){const k=key(s.display_name);if(map.has(k)){const v=map.get(k);if(!v.factors.length)v.factors=s.factors||[];}else if(!master.length||state.owned[k]?.owned)map.set(k,toSeed(s));}for(const m of state.added||[]){const k=key(m.id||`${m.name}-${m.variant}-`);if(!map.has(k))map.set(k,m);}}
 function getRows(){return [...map.values()];}
 // Source's published index separates entries by distance field presence; keep as an explicit heuristic.
 // Data imported on v0.6 can be recognized without redownloading the master.
@@ -1716,7 +1741,7 @@ function bc14SummaryBox(){
  const result=$('bc14Result');if(!result)return;
  const goal=$('bc14Goal')?.value||'balance';
  bc14SupCandidates=bc14SupremeSets(goal);
- const intro=`<p class="bc14-note">所持馬から、異なる因名の3頭で因子6種類以上となる一次候補を${bc14SupCandidates.length}組抽出しました。上限30件。権利数0の馬も含みます。</p>`;
+ const intro=`<p class="bc14-note">所持馬から、同名の異なる登録ID3頭で因子6種類以上となる一次候補を${bc14SupCandidates.length}組抽出しました。1因子馬・年号付き馬・権利数0も含みます。年号違いをゲーム内の独立因名として扱えるかは未検証です。上限30件。</p>`;
  const cards=bc14SupCandidates.map((v,i)=>`<div class="bc14-item"><h4>${i+1}. ${esc(v.base)}｜至高の因子候補</h4><div class="bc14-row"><span class="bc14-tag">因子${v.types.length}種類</span><span class="bc14-tag warn">至高の成立未確認</span></div><div class="bc14-factor">${v.types.map(f=>chip(f)).join('')}</div><p class="bc14-note">${v.set.map(r=>esc(r.id)+'（'+esc(r.factors.join('・'))+'）').join(' ／ ')}</p><div class="bc14-actions"><button type="button" class="btn small" data-bc14-sup="${i}">9工程の新プランを作成</button></div></div>`).join('')||'<p class="bc14-note">現在の所持馬で条件に合う候補は確認できませんでした。所持チェック・CSVの取り込み状況を確認してください。</p>';
  result.innerHTML=intro+cards+'<p class="bc14-method">判定できているのは、同名・異因名の3頭を集めた因子の一次条件までです。3×4×5の血統配置は作成する9工程で確認します。正式な至高成立・SP/ST補正・公式BC勝率はこの順位からは分かりません。</p>';
 }
@@ -1773,8 +1798,8 @@ function auto21RefreshCandidates(){
  auto21Candidates=[...byName.values()];
  sel.innerHTML=auto21Candidates.length?auto21Candidates.map((c,i)=>`<option value="${i}">${esc(c.base)}：${c.kinds.length}種類（${c.set.map(r=>r.variant).join('・')}）</option>`).join(''):'<option value="">候補なし（取得済み3因名を確認）</option>';
  if([...sel.options].some(x=>x.value===before))sel.value=before;
- $('auto21CandidateNote').textContent=auto21Candidates.length?`取得済みの至高一次候補：${auto21Candidates.length}組。権利数0も対象。ゲーム内成立は未確認です。`:
- '取得済み種牡馬の3因名・因子6種類以上の候補がありません。所持チェックや公開マスターを確認してください。';
+ $('auto21CandidateNote').textContent=auto21Candidates.length?`取得済みの至高一次候補：${auto21Candidates.length}組（1～3因子・年号付き種牡馬を含む）。権利数0も対象。ゲーム内成立は未確認です。`:
+ '取得済みの同名3頭・因子6種類以上の候補がありません。1因子・年号付きの馬も所持対象です。所持チェックや公開マスターを確認してください。';
 }
 function auto21SetResearch(p,base){
  const ch=chain09Data(p);ch.mares={...base.choices};ch.outputs={};ch.xId=base.xId;ch.finalSex='male';

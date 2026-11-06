@@ -2424,6 +2424,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
  ${audit34Html(plan,ped)}
  ${cross36Html(ped)}
+ ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
  ${mild30Html(plan)}
  ${auto21Flow(plan)}
@@ -2440,6 +2441,24 @@ function auto35Quality(pedigree,plan){
 function auto35CompareQuality(a,b){
  const api=window.DabimasResearchQuality35;
  return api&&a&&!a.unavailable&&b&&!b.unavailable?api.compare(a,b):0;
+}
+// v3.7: compare documented theory/cross evidence only after structural quality.
+function auto37Evidence(pedigree,plan){
+ const api=window.DabimasResearchEvidence37;
+ const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
+ return api?api.inspect(pedigree,ids):{unavailable:true};
+}
+function auto37Compare(a,b){
+ const api=window.DabimasResearchEvidence37;
+ return api?api.compare(a,b):0;
+}
+function evidence37Html(ped,plan){
+ const x=auto37Evidence(ped,plan);
+ if(x.unavailable)return '<p class="notice warn">v3.7根拠比較モジュールが未読込です。評価根拠は未確認です。</p>';
+ return `<details class="a21-flow"><summary>v3.7｜探索に用いた判定根拠：${x.anchorObserved?'指定祖先の一次条件を確認':'指定祖先の確認が必要'}</summary>
+ <p class="muted">3×4×5同名：${x.anchorSameName?'一致':'要確認'} ／ 登録ID：${x.anchorDistinctIds?'別ID3頭':'要確認'} ／ 指定箇所の判明因子：${x.anchorFactorKinds}種類。</p>
+ <p class="muted">父母共通の同名祖先：${x.bothSideNames}種類 ／ 因名・因子が全位置で判明した候補：${x.fullyDocumented}種類 ／ 未確認の候補：${x.unresolvedCrossNames}種類。</p>
+ <p class="muted">データ構造が同等の候補同士では、判明している根拠が多い候補を優先します。クロス数は効果の強さではなく候補数です。ゲーム内の至高成立、独立クロスの有効性、ニトロ、SP/STは保証できません。</p></details>`;
 }
 function auto21Create(){
  const out=$('auto21Result'),run=$('auto21Run');
@@ -2461,8 +2480,8 @@ function auto21Create(){
   const eligible=researched.results.filter(x=>x.matches===3);
   // The pre-existing search order is the secondary tie breaker. No candidate
   // gains fictitious SP/ST points from having more populated data fields.
-  const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft)}))
-   .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||a.i-b.i);
+  const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
+   .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||a.i-b.i);
   const base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   auto21SetResearch(draft,base);
@@ -2471,7 +2490,7 @@ function auto21Create(){
    // Evaluate two of the best 6-mare/X foundations jointly with their optional
    // graft graphs; keep the full nine-step baseline as a legitimate outcome.
    const foundations=ranked.slice(0,3).map(x=>x.candidate);
-   let chosen=null,search=null,chosenDraft=null,chosenQuality=null,compared=0;
+   let chosen=null,search=null,chosenDraft=null,chosenQuality=null,chosenEvidence=null,compared=0;
    for(const foundation of foundations){
     const variant=JSON.parse(JSON.stringify(draft));
     auto21SetResearch(variant,foundation);
@@ -2479,11 +2498,15 @@ function auto21Create(){
     if(found.error)continue;
     compared++;
     const trialQuality=auto35Quality(found.best.final,variant);
+    const trialEvidence=auto37Evidence(found.best.final,variant);
     const qualityOrder=chosenQuality?auto35CompareQuality(trialQuality,chosenQuality):-1;
+    const scoreDiff=chosen?found.best.metrics.score-chosen.metrics.score:0;
+    const evidenceOrder=chosenEvidence?auto37Compare(trialEvidence,chosenEvidence):-1;
     if(!chosen||qualityOrder<0||(qualityOrder===0&&
-       (found.best.metrics.score>chosen.metrics.score+0.05||
-       (Math.abs(found.best.metrics.score-chosen.metrics.score)<0.05&&found.best.stages<chosen.stages)))){
-     chosen=found.best;search=found;chosenDraft=variant;chosenQuality=trialQuality;
+       (scoreDiff>0.05||
+       (Math.abs(scoreDiff)<=0.05&&(evidenceOrder<0||
+       (evidenceOrder===0&&found.best.stages<chosen.stages)))))){
+     chosen=found.best;search=found;chosenDraft=variant;chosenQuality=trialQuality;chosenEvidence=trialEvidence;
     }
    }
    if(!chosen){out.innerHTML='<div class="notice warn">9工程の完全な血統を再現できませんでした。データの祖先枠を確認してください。</div>';return;}
@@ -2499,9 +2522,13 @@ function auto21Create(){
    saved=draft;
   }
   const chosenQuality=auto35Quality(pedigree,saved);
+  const evidence37=auto37Evidence(pedigree,saved);
   saved.autoDesign21={createdAt:nowISO(),mode,goal,race,searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',mareTests:researched.tests,confirmedTheory:false,
    dataQuality35:{structural:chosenQuality.structural,missingNames:chosenQuality.missingNames,
-    coverage:chosenQuality.coverage,unavailable:!!chosenQuality.unavailable,verifiedTheory:false}};
+    coverage:chosenQuality.coverage,unavailable:!!chosenQuality.unavailable,verifiedTheory:false},
+   researchEvidence37:{anchorObserved:!!evidence37.anchorObserved,anchorFactorKinds:evidence37.anchorFactorKinds??null,
+    bothSideNames:evidence37.bothSideNames??null,fullyDocumented:evidence37.fullyDocumented??null,
+    unresolvedCrossNames:evidence37.unresolvedCrossNames??null,verifiedTheory:false}};
   const errors=[];
   if(mode!=='hard')for(let n=1;n<=9;n++){const a=makeChain09Foal(saved,n);if(a.error){errors.push(`工程${n}：${a.error}`);break;}}
   persist();auto21LastPlanId=saved.id;

@@ -86,10 +86,10 @@ if(r.talent)t+=`<p class="muted">非凡：${esc(r.talent)}</p>`;
 $('dialogBody').innerHTML=t;$('horseDialog').showModal();$('dialogBody').querySelectorAll('[data-reconcile]').forEach(btn=>btn.onclick=()=>{const target=btn.dataset.reconcile;const ok=confirm(`${r.id} の所持チェックを ${target} に移しますか？`);if(!ok)return;state.owned[key(target)]={...state.owned[key(r.id)],owned:true,verified:'user_confirmed'};state.owned[key(r.id)]={...state.owned[key(r.id)],owned:false};persist();buildMap();renderAll();$('horseDialog').close();});
 }
 function combinations(arr,n){const result=[];function rec(a,j){if(a.length===n){result.push(a);return;}for(let i=j;i<=arr.length-(n-a.length);i++)rec([...a,arr[i]],i+1);}rec([],0);return result;}
-function getCandidates(){const groups=new Map();for(const r of maleRows()){if(!isOwned(r)||r.factors.length===0)continue;const g=normalize(r.name).toLowerCase();if(!groups.has(g))groups.set(g,[]);groups.get(g).push(r);}const out=[];for(const [base,arr] of groups){if(arr.length<3)continue;const limit=Math.min(4,arr.length);for(let n=3;n<=limit;n++){for(const set of combinations(arr,n)){const ff=set.flatMap(r=>r.factors);const kinds=[...new Set(ff)];if(kinds.length<6)continue;let cnt=Object.fromEntries(FACTORS.map(f=>[f,ff.filter(x=>x===f).length]));const goal=$('auto21Goal')?.value||'balance';
+function getCandidates(maxResults=40){const groups=new Map();for(const r of maleRows()){if(!isOwned(r)||r.factors.length===0)continue;const g=normalize(r.name).toLowerCase();if(!groups.has(g))groups.set(g,[]);groups.get(g).push(r);}const out=[];for(const [base,arr] of groups){if(arr.length<3)continue;const limit=Math.min(4,arr.length);for(let n=3;n<=limit;n++){for(const set of combinations(arr,n)){const ff=set.flatMap(r=>r.factors);const kinds=[...new Set(ff)];if(kinds.length<6)continue;let cnt=Object.fromEntries(FACTORS.map(f=>[f,ff.filter(x=>x===f).length]));const goal=$('auto21Goal')?.value||'balance';
 // Research heuristic for ranking only. NOT an ability/bonus formula.
 const score=goal==='speed'?cnt['短']*5+cnt['速']*3+cnt['走']*2+cnt['中']*1:goal==='stamina'?cnt['長']*5+cnt['中']*3+cnt['底']*2+cnt['走']:cnt['短']*3+cnt['速']*3+cnt['長']*3+cnt['走']*2+cnt['中']*2+cnt['底'];
-out.push({base,set,kinds,score,count:cnt});}}}return out.sort((a,b)=>b.score-a.score||b.kinds.length-a.kinds.length||a.set.length-b.set.length).slice(0,40);}
+out.push({base,set,kinds,score,count:cnt});}}}return out.sort((a,b)=>b.score-a.score||b.kinds.length-a.kinds.length||a.set.length-b.set.length).slice(0,maxResults>0?maxResults:undefined);}
 function renderCandidates(){if(!$('candidateSummary')||!$('candidates'))return;const v=getCandidates();$('candidateSummary').textContent=`因子6種類以上の一次候補：${v.length}組（最多40組表示）。取得済みなら権利数0でも含みます。`; $('candidates').innerHTML=v.length?v.map((c,i)=>`<div class="card"><div class="results-head"><h3>${i+1}. ${esc(c.set[0].name)}</h3><span class="score">${c.kinds.length}種類の因子</span></div><div class="metrics">${c.kinds.map(f=>chip(f)).join('')}</div>${c.set.map((r,j)=>`<div class="slot"><strong>構成候補 ${j+1}</strong><span>${esc(r.id)}　${r.factors.map(f=>chip(f)).join('')}　${chip('取得済み','owned')}</span></div>`).join('')}<div class="plan-actions"><button class="btn small" data-save-candidate="${i}">この候補を計画に保存</button></div><p class="muted">目的別に因子を重み付けして並び替えています。血統の配合プラン保存後に3×4×5の仮ルートを生成できます。成立の保証、完成産駒のニトロ・子系統補正、SP/ST予想は未実装です。</p></div>`).join(''):'<div class="empty">所持馬の中に、因子6種類が揃う同名種牡馬の組合せはありません。公開CSVを読み込み、所持馬にチェックを追加してください。</div>';}
 function genomeRows(){return (state.genomes||[]).map((v,i)=>`<div class="card"><div class="results-head"><b>${esc(v.name||'名称未設定')}</b><span class="muted">${esc(v.at||'')}</span></div><div class="muted">SP ${esc([v.spMin??v.sp0,v.spMid??v.sp1,v.spMax??v.sp2].join(' / '))}　ST ${esc([v.stMin??v.st0,v.stMid??v.st1,v.stMax??v.st2].join(' / '))}</div></div>`).join('')||'<div class="empty">まだ記録がありません。</div>';}
 function renderAll(){auto21RefreshCandidates();updateHeader();if(currentTab==='mares')renderMares();if(currentTab==='homebreds')renderHomebreds();if(currentTab==='catalog')renderCatalog();renderSavedPlans();$('genomeHistory').innerHTML=genomeRows();updateCleanStatus();}
@@ -2046,15 +2046,17 @@ const AUTO21_RACES=[
 let auto21Candidates=[],auto21LastPlanId='';
 function auto21RefreshCandidates(){
  const sel=$('auto21Horse');if(!sel)return;
- const before=sel.value;
- const source=getCandidates().filter(c=>c.set.length===3);
- const byName=new Map();
- for(const cand of source){const name=key(cand.set[0].name);if(!byName.has(name))byName.set(name,cand);}
- auto21Candidates=[...byName.values()];
- sel.innerHTML=auto21Candidates.length?auto21Candidates.map((c,i)=>`<option value="${i}">${esc(c.base)}：${c.kinds.length}種類（${c.set.map(r=>r.variant).join('・')}）</option>`).join(''):'<option value="">候補なし（取得済み3因名を確認）</option>';
- if([...sel.options].some(x=>x.value===before))sel.value=before;
- $('auto21CandidateNote').textContent=auto21Candidates.length?`取得済みの至高一次候補：${auto21Candidates.length}組（1～3因子・年号付き種牡馬を含む）。権利数0も対象。ゲーム内成立は未確認です。`:
- '取得済みの同名3頭・因子6種類以上の候補がありません。1因子・年号付きの馬も所持対象です。所持チェックや公開マスターを確認してください。';
+ const previous=auto21Candidates[Number(sel.value)];
+ const oldSignature=previous?window.DabimasCandidateSelector43?.signature(previous):'';
+ const goal=$('auto21Goal')?.value||'balance';
+ const source=getCandidates(0).filter(c=>c.set.length===3);
+ const api=window.DabimasCandidateSelector43;
+ auto21Candidates=api?api.choose(source,goal,4,120):[];
+ sel.innerHTML=auto21Candidates.length?auto21Candidates.map((c,i)=>`<option value="${i}">${esc(c.base)}：${esc(c.set.map(r=>r.variant||r.id).join('・'))}（${c.kinds.length}種類／研究指数${c.researchScore}）</option>`).join(''):'<option value="">候補なし（取得済み3因名を確認）</option>';
+ const index=auto21Candidates.findIndex(c=>c.signature===oldSignature);
+ if(index>=0)sel.value=String(index);
+ $('auto21CandidateNote').textContent=auto21Candidates.length?`取得済みの至高一次候補：${auto21Candidates.length}組（同名の異因名セットを最大4組ずつ表示・全体120組まで）。権利数0も対象。順位は研究用でゲーム内成立は未確認です。`:
+ '取得済みの同名3頭・因子6種類以上の候補がありません。公開マスター・所持チェック・検査モジュールを確認してください。';
 }
 function auto21SetResearch(p,base){
  const ch=chain09Data(p);ch.mares={...base.choices};ch.outputs={};ch.xId=base.xId;ch.finalSex='male';

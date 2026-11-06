@@ -20,5 +20,5 @@ test('do not count unrelated factor for speed',()=>assert.equal(mod.inspect(base
 test('prefer fewer steps when efficiency ties',()=>assert(mod.compare(trial({score:11,stages:10,total:5}),trial({score:10.65,stages:9,total:5}))>0));
 test('original storage metadata unchanged',()=>{const json=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const before=JSON.stringify(json);mod.inspect(base,trial());assert.equal(JSON.stringify(json),before);assert.equal(Object.keys(json.owned).length,315);});
 test('runtime references decision module in bounded search',()=>{const src=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');assert(src.includes('hard40Decision(current,trial,goal)'));assert(src.includes('hard40Decision(best,bestX,goal)'));});
-test('new script loaded before app',()=>{const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');assert(html.indexOf('research-optimizer.js?v=40')<html.indexOf('app.js?v=41'));});
+test('new script loaded before app',()=>{const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');assert(html.indexOf('research-optimizer.js?v=40')<html.indexOf('app.js?v=42'));});
 console.log(count+' v4.0 tests passed');

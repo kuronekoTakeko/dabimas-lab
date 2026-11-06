@@ -1538,6 +1538,9 @@ function prep17Save(p,t,goal=p.goal||'balance'){
  const texts=[`${slots.g3} × ${mares[1]} → A1牡`,`A1牡 × ${mares[2]} → A2牡`,`${slots.g4} × ${mares[3]} → B1牡`,`B1牡 × ${mares[4]} → B2牡`,`${slots.g5} × ${mares[5]} → C1牡`,`C1牡 × ${mares[6]} → C2牝`,`${x} × C2牝 → C3牝`,'B2牡 × C3牝 → M牝','A2牡 × M牝 → 公式BC候補'];
  copy.steps.slice(0,9).forEach((s,i)=>{s.cross=texts[i];});
  copy.note=(copy.note?copy.note+'\n':'')+(copy.autoPlacement19?`【v1.9自動配置】目標${copy.autoPlacement19.goal}・研究用評価${copy.autoPlacement19.score}。ゲーム内能力値ではない。\n`:'')+(t.deep22?'【v2.2】準備6工程で3独立追加クロスを狙う計15工程。':'【v1.9】準備4工程で計13工程。')+'仮馬は生産済みではない。至高成立・クロス効果・能力・全兄弟条件は未確認。';
+ // v4.2: do not commit a grafted plan with broken dependencies.
+ const productionCheck=window.DabimasProductionGuard42?.verify(copy,records,state.homebreds);
+ if(!productionCheck?.ok)return {error:`本気型の生産順を検証できません：${(productionCheck?.errors||['検査モジュール未読込']).slice(0,3).join('／')}`};
  state.plans.unshift(copy);state.homebreds.push(...records);
  if(!persist()){state.plans.shift();state.homebreds.splice(-records.length);return {error:'データの保存に失敗しました。バックアップを確認してください。'};}
  return {id:copy.id};

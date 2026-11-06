@@ -2411,11 +2411,22 @@ function auto21Result(plan,ped,goal,mode,meta){
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
  ${audit34Html(plan,ped)}
+ <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
  ${mild30Html(plan)}
  ${auto21Flow(plan)}
  ${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}
  <div class="notice warn">これは研究用の血統シミュレーションです。至高の成立・全兄弟姉妹の除外条件・クロス効果・本人因子・SP/STは未確認です。牝馬の採用SP/ST基準は実際のゲノム解析を確認してから設定してください。${meta.limited?'追加クロスは上限付きの部分探索です。':''}</div>
  <div class="btnrow"><button class="btn" type="button" id="auto21OpenPlan" data-plan-id="${esc(plan.id)}">保存プランを開き、工程と採用ラインを編集</button></div></div>`;
+}
+// v3.5: prefer reproducible pedigree structure, never interpret research score as ability.
+function auto35Quality(pedigree,plan){
+ const api=window.DabimasResearchQuality35;
+ const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
+ return api?api.inspect(pedigree,ids):{unavailable:true,structural:0,missingNames:0,coverage:0,summary:'監査モジュール未読込'};
+}
+function auto35CompareQuality(a,b){
+ const api=window.DabimasResearchQuality35;
+ return api&&a&&!a.unavailable&&b&&!b.unavailable?api.compare(a,b):0;
 }
 function auto21Create(){
  const out=$('auto21Result'),run=$('auto21Run');
@@ -2434,24 +2445,32 @@ function auto21Create(){
   draft.routeDraft={slots,paths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},validated:false};
   draft.steps=buildDraftSteps(slots);
   const researched=opt10Find(draft,'meihin');
-  const base=researched.results.find(x=>x.matches===3);
+  const eligible=researched.results.filter(x=>x.matches===3);
+  // The pre-existing search order is the secondary tie breaker. No candidate
+  // gains fictitious SP/ST points from having more populated data fields.
+  const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft)}))
+   .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||a.i-b.i);
+  const base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   auto21SetResearch(draft,base);
   let saved=null,pedigree=base.full,parents={sire:base.finalSire,mare:base.finalMare,limited:false};
   if(mode==='hard'){
    // Evaluate two of the best 6-mare/X foundations jointly with their optional
    // graft graphs; keep the full nine-step baseline as a legitimate outcome.
-   const foundations=researched.results.filter(x=>x.matches===3).slice(0,3);
-   let chosen=null,search=null,chosenDraft=null,compared=0;
+   const foundations=ranked.slice(0,3).map(x=>x.candidate);
+   let chosen=null,search=null,chosenDraft=null,chosenQuality=null,compared=0;
    for(const foundation of foundations){
     const variant=JSON.parse(JSON.stringify(draft));
     auto21SetResearch(variant,foundation);
     const found=hard23Search(variant,goal,2500);
     if(found.error)continue;
     compared++;
-    if(!chosen||found.best.metrics.score>chosen.metrics.score+0.05||
-       (Math.abs(found.best.metrics.score-chosen.metrics.score)<0.05&&found.best.stages<chosen.stages)){
-     chosen=found.best;search=found;chosenDraft=variant;
+    const trialQuality=auto35Quality(found.best.final,variant);
+    const qualityOrder=chosenQuality?auto35CompareQuality(trialQuality,chosenQuality):-1;
+    if(!chosen||qualityOrder<0||(qualityOrder===0&&
+       (found.best.metrics.score>chosen.metrics.score+0.05||
+       (Math.abs(found.best.metrics.score-chosen.metrics.score)<0.05&&found.best.stages<chosen.stages)))){
+     chosen=found.best;search=found;chosenDraft=variant;chosenQuality=trialQuality;
     }
    }
    if(!chosen){out.innerHTML='<div class="notice warn">9工程の完全な血統を再現できませんでした。データの祖先枠を確認してください。</div>';return;}
@@ -2466,7 +2485,10 @@ function auto21Create(){
    if(!persist()){state.plans.shift();out.innerHTML='<div class="notice warn">ローカル保存に失敗しました。空き容量を確認してください。</div>';return;}
    saved=draft;
   }
-  saved.autoDesign21={createdAt:nowISO(),mode,goal,race,searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',mareTests:researched.tests,confirmedTheory:false};
+  const chosenQuality=auto35Quality(pedigree,saved);
+  saved.autoDesign21={createdAt:nowISO(),mode,goal,race,searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',mareTests:researched.tests,confirmedTheory:false,
+   dataQuality35:{structural:chosenQuality.structural,missingNames:chosenQuality.missingNames,
+    coverage:chosenQuality.coverage,unavailable:!!chosenQuality.unavailable,verifiedTheory:false}};
   const errors=[];
   if(mode!=='hard')for(let n=1;n<=9;n++){const a=makeChain09Foal(saved,n);if(a.error){errors.push(`工程${n}：${a.error}`);break;}}
   persist();auto21LastPlanId=saved.id;

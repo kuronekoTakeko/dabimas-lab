@@ -2393,6 +2393,18 @@ function audit34Html(plan,ped){
  <details><summary>不足している祖先位置と確認事項</summary><p class="muted">祖先名：${escList(a.missing.names)}<br>子系統：${escList(a.missing.lines)}<br>因子情報：${escList(a.missing.factorEvidence)}</p></details>
  </details>`;
 }
+// v3.6: read-only cross evidence summary. Independent-cross scoring stays separate.
+function cross36Html(ped){
+ const api=window.DabimasResearchCrossCheck36;
+ if(!api)return '<p class="notice warn">クロス照合モジュール未読込。クロスの成立は未確認です。</p>';
+ const a=api.inspect(ped);
+ const out=x=>x.length?x.map(esc).join('、'):'なし';
+ return `<details class="a21-flow"><summary>v3.6｜クロス根拠の照合：${esc(a.status)}</summary>
+ <p class="muted">父母をまたぐ同名祖先 ${a.crossSide.length}種類／同じ側だけの重複 ${a.sameSide.length}種類／因名・因子の要確認 ${a.unresolved.length}種類。</p>
+ ${a.crossSide.map(x=>`<p class="muted"><b>${esc(x.name)}</b>：父側 ${out(x.sire)} ／ 母側 ${out(x.dam)} ／ 因名判明 ${x.knownVariants}種類${x.withoutVariant.length?' ／ 因名未登録 '+out(x.withoutVariant):''}${x.withoutFactors.length?' ／ 因子空欄 '+out(x.withoutFactors):''}</p>`).join('')||'<p class="muted">父母をまたぐ同名祖先は検出されませんでした。</p>'}
+ ${a.sameSide.length?`<p class="muted">同一側だけの重複（有効クロスとして数えない）：${out(a.sameSide.map(x=>x.name))}</p>`:''}
+ <p class="muted">${out(a.warnings)}。独立クロス・派生重複の計算結果とは別の根拠表示です。</p></details>`;
+}
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
  const lines4=ped.rows.filter(r=>r.path.length===4);
@@ -2411,6 +2423,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
  ${audit34Html(plan,ped)}
+ ${cross36Html(ped)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
  ${mild30Html(plan)}
  ${auto21Flow(plan)}

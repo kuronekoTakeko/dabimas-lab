@@ -2177,6 +2177,8 @@ function hard23Pool(p,goal){
  const types=Object.fromEntries(['3+3','3+2','2+2'].map(type=>[type,ranked.filter(x=>x.type===type).length]));
  return {all:ranked.length,shortlist:selected,types};
 }
+function hard40Decision(base,candidate,goal){return window.DabimasResearchOptimizer40?.inspect(base,candidate,goal)||{adopt:false,reason:'評価モジュール未読込'};}
+function hard40Compare(a,b,goal){return window.DabimasResearchOptimizer40?.compare(a,b,goal)??(b.metrics.score-a.metrics.score);}
 function hard23Search(p,goal=p.goal||'balance',budget=1000){
  const empty=hard23Clone({}),initial=hard23Trial(p,empty,goal);
  if(initial.error)return {error:initial.error};
@@ -2200,18 +2202,18 @@ function hard23Search(p,goal=p.goal||'balance',budget=1000){
       valid++;
       const name=key(pair.name);
       const added=trial.cross.crosses.some(x=>key(x.name)===name&&!current.cross.crosses.some(y=>key(y.name)===name));
-      if(!added||trial.cross.total<=current.cross.total||trial.metrics.score<=current.metrics.score+0.05)continue;
+      if(!added||!hard40Decision(current,trial,goal).adopt)continue;
       next.push(trial);
      }
     }
    }
   }
   if(!next.length)break;
-  next.sort((a,b)=>b.metrics.score-a.metrics.score||b.cross.total-a.cross.total||a.stages-b.stages);
+  next.sort((a,b)=>hard40Compare(a,b,goal));
   const unique=[];for(const t of next){if(unique.some(x=>hard23Signature(x.grafts)===hard23Signature(t.grafts)))continue;unique.push(t);if(unique.length>=3)break;}
   for(const t of unique)bestBySignature.set(hard23Signature(t.grafts),t);
   beam=unique;
-  for(const t of beam){if(t.metrics.score>best.metrics.score+0.05||(Math.abs(t.metrics.score-best.metrics.score)<0.05&&t.stages<best.stages))best=t;}
+  for(const t of beam){if(hard40Decision(best,t,goal).adopt)best=t;}
   if(pruned)break;
  }
  // Single extra preparation only when it improves a visible 4/5-gen lineage or
@@ -2228,9 +2230,7 @@ function hard23Search(p,goal=p.goal||'balance',budget=1000){
    tested++;
    const grafts=hard23Clone(best.grafts);grafts[n].push(sire.id);
    const trial=hard23Trial(p,grafts,goal);if(trial.error)continue;valid++;
-   const w=goal==='stamina'?'st4':'sp4';
-   if(trial.cross.total<best.cross.total||trial.metrics.score<=best.metrics.score+0.2||
-      (trial.cross.total===best.cross.total&&trial.metrics[w]<=best.metrics[w]))continue;
+   if(!hard40Decision(best,trial,goal).adopt)continue;
    best=trial;
   }
  }
@@ -2248,8 +2248,8 @@ function hard23Search(p,goal=p.goal||'balance',budget=1000){
    tested++;
    const trial=hard23Trial(p,best.grafts,goal,{sireId:sire.id,mareIds:[mare.id]});
    if(trial.error)continue;valid++;
-   if(trial.cross.total<best.cross.total||trial.metrics.score<=best.metrics.score+0.15)continue;
-   if(!bestX||trial.metrics.score>bestX.metrics.score+0.05)bestX=trial;
+   if(!hard40Decision(best,trial,goal).adopt)continue;
+   if(!bestX||hard40Decision(bestX,trial,goal).adopt)bestX=trial;
   }
   if(tested>=budget)break;
  }
@@ -2260,9 +2260,9 @@ function hard23Search(p,goal=p.goal||'balance',budget=1000){
    if(tested>=budget){pruned=true;break;}tested++;
    const trial=hard23Trial(p,bestX.grafts,goal,{sireId,mareIds:[first,mare.id]});
    if(trial.error)continue;valid++;
-   if(trial.cross.total>=bestX.cross.total&&trial.metrics.score>bestX.metrics.score+0.15)bestX=trial;
+   if(hard40Decision(bestX,trial,goal).adopt)bestX=trial;
   }
-  if(bestX.metrics.score>best.metrics.score+0.15)best=bestX;
+  if(hard40Decision(best,bestX,goal).adopt)best=bestX;
  }
  return {best,baseline:initial,tested,valid,pruned,pairTypes:pool.types,eligiblePairs:pool.all,shortlist:pool.shortlist.length,
   evaluatedFoundations:1,guarantee:'部分探索・至高成立未確認'};
@@ -2313,7 +2313,7 @@ function hard23Save(p,t,goal,summary={}){
  const slots=copy.routeDraft.slots,ms=ch.mares,x=ch.xId;
  const texts=[`${slots.g3} × ${ms[1]} → A1牡`,`A1牡 × ${ms[2]} → A2牡`,`${slots.g4} × ${ms[3]} → B1牡`,`B1牡 × ${ms[4]} → B2牡`,`${slots.g5} × ${ms[5]} → C1牡`,`C1牡 × ${ms[6]} → C2牝`,`${x} × C2牝 → C3牝`,'B2牡 × C3牝 → M牝','A2牡 × M牝 → 公式BC候補'];
  copy.steps=copy.steps.slice(0,9).map((s,i)=>({...s,cross:texts[i],done:false,result:'',minSP:'',minST:'',...(i<5?{wantedFactors:v27FactorGoal(copy)}:{})}));
- copy.note=(copy.note?copy.note+'\n':'')+`【v2.4】5代に残る仕込み${extras}工程＋基本9工程。2因子種牡馬と補助Xの仕込みにも対応。研究用評価${t.metrics.score}。ニトロ・実SP/ST・至高成立未確認。候補枝数を制限した部分探索。`;
+ copy.note=(copy.note?copy.note+'\n':'')+`【v4.0】工程効率で再評価。5代に残る仕込み${extras}工程＋基本9工程。2因子種牡馬と補助Xの仕込みにも対応。研究用評価${t.metrics.score}。ニトロ・実SP/ST・至高成立未確認。候補枝数を制限した部分探索。追加工程は研究評価の実質改善を要する。`;
  copy.autoDesign21={...(copy.autoDesign21||{}),mode:'hard',searchStage:`v2.4 5代逆算・可変${t.stages}工程（候補数制限あり）`,confirmedTheory:false};
  state.plans.unshift(copy);state.homebreds.push(...records);
  if(!persist()){state.plans.shift();state.homebreds.splice(-records.length,records.length);return {error:'端末保存に失敗したため、新規プランと仮馬を取り消しました'};}
@@ -2514,7 +2514,7 @@ function auto21Create(){
     const trialEvidence=auto37Evidence(found.best.final,variant);
     const trialValidation=auto38Validation(found.best.final,variant);
     const qualityOrder=chosenQuality?auto35CompareQuality(trialQuality,chosenQuality):-1;
-    const scoreDiff=chosen?found.best.metrics.score-chosen.metrics.score:0;
+    const scoreDiff=chosen?(found.best.metrics.score-0.35*(found.best.stages-9))-(chosen.metrics.score-0.35*(chosen.stages-9)):0;
     const evidenceOrder=chosenEvidence?auto37Compare(trialEvidence,chosenEvidence):-1;
     const validationOrder=chosenValidation?auto38Compare(trialValidation,chosenValidation):-1;
     if(!chosen||qualityOrder<0||(qualityOrder===0&&

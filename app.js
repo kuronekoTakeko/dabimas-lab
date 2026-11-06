@@ -2379,6 +2379,20 @@ function auto21Flow(plan){
  }
  return `<details class="a21-flow" open><summary>生産順の配合フロー（${lines.length}工程）</summary><p class="muted v27-note">本人因子のゲーム内確認：${v27ConfirmedCount(plan).actual}/${v27ConfirmedCount(plan).total}頭（連結済みの自家製牡馬）。<br>自家製牡馬の「希望因子」は能力方針から示した<b>仮目標</b>です。因子付与を保証しません。生産後は「自家製馬」タブで実際の本人因子を記録してください。実測因子の影響は、保存プラン内の実測因子プレビューで再計算します。至高成立は未確認です。</p><ol>${lines.join('')}</ol></details>`;
 }
+// v3.4: transparent read-only preflight; no ability prediction, no theory confirmation.
+function audit34Html(plan,ped){
+ const api=window.DabimasResearchAudit34;
+ if(!api)return '<p class="notice warn">血統監査モジュールを読み込めませんでした。配合理論は未確認です。</p>';
+ const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
+ const a=api.audit(ped,{anchorIds:ids});
+ const escList=items=>items.length?items.map(x=>esc(x)).join('、'):'なし';
+ return `<details class="a21-flow" open><summary>v3.4｜自動生成血統のデータ品質監査：${esc(a.status)}</summary>
+ <p class="muted">祖先名 ${a.known}/31枠 ／ 3×4×5同名 ${a.anchors.sameName?'一致':'未達'} ／ 因子 ${a.anchors.factorKinds}種類 ／ 異なる登録ID ${a.anchors.distinctRegisteredIds?'3頭':'要確認'}。<b>至高のゲーム内成立を保証する判定ではありません。</b></p>
+ ${a.errors.length?`<div class="notice warn"><b>要修正：</b>${escList(a.errors)}</div>`:'<p class="muted">血統の一次構造に明らかな不備は見つかりませんでした。</p>'}
+ <p class="muted">${escList(a.warnings)}</p>
+ <details><summary>不足している祖先位置と確認事項</summary><p class="muted">祖先名：${escList(a.missing.names)}<br>子系統：${escList(a.missing.lines)}<br>因子情報：${escList(a.missing.factorEvidence)}</p></details>
+ </details>`;
+}
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
  const lines4=ped.rows.filter(r=>r.path.length===4);
@@ -2396,6 +2410,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
+ ${audit34Html(plan,ped)}
  ${mild30Html(plan)}
  ${auto21Flow(plan)}
  ${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}

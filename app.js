@@ -396,12 +396,17 @@ function pedigreeTree20(rows,opts={}){
    const anchor=opts.anchorPaths?.has(globalPath),missing=!r.name;
    const cls=[cross?'p20-cross':'',outer?'p20-outer':'',anchor?'p20-anchor':'',missing?'p20-unknown':''].filter(Boolean).join(' ');
    const factors=(r.factors||[]).map(f=>`<span class="p20-factor p20-f-${esc(f)}">${esc(f)}</span>`).join('');
-   return `<div class="p20-node ${cls}" style="grid-row:span ${16/(2**(depth-1))}" title="${esc(globalPath)}：${esc(r.name||'不明')}"><span class="p20-path">${esc(globalPath)}｜${esc(pedigreePathLabel20(globalPath))}</span><b class="p20-name">${esc(r.name||'未収録')}</b><span class="p20-factors">${factors}</span>${outer?'<small class="p20-out-note">参考</small>':''}</div>`;
+   const label=`${globalPath}｜${r.name||'未収録'}｜${(r.factors||[]).join('・')||'本人因子未確認'}｜${r.line||'子系統未確認'}`;
+   return `<button type="button" class="p20-node ${cls}" style="grid-row:span ${16/(2**(depth-1))}" title="${esc(label)}" aria-label="${esc(label)}" data-p31-info="${esc(label)}"><span class="p20-path">${esc(pedigreePathLabel20(globalPath))}</span><b class="p20-name">${esc(r.name||'未収録')}</b><span class="p20-factors">${factors}</span>${outer?'<small class="p20-out-note">参考</small>':''}</button>`;
   }).join('');
   cols.push(`<div class="p20-gen"><div class="p20-col-title">${depth}代</div><div class="p20-cells">${cells}</div></div>`);
  }
- return `<div class="p20-scroll" role="region" aria-label="5代血統表、左右スクロール可能" tabindex="0"><div class="p20-tree">${cols.join('')}</div></div>`;
+ return `<div class="p20-scroll" role="group" aria-label="画面内に収まる5代血統表"><div class="p20-tree">${cols.join('')}</div></div>`;
 }
+// Display the complete ancestor label on tapping a compact cell; read-only.
+document.addEventListener('click',e=>{const node=e.target.closest('.p20-node[data-p31-info]');if(!node)return;
+ const out=node.closest('.p20-fold')?.querySelector('.p31-inspector');if(out)out.textContent=node.dataset.p31Info||'未収録';
+});
 function renderGamePedigree20(sire,mare,foal,p=null){
  if(!sire||!mare||!foal?.rows)return '';
  const info=gamePedigreeData20(sire,mare,foal),anchors=new Set(p?.routeDraft?.slots?['SSS','DSSS','DDDSS']:[]);
@@ -410,11 +415,11 @@ function renderGamePedigree20(sire,mare,foal,p=null){
   {title:'最終種牡馬（交配前の自身の5代祖先）',name:sire.id||sire.name,rows:info.s.rows,prefix:'S',known:info.s.known},
   {title:'最終肌馬（交配前の自身の5代祖先）',name:mare.id||mare.name,rows:info.d.rows,prefix:'D',known:info.d.known}
  ];
- const folds=rootData.map(item=>`<details class="p20-fold" ${item.defaultOpen?'open':''}><summary>${esc(item.title)}：${esc(item.name)} <small>${item.known}/31枠</small></summary>${pedigreeTree20(item.rows,{prefix:item.prefix,mainPaths:info.mainPaths,outerPaths:info.outerPaths,anchorPaths:anchors})}</details>`).join('');
+ const folds=rootData.map(item=>`<details class="p20-fold" ${item.defaultOpen?'open':''}><summary>${esc(item.title)}：${esc(item.name)} <small>${item.known}/31枠</small></summary>${pedigreeTree20(item.rows,{prefix:item.prefix,mainPaths:info.mainPaths,outerPaths:info.outerPaths,anchorPaths:anchors})}<p class="p31-inspector" aria-live="polite">祖先をタップすると、馬名・因子・子系統をここに表示します。</p></details>`).join('');
  const active=info.main.candidates.map(c=>`${c.name}（${c.pairs.map(x=>x.join('×')).join('／')}）`);
  const outside=info.outsidePairs.map(x=>`${x.name}（${x.pair.join('×')}）`);
- return `<section class="p20-view" aria-label="v2.0ゲーム風5代血統表"><h4>v2.0｜ゲーム風・最終種牡馬と肌馬の血統表</h4>
- <p class="r12-foot">赤文字＝<b>産駒の5代内で検出した独立クロス候補</b>、金色枠＝至高3×4×5の指定位置、点線橙枠＝親の5代で見えるが産駒5代の外にある参考位置。<b>ゲーム内の正式な赤表示・成立は未確認</b>です。</p>
+ return `<section class="p20-view" aria-label="v2.0ゲーム風5代血統表"><h4>最終血統表｜産駒・種牡馬・肌馬</h4>
+ <p class="r12-foot">3つの表は個別に開閉できます。表の中はスクロールせずに全31枠を表示し、読みづらい馬名はタップで確認できます。赤文字＝独立クロス候補、金枠＝至高指定位置。ゲーム内成立は未確認です。</p>
  <p class="p20-legend"><span class="p20-legend-red">● 独立クロス候補</span><span class="p20-legend-gold">● 至高指定位置</span><span class="p20-legend-orange">● 外側の参考位置</span></p>
  ${folds}
  <div class="p20-notice"><b>産駒5代の独立クロス候補：</b>${esc(active.join('、')||'なし')}<br><b>親の5代側だけに残る参考重複：</b>${esc(outside.join('、')||'検出なし')}。</div>
@@ -671,7 +676,7 @@ function v28LivePanel(p){
  <p class="muted">実測因子の反映位置：${esc(observed.slice(0,6).join(" ／ ")||"まだありません")}${observed.length>6?` ほか${observed.length-6}枠`:""}</p>
  <p class="muted">${a.cross.uncertain.length?`因名未確認 ${a.cross.uncertain.length}枠。`:''}${a.cross.conflicts.length?`因子矛盾 ${a.cross.conflicts.length}件。`:''}本人因子の未入力・未確定によって後から変化します。ニトロ、SP/ST、公式BCでの効果の確定値ではありません。</p>
  <details class="a21-flow"><summary>実測因子が入った祖先位置（${observed.length}枠）</summary><p>${esc(observed.join(' ／ ')||'まだありません')}</p></details>
- <details class="a21-flow"><summary>再構築した最終産駒・種牡馬・肌馬の5代血統表</summary>${renderGamePedigree20(a.sire,a.mare,a.ped,p)}</details>
+ ${renderGamePedigree20(a.sire,a.mare,a.ped,p)}
  </div>`;
 }
 
@@ -1076,7 +1081,7 @@ function opt10XPool(p){
  let out=pool.slice(0,28).map(x=>x.r);
  const chosen=map.get(key(current));
  if(chosen&&isOwned(chosen)&&horseSex(chosen)==='male'&&opt10Self(chosen)&&!out.some(x=>key(x.id)===key(current)))out.unshift(chosen);
- return {pool:out,eligible:pool.length};
+ return {pool:out,all:pool.map(v=>v.r),eligible:pool.length};
 }
 function opt10Trial(p,choices,xId){
  const slots=p.routeDraft?.slots||{},outputs={};
@@ -1106,12 +1111,21 @@ function opt10Trial(p,choices,xId){
  stL=final.rows.filter(x=>x.path.length>=4&&BONUS_STAMINA.has(canonicalLine(x.line))).length;
  const baseName=key(splitName(slots.g3||'').name);
  const extra=final.crossCheck.candidates.filter(x=>key(x.name)!==baseName);
- // This is an arbitrary, transparent SORT INDEX, never an SP/ST effect formula.
- const idx=p.goal==='speed'?sp*2+st+spL*2+stL
-           :p.goal==='stamina'?st*2+sp+stL*2+spL
-           :sp+st+spL+stL;
+ // v3.1 research-only ranking: distinguish useful independent cross factors
+ // from raw factors that merely appear in a pedigree once. Same-lineage alone
+ // does NOT make X optimal. Actual game nitro/SP/ST effects are not inferred.
+ const effective=effectiveCrossFactors16(final.rows,p);
+ const extraEffective=effective.crosses.filter(c=>key(c.name)!==baseName && !c.conflicts.length);
+ const extras={};for(const c of extraEffective)for(const [factor,n] of Object.entries(c.counts))extras[factor]=(extras[factor]||0)+n;
+ const fc=f=>extras[f]||0;
+ const crossScore=p.goal==='speed'?fc('走')*5+fc('中')*4+fc('短')*2+fc('速')*2+fc('長')
+    :p.goal==='stamina'?fc('中')*5+fc('長')*4+fc('底')*2+fc('走')*2+fc('速')
+    :fc('走')*4+fc('中')*4+fc('短')*2+fc('速')*2+fc('長')*2+fc('底');
+ const lineScore=p.goal==='speed'?spL*2+stL:p.goal==='stamina'?stL*2+spL:spL+stL;
  const risk=extra.filter(x=>x.paths.some(path=>path.length<=3)).length;
- return {choices:{...choices},xId,full:final,finalSire:outputs[2],finalMare:outputs[8],sp,st,spL,stL,extra,idx:idx-risk*2,matches,risk};
+ const idx=lineScore+crossScore-risk*2-effective.uncertain.length;
+ return {choices:{...choices},xId,full:final,finalSire:outputs[2],finalMare:outputs[8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,
+   xLineage:(map.get(key(xId))||{}).lineage||'',xResearchFactors:[...(map.get(key(xId))?.factors||[])],xSearchCount:0};
 }
 function opt10Sort(a,b){
  // Full specified positions first, then a research sorting index, then fewer early overlaps.
@@ -1157,7 +1171,26 @@ function opt10Find(p,scope){
    for(const id of xopts){const test=evaluate(current.choices,id);if(test&&opt10Sort(test,local)<0){local=test;chosen=id;}}
    current.xId=chosen;best=local;
   }
-  if(best){const k=opt10UniqueKey(best);if(!seen.has(k)){seeds.push(best);seen.add(k);}}
+   // Full X pass for the fixed six-mare slate. This closes the top-28-X
+   // omission that could choose a suboptimal Nureyev over owned Lyphard or
+   // El Condor Pasa. The six-mare joint search remains bounded.
+   let chosen=best,chosenX=current.xId;
+   for(const sire of x.all){const test=evaluate(current.choices,sire.id);
+    if(test&&opt10Sort(test,chosen)<0){chosen=test;chosenX=sire.id;}
+   }
+   current.xId=chosenX;best=chosen;
+   // One last mare sweep after X has changed avoids an obviously stale slate.
+   for(const n of OPT10_MARE_STEPS){let local=best,cid=current.choices[n];
+    for(const id of options){if(OPT10_MARE_STEPS.some(other=>other!==n&&key(current.choices[other])===key(id)))continue;
+     const test=evaluate({...current.choices,[n]:id},current.xId);
+     if(test&&opt10Sort(test,local)<0){local=test;cid=id;}
+    }current.choices[n]=cid;best=local;
+   }
+   // Score X again under the new slate; no claim of global joint optimality.
+   for(const sire of x.all){const test=evaluate(current.choices,sire.id);
+    if(test&&opt10Sort(test,best)<0)best=test;
+   }
+   if(best){best.xSearchCount=x.all.length;const k=opt10UniqueKey(best);if(!seen.has(k)){seeds.push(best);seen.add(k);}}
  }
  seeds.sort(opt10Sort);
  return {scope,results:seeds.slice(0,3),tests:evalCount,mares:mares.eligible,x:x.eligible,
@@ -1974,7 +2007,10 @@ function auto21SetResearch(p,base){
  const slots=p.routeDraft.slots,ms=ch.mares;
  const texts=[`${slots.g3} × ${ms[1]} → A1牡`,`A1牡 × ${ms[2]} → A2牡`,`${slots.g4} × ${ms[3]} → B1牡`,`B1牡 × ${ms[4]} → B2牡`,`${slots.g5} × ${ms[5]} → C1牡`,`C1牡 × ${ms[6]} → C2牝`,`${base.xId} × C2牝 → C3牝`,'B2牡 × C3牝 → 最終繁殖牝馬M','A2牡 × M牝 → 公式BC候補'];
  p.steps.slice(0,9).forEach((s,i)=>{s.cross=texts[i];s.done=false;s.minSP='';s.minST='';s.result='';if(i<5)s.wantedFactors=v27FactorGoal(p);});
- p.research10={createdAt:nowISO(),sortIndex:base.idx,summary:{sp:base.sp,st:base.st,spL:base.spL,stL:base.stL,otherCrosses:base.extra.length},sourcePlanId:'',mareScope:'meihin'};
+ p.research10={createdAt:nowISO(),sortIndex:base.idx,summary:{sp:base.sp,st:base.st,spL:base.spL,stL:base.stL,otherCrosses:base.extra.length},sourcePlanId:'',mareScope:'meihin',
+  xSelection31:{candidateCount:base.xSearchCount||0,selected:base.xId,lineage:base.xLineage,
+    extraIndependentCrosses:(base.extraEffective||[]).map(c=>c.name),crossFactorCounts:base.extraFactorCounts||{},
+    method:'取得済みXを全件比較・6牝馬は候補数制限付き・研究用順位',verified:false}};
 }
 // v2.3 — Dependency-aware, variable-length preparation graph.
 // Only visible sire positions in the final five-generation pedigree can justify a
@@ -2286,7 +2322,8 @@ function auto21Flow(plan){
  for(let n=1;n<=9;n++){
   const step=plan.steps[n-1],sex=CHAIN09_DEF[n-1].sex==='female'?'牝':n===9?'性別不問':'牡';
   const chosen=n===9?'公式BC向けの本番産駒':sex==='牝'?'繁殖牝馬に採用':'次工程用の牡馬';
-  lines.push(`<li class="a21-step"><b>工程${n}｜${esc(step.cross)}</b><small>必要：${esc(chosen)}／${sex}。${sex==='牝'?'SP/ST最低ライン：未設定（ゲーム内解析を記録して設定）':'SP/ST：実測データなし・数値を捏造しません'}</small>${v27MaleCore(n)?`<small>${v27FactorHint(plan,v27Wanted(plan,step),plan.chain09?.outputs?.[n])}</small>`:''}</li>`);
+  const xReason=n===7&&!plan.hard23&&plan.research10?.xSelection31?`<small>補助Xは所持${plan.research10.xSelection31.candidateCount}頭を比較した暫定採用です。子系統と独立クロス候補で評価し、ゲーム内の有効因子は未確認です。</small>`:'';
+  lines.push(`<li class="a21-step"><b>工程${n}｜${esc(step.cross)}</b><small>必要：${esc(chosen)}／${sex}。${sex==='牝'?'SP/ST最低ライン：未設定（ゲーム内解析を記録して設定）':'SP/ST：実測データなし・数値を捏造しません'}</small>${v27MaleCore(n)?`<small>${v27FactorHint(plan,v27Wanted(plan,step),plan.chain09?.outputs?.[n])}</small>`:''}${xReason}</li>`);
  }
  return `<details class="a21-flow" open><summary>生産順の配合フロー（${lines.length}工程）</summary><p class="muted v27-note">本人因子のゲーム内確認：${v27ConfirmedCount(plan).actual}/${v27ConfirmedCount(plan).total}頭（連結済みの自家製牡馬）。<br>自家製牡馬の「希望因子」は能力方針から示した<b>仮目標</b>です。因子付与を保証しません。生産後は「自家製馬」タブで実際の本人因子を記録してください。実測因子の影響は、保存プラン内のv2.8実測反映プレビューで再計算します。至高成立は未確認です。</p><ol>${lines.join('')}</ol></details>`;
 }
@@ -2302,13 +2339,14 @@ function auto21Result(plan,ped,goal,mode,meta){
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
  <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜名牝6頭と所持種牡馬を自動配置しました。</p>
+ ${!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。全組合せの最適保証ではありません。</p>`:''}
  <p class="muted">自家製種牡馬の本人因子はゲーム内実測待ちです。表示するクロス因子${c.total}${c.complete?'':'+'}個は公開血統中心の試算であり、最終確定値ではありません。実測因子を登録した後は、保存プランを開いてv2.8の最終血統プレビューで反映位置を確認してください。</p>
  <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
  ${mild30Html(plan)}
  ${auto21Flow(plan)}
- <details class="a21-flow"><summary>最終産駒・種牡馬・肌馬の血統表（赤文字：クロス候補）</summary>${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}</details>
+ ${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}
  <div class="notice warn">これは研究用の血統シミュレーションです。至高の成立・全兄弟姉妹の除外条件・クロス効果・本人因子・SP/STは未確認です。牝馬の採用SP/ST基準は実際のゲノム解析を確認してから設定してください。${meta.limited?'追加クロスは上限付きの部分探索です。':''}</div>
  <div class="btnrow"><button class="btn" type="button" id="auto21OpenPlan" data-plan-id="${esc(plan.id)}">保存プランを開き、工程と採用ラインを編集</button></div></div>`;
 }

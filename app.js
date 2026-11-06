@@ -1193,6 +1193,20 @@ function opt10Find(p,scope){
    if(best){best.xSearchCount=x.all.length;const k=opt10UniqueKey(best);if(!seen.has(k)){seeds.push(best);seen.add(k);}}
  }
  seeds.sort(opt10Sort);
+ // v3.2: X is NOT uniquely optimal if other owned X horses tie under the same
+ // fixed six-mare slate. Evaluate a candidate at the exact same slate and use
+ // the existing comparator (including the early-overlap tie-break). These are
+ // research-equivalent, NOT proven equivalent game outcomes. Keep the normal
+ // selected X and never alter pre-existing saved plans or owner flags.
+ for(const result of seeds.slice(0,3)){
+  const equivalents=[];
+  for(const sire of x.all){
+   const trial=evaluate(result.choices,sire.id);
+   if(trial&&opt10Sort(trial,result)===0)equivalents.push(sire.id);
+  }
+  result.xTieCount=equivalents.length;
+  result.xTieIds=equivalents.slice(0,5);
+ }
  return {scope,results:seeds.slice(0,3),tests:evalCount,mares:mares.eligible,x:x.eligible,
   message:seeds.length?'':'候補の5代血統が不完全で、最後まで計算できる組み合わせがありません。'};
 }
@@ -2009,6 +2023,7 @@ function auto21SetResearch(p,base){
  p.steps.slice(0,9).forEach((s,i)=>{s.cross=texts[i];s.done=false;s.minSP='';s.minST='';s.result='';if(i<5)s.wantedFactors=v27FactorGoal(p);});
  p.research10={createdAt:nowISO(),sortIndex:base.idx,summary:{sp:base.sp,st:base.st,spL:base.spL,stL:base.stL,otherCrosses:base.extra.length},sourcePlanId:'',mareScope:'meihin',
   xSelection31:{candidateCount:base.xSearchCount||0,selected:base.xId,lineage:base.xLineage,
+    tiedCount:base.xTieCount||1, tiedIds:base.xTieIds||[base.xId],
     extraIndependentCrosses:(base.extraEffective||[]).map(c=>c.name),crossFactorCounts:base.extraFactorCounts||{},
     method:'取得済みXを全件比較・6牝馬は候補数制限付き・研究用順位',verified:false}};
 }
@@ -2339,7 +2354,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
  <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜名牝6頭と所持種牡馬を自動配置しました。</p>
- ${!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。全組合せの最適保証ではありません。</p>`:''}
+ ${!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
  <p class="muted">自家製種牡馬の本人因子はゲーム内実測待ちです。表示するクロス因子${c.total}${c.complete?'':'+'}個は公開血統中心の試算であり、最終確定値ではありません。実測因子を登録した後は、保存プランを開いてv2.8の最終血統プレビューで反映位置を確認してください。</p>
  <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>

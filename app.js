@@ -1193,7 +1193,7 @@ function opt10Trial(p,choices,xId){
  const lineScore=p.goal==='speed'?spL*2+stL:p.goal==='stamina'?stL*2+spL:spL+stL;
  const risk=extra.filter(x=>x.paths.some(path=>path.length<=3)).length;
  const idx=lineScore+crossScore-risk*2-effective.uncertain.length;
- return {choices:{...choices},xId,full:final,finalSire:outputs[2],finalMare:outputs[8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,
+ return {choices:{...choices},xId,full:final,finalSire:outputs[2],finalMare:outputs[8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
    xLineage:(map.get(key(xId))||{}).lineage||'',xResearchFactors:[...(map.get(key(xId))?.factors||[])],xSearchCount:0};
 }
 function opt10Sort(a,b){
@@ -2512,6 +2512,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${cross36Html(ped)}
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
+ ${plan.mild53?`<div class="notice"><b>v5.3 マイルド型の同工程改善：</b>名牝・補助Xの差し替えを${esc(plan.mild53.searched)}件比較。追加クロス候補 ${esc((plan.mild53.namedExtraCrosses||[]).join('、')||'未検出')}。評価は研究上の局所比較であり、最強・ゲーム内成立を保証しません。</div>`:''}
  ${mild30Html(plan)}
  ${reuse44Html(plan)}
  ${auto21Flow(plan)}
@@ -2628,9 +2629,28 @@ function auto21Create(){
   selected=initial.anchor;
   const {draft,researched,ranked}=initial;
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
-  const base=ranked[0]?.candidate;
+  let base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
+  // v5.3 MILD ONLY: after selecting a complete foundation, compare one-slot
+  // substitutions for all ranked meihin mares and all owned X stallions.
+  // This runs before any saved plan or provisional offspring are created.
+  let mild53=null;
+  // v5.0 real-horse reuse takes priority over swapping candidates. Until the
+  // local optimizer models reuse cost, do not risk losing an already reusable
+  // horse just to improve a research score. (No real records: full polish.)
+  const mild53ReusePriority=mode==='mild'&&state.homebreds.some(h=>h.mode==='real');
+  if(mode==='mild'){
+   const api=window.DabimasMildPolish53;
+   if(api&&!mild53ReusePriority){
+    const mares=mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝');
+    const sires=opt10XPool(draft).all;
+    const polished=api.optimize({initial:base,mares,sires,
+      evaluate:(choices,xId)=>opt10Trial(draft,choices,xId),goal,budget:900});
+    if(polished?.winner?.matches===3){base=polished.winner;mild53=polished.audit;}
+   }
+  }
   auto21SetResearch(draft,base);
+  if(mild53)draft.mild53=mild53;
   let hardCompared=0,hardTrial=null;
   let saved=null,pedigree=base.full,parents={sire:base.finalSire,mare:base.finalMare,limited:false};
   if(mode==='hard'){
@@ -2678,7 +2698,7 @@ function auto21Create(){
    mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
    let reusedCount=0;
-   draft.note=`【v4.1自動設計】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。至高成立、予想能力は未確認。`;
+   draft.note=`【v5.3マイルド型】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?'実馬登録があるため、実馬再利用を優先して差し替え探索を省略。':''}至高成立、予想能力は未確認。`;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);

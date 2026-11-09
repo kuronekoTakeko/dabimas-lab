@@ -13,7 +13,7 @@ const definitions=[
  {n:9,sireStep:2,mareStep:8,sex:'male'}
 ];
 const norm=v=>String(v??'').normalize('NFKC').trim();
-function verify(plan,homebreds){
+function verify(plan,homebreds,reuseApi=null){
  const failures=[],chain=plan?.chain09||{},output=chain.outputs||{},mares=chain.mares||{},slots=plan?.routeDraft?.slots||{};
  const byId=new Map((homebreds||[]).map(h=>[norm(h.id),h]));
  const seen=new Set();
@@ -22,7 +22,13 @@ function verify(plan,homebreds){
   const id=norm(output[def.n]),horse=byId.get(id);
   if(!id||!horse){failures.push(`工程${def.n}：産駒未連結`);continue;}
   if(seen.has(id))failures.push(`工程${def.n}：同じ産駒の再使用`);seen.add(id);
-  if(norm(horse.planId)!==norm(plan.id)||Number(horse.stepNo)!==def.n)failures.push(`工程${def.n}：プランまたは工程番号の不一致`);
+  const mark=chain.reused50?.[def.n];
+  if(mark){
+   const req={step:def.n,sex:def.n===9?(chain.finalSex||'male'):def.sex,
+    sireId:def.sireStep?output[def.sireStep]:def.sireSlot?slots[def.sireSlot]:chain.xId,
+    mareId:def.mareStep?output[def.mareStep]:mares[def.n],lineage:mark.lineage,rows:horse.ancestry};
+   if(!reuseApi?.verifyLink?.(horse,mark,req))failures.push(`工程${def.n}：再利用実馬の検証が不一致`);
+  }else if(norm(horse.planId)!==norm(plan.id)||Number(horse.stepNo)!==def.n)failures.push(`工程${def.n}：プランまたは工程番号の不一致`);
   const sex=def.n===9?(chain.finalSex||'male'):def.sex;
   if(horse.sex!==sex)failures.push(`工程${def.n}：産駒の性別不一致`);
   const sire=def.sireStep?output[def.sireStep]:def.sireSlot?slots[def.sireSlot]:chain.xId;

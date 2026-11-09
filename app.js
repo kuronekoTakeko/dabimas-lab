@@ -913,12 +913,20 @@ function chain09Output(p,n){
  const fallback=!id?state.homebreds.filter(h=>h.planId===p.id&&Number(h.stepNo)===n).slice(-1)[0]:null;
  const horse=linked||fallback;
  if(!horse)return {horse:null,reason:id?'登録済み産駒が見つかりません':'産駒未登録'};
- if(horse.planId!==p.id||Number(horse.stepNo)!==n)return {horse:null,reason:'別の計画・工程の馬が割り当てられています'};
+ const reuse=ch.reused50?.[n];
+ if(!reuse&&(horse.planId!==p.id||Number(horse.stepNo)!==n))return {horse:null,reason:'別の計画・工程の馬が割り当てられています'};
  if(horse.sex!==chain09ExpectedSex(p,n))return {horse:null,reason:'登録した産駒の性別が工程の条件と異なります'};
- // Only an offspring of the CURRENT parents is a valid linked output.
+ // Re-check BOTH the linked real horse and the expected bloodline after any
+ // later change of the parents or source record. Never silently retarget.
  const pair=chain09Parents(p,n);
- if(!pair.sireId||!pair.mareId)return {horse:null,reason:'前工程または親馬の指定が変更されています'};
+ if(!pair.ready||!pair.sireId||!pair.mareId)return {horse:null,reason:'前工程または親馬の指定が変更されています'};
  if(key(horse.fatherId)!==key(pair.sireId)||key(horse.motherId)!==key(pair.mareId))return {horse:null,reason:'親馬が変更されています。別の仮馬を作成してください'};
+ if(reuse){
+  const api=window.DabimasReuse50;
+  if(!api?.verifyLink(horse,reuse,{step:n,sex:chain09ExpectedSex(p,n),sireId:pair.sireId,mareId:pair.mareId,lineage:pair.sire?.lineage||'',rows:pair.ped?.rows}))
+   return {horse:null,reason:'再利用実馬の血統・因子・親馬が変更されました。再検証が必要です'};
+  return {horse,reason:'',reused:true};
+ }
  return {horse,reason:''};
 }
 function chain09Parents(p,n){
@@ -1002,7 +1010,7 @@ function renderChain09(p){
   const cls=out.horse?'ok':out.reason&&out.reason!=='産駒未登録'?'stale':'';
   const sireCtrl=d.sireInput?`<input data-chain-edit="sire" data-chain-no="${d.n}" list="chainSireList09" value="${esc(ch.xId||'')}" placeholder="種牡馬Xを選ぶ">`:`<div class="chain-parent-static">${esc(pair.sireId||'前工程待ち')}</div>`;
   const mareCtrl=d.mareInput?`<input data-chain-edit="mare" data-chain-no="${d.n}" list="chainMareList09" value="${esc(ch.mares[d.n]||'')}" placeholder="繁殖牝馬名を入力">`:`<div class="chain-parent-static">${esc(pair.mareId||'前工程待ち')}</div>`;
-  const outcome=out.horse?`<strong>${esc(out.horse.name)}</strong> ${chip(out.horse.mode==='real'?'実馬':'仮馬','warn')}`:out.reason&&out.reason!=='産駒未登録'?`<span class="pill-status">${esc(out.reason)}</span>`:'未登録';
+  const outcome=out.horse?`<strong>${esc(out.horse.name)}</strong> ${chip(out.reused?'実馬を再利用・生産不要':out.horse.mode==='real'?'実馬':'仮馬',out.reused?'owned':'warn')}`:out.reason&&out.reason!=='産駒未登録'?`<span class="pill-status">${esc(out.reason)}</span>`:'未登録';
   body+=`<div class="chain-tile ${cls}" data-chain-tile="${d.n}"><div class="chain-title">工程${d.n}｜${esc(p.steps[d.n-1]?.title||d.output)}</div><div class="chain-parents"><label>父（種牡馬）${sireCtrl}</label><label>母（繁殖牝馬）${mareCtrl}</label></div><div class="chain-state">${esc(status)}</div><div class="chain-output">産駒：${outcome}</div>`;
   if(d.n===9)body+=`<label class="chain-note">最終仮馬の性別 <select data-chain-edit="sex"><option value="male" ${ch.finalSex==='male'?'selected':''}>牡馬</option><option value="female" ${ch.finalSex==='female'?'selected':''}>牝馬</option></select></label>`;
   body+=`<div class="btnrow"><button class="btn small ghost" data-chain-preview="${d.n}" ${pair.sire&&pair.mare?'':'disabled'}>血統を確認</button><button class="btn small" data-chain-generate="${d.n}" ${pair.ready&&!out.horse?'':'disabled'}>${out.reason&&out.reason!=='産駒未登録'?'再作成して次へ':'仮馬を作成→次へ'}</button></div></div>`;
@@ -1021,9 +1029,29 @@ function makeChain09Foal(p,n){
  let idx=1,name;do{name=`${short}・工程${n}・仮${idx++}`;}while(state.homebreds.some(h=>key(h.id)===key(homeId(name))));
  const now=nowISO();const ancestors=ped.rows.filter(r=>r.path.length<=5&&r.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}));
  const rec={id:homeId(name),name,sex,mode:'draft',sp:'',st:'',fatherId:pair.sireId,motherId:pair.mareId,ancestry:ancestors,factors:[],lineage:pair.sire.lineage||'',lineageAssumed:!!pair.sire.lineage,planId:p.id,stepNo:n,note:'v0.9 連結プランで生成した未生産の仮馬。ゲーム内で未確認。',createdAt:now,updatedAt:now};
- state.homebreds.push(rec);const ch=chain09Data(p),old=ch.outputs[n];ch.outputs[n]=rec.id;p.updatedAt=now;
- if(!persist()){state.homebreds.pop();if(old)ch.outputs[n]=old;else delete ch.outputs[n];return {error:'保存に失敗しました。空き容量を確認してください。'};}
+ state.homebreds.push(rec);const ch=chain09Data(p),old=ch.outputs[n],oldReuse=ch.reused50?.[n];
+ if(ch.reused50)delete ch.reused50[n]; // stale reused source must never poison a regenerated draft.
+ ch.outputs[n]=rec.id;p.updatedAt=now;
+ if(!persist()){state.homebreds.pop();if(old)ch.outputs[n]=old;else delete ch.outputs[n];if(oldReuse)ch.reused50[n]=oldReuse;return {error:'保存に失敗しました。空き容量を確認してください。'};}
  return {horse:rec};
+}
+// v5.0: before producing any draft, replace a logical step with an existing
+// verified real horse only when parents, sex and all 31 known sire slots match.
+// The original real-horse record is never modified or copied into this plan.
+function mild50ReuseStep(p,n){
+ const api=window.DabimasReuse50;if(!api)return {error:'実馬再利用検査モジュール未読込'};
+ const pair=chain09Parents(p,n);
+ if(!pair.ready)return {error:'工程'+n+'の親馬・血統が未完成'};
+ const ch=chain09Data(p);
+ const used=Object.values(ch.outputs||{});
+ const req={step:n,sex:chain09ExpectedSex(p,n),sireId:pair.sireId,mareId:pair.mareId,lineage:pair.sire.lineage||'',rows:pair.ped.rows};
+ const chosen=api.pick(state.homebreds,req,used);
+ if(!chosen)return {reused:false};
+ ch.reused50=ch.reused50||{};
+ ch.outputs[n]=chosen.id;ch.reused50[n]=chosen;
+ const result=chain09Output(p,n);
+ if(!result.horse){delete ch.outputs[n];delete ch.reused50[n];return {error:'再利用馬の連結検査が失敗'};}
+ return {reused:true,horse:result.horse};
 }
 function setupChainPlanner09(el,p){const root=el.querySelector('#chainPlanner09');if(!root)return;
  const rerender=(message='')=>{
@@ -2412,9 +2440,11 @@ function auto21Flow(plan){
   const step=plan.steps[n-1],sex=CHAIN09_DEF[n-1].sex==='female'?'牝':n===9?'性別不問':'牡';
   const chosen=n===9?'公式BC向けの本番産駒':sex==='牝'?'繁殖牝馬に採用':'次工程用の牡馬';
   const xReason=n===7&&!plan.hard23&&plan.research10?.xSelection31?`<small>補助Xは所持${plan.research10.xSelection31.candidateCount}頭を比較した暫定採用です。子系統と独立クロス候補で評価し、ゲーム内の有効因子は未確認です。</small>`:'';
+  const reused=plan.chain09?.reused50?.[n];
+  if(reused){lines.push(`<li class="a21-step"><b>工程${n}｜実馬 ${esc(reused.id)} を再利用（新規生産不要）</b><small>父母・性別・登録31枠の一致を検査済み。元の実馬記録には変更を加えません。本人因子や元データの変更時は再検証してください。</small></li>`);continue;}
   lines.push(`<li class="a21-step"><b>工程${n}｜${esc(step.cross)}</b><small>必要：${esc(chosen)}／${sex}。${sex==='牝'?'SP/ST最低ライン：未設定（ゲーム内解析を記録して設定）':'SP/ST：実測データなし・数値を捏造しません'}</small>${v27MaleCore(n)?`<small>${v27FactorHint(plan,v27Wanted(plan,step),plan.chain09?.outputs?.[n])}</small>`:''}${xReason}</li>`);
  }
- return `<details class="a21-flow" open><summary>生産順の配合フロー（${lines.length}工程）</summary><p class="muted v27-note">本人因子のゲーム内確認：${v27ConfirmedCount(plan).actual}/${v27ConfirmedCount(plan).total}頭（連結済みの自家製牡馬）。<br>自家製牡馬の「希望因子」は能力方針から示した<b>仮目標</b>です。因子付与を保証しません。生産後は「自家製馬」タブで実際の本人因子を記録してください。実測因子の影響は、保存プラン内の実測因子プレビューで再計算します。至高成立は未確認です。</p><ol>${lines.join('')}</ol></details>`;
+ return `<details class="a21-flow" open><summary>生産順の配合フロー（${plan.mild50?`新規${plan.mild50.productionStages}工程／9枠`:lines.length+'工程'}）</summary><p class="muted v27-note">本人因子のゲーム内確認：${v27ConfirmedCount(plan).actual}/${v27ConfirmedCount(plan).total}頭（連結済みの自家製牡馬）。<br>自家製牡馬の「希望因子」は能力方針から示した<b>仮目標</b>です。因子付与を保証しません。生産後は「自家製馬」タブで実際の本人因子を記録してください。実測因子の影響は、保存プラン内の実測因子プレビューで再計算します。至高成立は未確認です。</p><ol>${lines.join('')}</ol></details>`;
 }
 // v3.4: transparent read-only preflight; no ability prediction, no theory confirmation.
 function audit34Html(plan,ped){
@@ -2472,6 +2502,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
  <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜名牝6頭と所持種牡馬を自動配置しました。</p>
+ ${plan.mild50?.reusedCount?`<p class="notice"><b>v5.0 実馬再利用：${plan.mild50.reusedCount}工程短縮</b>。基本9工程のうち新規生産は${plan.mild50.productionStages}工程です。既存実馬の父母・性別・31枠を一致検証しました。実馬記録の編集時はリンクを再確認します。</p>`:''}
  ${!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
  <p class="muted">自家製種牡馬の本人因子はゲーム内実測待ちです。表示するクロス因子${c.total}${c.complete?'':'+'}個は公開血統中心の試算であり、最終確定値ではありません。実測因子を登録した後は、保存プランを開いて保存プランの実測因子プレビューで反映位置を確認してください。</p>
  <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
@@ -2644,16 +2675,20 @@ function auto21Create(){
    // leave an attractive-looking partial production plan in persistent data.
    const oldPlans=state.plans.slice(),oldHomebreds=state.homebreds.slice();
    const problems=[];
+   let reusedCount=0;
    draft.note=`【v4.1自動設計】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。至高成立、予想能力は未確認。`;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);
     for(let n=1;n<=9;n++){
+     const reuse=mild50ReuseStep(draft,n);
+     if(reuse.error){problems.push(`工程${n}：${reuse.error}`);break;}
+     if(reuse.reused){reusedCount++;continue;}
      const result=makeChain09Foal(draft,n);
      if(result.error){problems.push(`工程${n}：${result.error}`);break;}
     }
     if(!problems.length){
-     const guard=window.DabimasFlowGuard41?.verify(draft,state.homebreds);
+     const guard=window.DabimasFlowGuard41?.verify(draft,state.homebreds,window.DabimasReuse50);
      if(!guard?.ok)problems.push(...(guard?.failures||['生産工程検査モジュールが利用できません']));
     }
    }catch(error){problems.push(error.message||'仮連結処理に失敗');}
@@ -2669,13 +2704,19 @@ function auto21Create(){
     return;
    }
    saved=draft;
+   const finalPair=chain09Parents(draft,9);
+   if(finalPair.ready&&finalPair.ped?.known===31){
+    pedigree=finalPair.ped;
+    parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount,limited:false};
+   }
+   draft.mild50={version:50,reusedCount,productionStages:9-reusedCount,gameVerified:false};
   }
   const chosenQuality=auto35Quality(pedigree,saved);
   const evidence37=auto37Evidence(pedigree,saved);
   saved.autoDesign21={createdAt:nowISO(),mode,goal,race,autoAnchor45:{enabled:autoPick||familyPick,selectionMode:selectionInfo.mode,requestedFamily:selectionInfo.family||null,
     anchorCandidatesCompared:anchorTried,qualifiedCandidates:anchorQualified,totalPrimaryCandidates:auto21Candidates.length,
     eligibleInSelection:selectionInfo.available,selectedAnchor:selected.base,selectedVariants:selected.set.map(r=>r.id),
-    candidateAudit,searchCap:selectionInfo.limit,hardFinalists:mode==='hard'?viableAnchorTrials.length:null,hardDeepCompared:mode==='hard'?hardCompared:null,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',
+    candidateAudit,searchCap:selectionInfo.limit,hardFinalists:mode==='hard'?viableAnchorTrials.length:null,hardDeepCompared:mode==='hard'?hardCompared:null,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:`名牝＋${parents.stages||9}工程（実馬再利用${saved.mild50?.reusedCount||0}件）`,
    placement49:{availablePerTriple:6,layoutSearches:placementSearches,validLayouts:placementQualified,
     chosenSlots:{...saved.routeDraft.slots},deepFinalists:mode==='hard'?hardCompared:0,
     scope:selectionInfo.pool.length<=3?'各セット最大6配置':'各セット最大2配置',gameVerified:false},mareTests:mode==='hard'?hardTrial.researched.tests:researched.tests,confirmedTheory:false,

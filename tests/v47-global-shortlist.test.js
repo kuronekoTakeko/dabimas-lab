@@ -36,9 +36,9 @@ test('selected center set persisted with hard route and comparison scope',()=>{
  assert(app.includes("mareTests:mode==='hard'?hardTrial.researched.tests:researched.tests"));
 });
 test('new module loads before app, offline cache holds it',()=>{
- assert(html.indexOf('research-global-shortlist.js?v=47')<html.indexOf('app.js?v=50'));
+ assert(html.indexOf('research-global-shortlist.js?v=47')<html.indexOf('app.js?v=51'));
  assert(sw.includes('research-global-shortlist.js'));
- assert(sw.includes('dbms-v50-1'));
+ assert(sw.includes('dbms-v51-1'));
 });
 test('all JS modules parse',()=>{
  for(const file of fs.readdirSync(root).filter(x=>x.endsWith('.js')))cp.execFileSync('node',['--check',path.join(root,file)]);

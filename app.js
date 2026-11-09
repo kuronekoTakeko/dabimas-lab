@@ -2688,8 +2688,13 @@ function auto21Create(){
      if(result.error){problems.push(`工程${n}：${result.error}`);break;}
     }
     if(!problems.length){
-     const guard=window.DabimasFlowGuard41?.verify(draft,state.homebreds,window.DabimasReuse50);
-     if(!guard?.ok)problems.push(...(guard?.failures||['生産工程検査モジュールが利用できません']));
+     const finalPair=chain09Parents(draft,9);
+     const inspection=window.DabimasMildGate51?.inspect(draft,finalPair?.ped,state.homebreds,{
+      flowGuard:window.DabimasFlowGuard41,
+      reuseApi:window.DabimasReuse50,
+      validation:window.DabimasResearchValidation38
+     });
+     if(!inspection?.ok)problems.push(...(inspection?.errors||['マイルド型の最終検査モジュールが利用できません']));
     }
    }catch(error){problems.push(error.message||'仮連結処理に失敗');}
    finally{stagingAuto21=false;}
@@ -2710,6 +2715,7 @@ function auto21Create(){
     parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount,limited:false};
    }
    draft.mild50={version:50,reusedCount,productionStages:9-reusedCount,gameVerified:false};
+   draft.mildAcceptance51={version:51,status:"血統・工程の一次検査通過（ゲーム内未確認）",gameVerified:false};
   }
   const chosenQuality=auto35Quality(pedigree,saved);
   const evidence37=auto37Evidence(pedigree,saved);

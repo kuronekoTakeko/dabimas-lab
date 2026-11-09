@@ -1,4 +1,4 @@
-/* v4.1: Pure nine-step DAG validation for provisional horse production. */
+/* v5.1: Strict 31-position mild DAG validation; saved plans are not mutated. */
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.DabimasFlowGuard41=api;})(typeof window!=='undefined'?window:globalThis,function(){
 'use strict';
 const definitions=[
@@ -13,6 +13,18 @@ const definitions=[
  {n:9,sireStep:2,mareStep:8,sex:'male'}
 ];
 const norm=v=>String(v??'').normalize('NFKC').trim();
+const EXPECTED=(()=>{const out=new Set();for(let depth=1;depth<=5;depth++)for(let i=0;i<2**(depth-1);i++){
+ let route='';for(let bit=depth-2;bit>=0;bit--)route+=i&(1<<bit)?'D':'S';out.add(route+'S');
+}return out;})();
+function validAncestry(rows){
+ if(!Array.isArray(rows)||rows.length!==31)return false;
+ const seen=new Set();
+ for(const row of rows){const path=norm(row?.path);
+  if(!EXPECTED.has(path)||seen.has(path)||!norm(row?.horse||row?.name))return false;
+  seen.add(path);
+ }
+ return seen.size===31;
+}
 function verify(plan,homebreds,reuseApi=null){
  const failures=[],chain=plan?.chain09||{},output=chain.outputs||{},mares=chain.mares||{},slots=plan?.routeDraft?.slots||{};
  const byId=new Map((homebreds||[]).map(h=>[norm(h.id),h]));
@@ -35,9 +47,9 @@ function verify(plan,homebreds,reuseApi=null){
   const mare=def.mareStep?output[def.mareStep]:mares[def.n];
   if(!norm(sire)||!norm(mare))failures.push(`工程${def.n}：父母が未指定`);
   if(norm(horse.fatherId)!==norm(sire)||norm(horse.motherId)!==norm(mare))failures.push(`工程${def.n}：父母リンクが不一致`);
-  if(!Array.isArray(horse.ancestry)||horse.ancestry.filter(a=>a&&a.path&&a.horse).length<31)failures.push(`工程${def.n}：血統31枠が不足`);
+  if(!validAncestry(horse.ancestry))failures.push(`工程${def.n}：血統31枠の欠落・位置重複・不正`);
  }
  return {ok:failures.length===0,failures,checked:definitions.length,linked:seen.size};
 }
-return Object.freeze({verify,definitions:Object.freeze(definitions.map(d=>Object.freeze({...d})))});
+return Object.freeze({verify,validAncestry,definitions:Object.freeze(definitions.map(d=>Object.freeze({...d})))});
 });

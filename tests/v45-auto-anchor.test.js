@@ -9,10 +9,10 @@ const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
 const owned=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 let count=0;
 function test(name,cb){cb();count++;console.log('PASS',name)}
-test('auto selection option appears and defaults on a fresh selector',()=>{
- assert(js.includes('所持種牡馬から自動選択（候補を比較）'));
- assert(js.includes("sel.value==='auto'||!sel.options.length"));
- assert(js.includes("sel.value='auto'"));
+test('auto selection option retained alongside family selection',()=>{
+ assert(js.includes('中心馬の馬名も自動選択（上位6組）'));
+ assert(js.includes('family:${encodeURIComponent(f.name)}'));
+ assert(js.includes("if(previousValue==='auto')sel.value='auto'"));
 });
 test('auto selection compares foundations not just the sire factor total',()=>{
  assert(js.includes('function foundationFor(anchor)'));
@@ -22,12 +22,12 @@ test('auto selection compares foundations not just the sire factor total',()=>{
  assert(js.includes('opt10Sort(a.candidate,b.candidate)'));
 });
 test('auto selection has explicit upper limit',()=>{
- assert(js.includes('auto21Candidates.slice(0,6)'));
- assert(js.includes('searchCap:6'));
- assert(js.includes('完全網羅探索ではありません'));
+ assert(js.includes('selectionInfo.pool'));
+ assert(js.includes('searchCap:selectionInfo.limit')); 
+ assert(js.includes('完全網羅探索でもありません')); 
 });
 test('auto search stores evidence and reports game status honestly',()=>{
- assert(js.includes('autoAnchor45:{enabled:autoPick'));
+ assert(js.includes('autoAnchor45:{enabled:autoPick||familyPick')); 
  assert(js.includes('verifiedGame:false'));
  assert(js.includes('ゲーム内成立は未確認'));
 });
@@ -41,9 +41,9 @@ test('original owner state and zero rights remain preserved',()=>{
  assert.equal(owned.plans.length,0);
 });
 test('cache, UI and script revision consistent',()=>{
- assert(html.includes('app.js?v=45'));
- assert(html.includes('自動選択可'));
- assert(sw.includes("dbms-v45-1"));
+ assert(html.includes('app.js?v=46'));
+ assert(html.includes('馬名を選択')); 
+ assert(sw.includes("dbms-v46-1"));
 });
 test('javascript parses without execution or storage mutations',()=>{
  const {execFileSync}=require('node:child_process');

@@ -1,0 +1,25 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const dir=path.join(__dirname,'..');
+const api=require('../research-family-search.js');
+const js=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
+const owned=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+let n=0;function test(name,fn){fn();n++;console.log('PASS',name)}
+const c=(base,id)=>({base,set:[{id:id+'-1'},{id:id+'-2'},{id:id+'-3'}],kinds:['短','速','長','走','中','底'],researchScore:12});
+const list=[c('キングカメハメハ','k'),c('ディープインパクト','d1'),c('ディープインパクト','d2'),c('オルフェーヴル','o')];
+test('horse-name grouping retains alternative variant trios',()=>{const f=api.families(list);assert.equal(f.length,3);assert.equal(f.find(x=>x.name==='ディープインパクト').count,2)});
+test('family selection searches all retained trios of that name',()=>{const s=api.resolve(list,'family:'+encodeURIComponent('ディープインパクト'));assert.equal(s.mode,'family');assert.equal(s.pool.length,2);assert(s.pool.every(c=>c.base==='ディープインパクト'))});
+test('family cap explicitly reports partial comparisons',()=>{const s=api.resolve(list,'family:'+encodeURIComponent('ディープインパクト'),1);assert.equal(s.available,2);assert.equal(s.pool.length,1);assert.equal(s.limit,1)});
+test('exact variant selection remains available',()=>{const s=api.resolve(list,'0');assert.equal(s.mode,'exact');assert.equal(s.pool[0].base,'キングカメハメハ')});
+test('global auto selection remains bounded',()=>{const s=api.resolve(list,'auto',24,2);assert.equal(s.mode,'auto');assert.equal(s.pool.length,2)});
+test('invalid value fails closed',()=>{assert.equal(api.resolve(list,'family:%error').pool.length,0);assert.equal(api.resolve(list,'-2').pool.length,0);assert.equal(api.resolve(list,'999').pool.length,0)});
+test('no unrelated family appears when selected family not owned',()=>{assert.equal(api.resolve(list,'family:リファール').pool.length,0)});
+test('UI includes families, own-variant direct selection, and exact selection',()=>{assert(js.includes('familiesApi.families(auto21Candidates)'));assert(js.includes('selectionInfo.pool'));assert(js.includes('詳細指定：異因名3頭の組合せ'));assert(html.includes('② 至高の中心種牡馬（馬名を選択）'))});
+test('audit persists comparison scope but not results as game-confirmed',()=>{assert(js.includes('candidateAudit,searchCap:selectionInfo.limit,verifiedGame:false'));assert(js.includes('eligibleInSelection:selectionInfo.available'));assert(js.includes('保存データは変更していません'))});
+test('previous data format preserved, including zero-right owned entries',()=>{assert.equal(Object.keys(owned.owned).length,315);assert(Object.values(owned.owned).some(x=>x.owned&&x.rights===0));assert(!js.includes('delete state.owned'))});
+test('new script registered before app and serviceworker cache updated',()=>{assert(html.indexOf('research-family-search.js?v=46')<html.indexOf('app.js?v=46'));assert(sw.includes('research-family-search.js'));assert(sw.includes('dbms-v46-1'))});
+test('syntax checks',()=>{const cp=require('node:child_process');for(const f of ['app.js','research-family-search.js','sw.js'])cp.execFileSync('node',['--check',path.join(dir,f)])});
+console.log(`${n} v4.6 tests passed`);

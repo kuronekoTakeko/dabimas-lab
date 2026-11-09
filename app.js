@@ -2538,6 +2538,7 @@ function auto21Create(){
    return {anchor,draft,researched,eligible,ranked};
   }
   let initial, anchorTried=0,anchorQualified=0;
+  const viableAnchorTrials=[];
   const candidateAudit=[];
   // Whether selecting a family or the global automatic choice, compare the
   // complete six-mare/X foundation before deciding the three center variants.
@@ -2548,6 +2549,7 @@ function auto21Create(){
     foundationTrials:trial.researched.tests,topResearchIndex:trial.ranked[0]?.candidate.idx??null});
    if(!trial.ranked.length)continue;
    anchorQualified++;
+   viableAnchorTrials.push(trial);
    if(!initial){initial=trial;continue;}
    const a=trial.ranked[0],b=initial.ranked[0];
    const quality=auto35CompareQuality(a.quality,b.quality);
@@ -2561,14 +2563,19 @@ function auto21Create(){
   const base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   auto21SetResearch(draft,base);
+  let hardCompared=0,hardTrial=null;
   let saved=null,pedigree=base.full,parents={sire:base.finalSire,mare:base.finalMare,limited:false};
   if(mode==='hard'){
-   // Evaluate two of the best 6-mare/X foundations jointly with their optional
-   // graft graphs; keep the full nine-step baseline as a legitimate outcome.
-   const foundations=ranked.slice(0,3).map(x=>x.candidate);
-   let chosen=null,search=null,chosenDraft=null,chosenQuality=null,chosenEvidence=null,chosenValidation=null,compared=0;
-   for(const foundation of foundations){
-    const variant=JSON.parse(JSON.stringify(draft));
+   // v4.7: Keep finalists from DIFFERENT center-trio choices where possible.
+   // v4.6 only deep-searched foundations of the single best shallow trio,
+   // silently discarding a potentially stronger deep route for other trios.
+   const shortlist=window.DabimasGlobalShortlist47?.select(viableAnchorTrials,3,(a,b)=>
+    auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate))||[];
+   let chosen=null,search=null,chosenDraft=null,chosenQuality=null,chosenEvidence=null,chosenValidation=null,compared=0,chosenAnchor=null,chosenTrial=null;
+   for(const item of shortlist){
+    const foundation=item.rank.candidate;
+    const variant=JSON.parse(JSON.stringify(item.trial.draft));
+    variant.title=`${item.trial.anchor.base}・本気型 自動設計 ${race}`;
     auto21SetResearch(variant,foundation);
     const found=hard23Search(variant,goal,2500);
     if(found.error)continue;
@@ -2586,14 +2593,16 @@ function auto21Create(){
        (validationOrder===0&&(evidenceOrder<0||
        (evidenceOrder===0&&found.best.stages<chosen.stages)))))))){
      chosen=found.best;search=found;chosenDraft=variant;chosenQuality=trialQuality;chosenEvidence=trialEvidence;chosenValidation=trialValidation;
+     chosenAnchor=item.trial.anchor;chosenTrial=item.trial;
     }
    }
    if(!chosen){out.innerHTML='<div class="notice warn">9工程の完全な血統を再現できませんでした。データの祖先枠を確認してください。</div>';return;}
+   selected=chosenAnchor;hardCompared=compared;hardTrial=chosenTrial;
    const result=hard23Save(chosenDraft,chosen,goal,search);
    if(result.error){out.innerHTML=`<div class="notice warn">保存できませんでした：${esc(result.error)}</div>`;return;}
    saved=getPlan(result.id);pedigree=chosen.final;
    parents={sire:chosen.finalSire,mare:chosen.finalMare,limited:search.pruned,stages:chosen.stages,
-    searchNote:`v2.4可変工程探索：名牝/X基礎構成${compared}案、2因子を含む追加クロス候補ペア${search.eligiblePairs}組から${search.shortlist}組を優先。${search.tested}通り試算。9工程基準評価${search.baseline.metrics.score.toFixed(1)} → 採用案${chosen.metrics.score.toFixed(1)}。5代を超える仕込みは加点しません。部分探索です。`};
+    searchNote:`v4.7中心馬横断探索：異因名セット${new Set(shortlist.map(x=>x.trial.anchor.set.map(r=>r.id).join("|"))).size}組から名牝/X基礎構成${compared}案、2因子を含む追加クロス候補ペア${search.eligiblePairs}組から${search.shortlist}組を優先。${search.tested}通り試算。9工程基準評価${search.baseline.metrics.score.toFixed(1)} → 採用案${chosen.metrics.score.toFixed(1)}。5代を超える仕込みは加点しません。部分探索です。`};
     }else{
    // Build all nine offspring in memory first. A missing parent must not
    // leave an attractive-looking partial production plan in persistent data.
@@ -2630,7 +2639,7 @@ function auto21Create(){
   saved.autoDesign21={createdAt:nowISO(),mode,goal,race,autoAnchor45:{enabled:autoPick||familyPick,selectionMode:selectionInfo.mode,requestedFamily:selectionInfo.family||null,
     anchorCandidatesCompared:anchorTried,qualifiedCandidates:anchorQualified,totalPrimaryCandidates:auto21Candidates.length,
     eligibleInSelection:selectionInfo.available,selectedAnchor:selected.base,selectedVariants:selected.set.map(r=>r.id),
-    candidateAudit,searchCap:selectionInfo.limit,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',mareTests:researched.tests,confirmedTheory:false,
+    candidateAudit,searchCap:selectionInfo.limit,hardFinalists:mode==='hard'?viableAnchorTrials.length:null,hardDeepCompared:mode==='hard'?hardCompared:null,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',mareTests:mode==='hard'?hardTrial.researched.tests:researched.tests,confirmedTheory:false,
    dataQuality35:{structural:chosenQuality.structural,missingNames:chosenQuality.missingNames,
     coverage:chosenQuality.coverage,unavailable:!!chosenQuality.unavailable,verifiedTheory:false},
    researchEvidence37:{anchorObserved:!!evidence37.anchorObserved,anchorFactorKinds:evidence37.anchorFactorKinds??null,
@@ -2639,7 +2648,7 @@ function auto21Create(){
   const errors=[];
   persist();auto21LastPlanId=saved.id;
   renderSavedPlans();
-  out.innerHTML=((autoPick||familyPick)?`<div class="notice"><b>v4.6 中心馬の内部比較：</b>${esc(selectionInfo.family||'全馬名')}の一次候補${selectionInfo.available}組から${anchorTried}組を名牝6頭・補助Xと合わせて比較し、${esc(selected.base)}（${esc(selected.set.map(r=>r.variant||r.id).join('・'))}）を採用。成立はゲーム内未確認、全血統の完全網羅探索でもありません。</div>`:'')+auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');
+  out.innerHTML=((autoPick||familyPick)?`<div class="notice"><b>v4.7 中心馬の内部比較：</b>${esc(selectionInfo.family||'全馬名')}の一次候補${selectionInfo.available}組から${anchorTried}組を名牝6頭・補助Xと合わせて比較し、${esc(selected.base)}（${esc(selected.set.map(r=>r.variant||r.id).join('・'))}）を採用。${mode==='hard'?`本気型は異因名セットを横断して${hardCompared}案を追加仕込みまで比較。`: ''}成立はゲーム内未確認、全血統の完全網羅探索でもありません。</div>`:'')+auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');
   out.querySelector('#auto21OpenPlan').onclick=()=>{switchTab('library');showPlanEditor(saved.id);};
  }catch(e){out.innerHTML=`<div class="notice warn">自動設計中のエラー：${esc(e.message)}。既存プランは変更されていません。</div>`;}
  finally{run.disabled=false;}

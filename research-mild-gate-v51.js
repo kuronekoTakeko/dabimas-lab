@@ -1,4 +1,4 @@
-/* v5.1: Independent pre-save acceptance gate for the mild 9-stage route.
+/* v5.2: Independent pre-save acceptance gate for the mild 9-stage route.
  * Inspects structural evidence only; does not certify in-game Shiko or SP/ST.
  */
 (function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.DabimasMildGate51=api;})(typeof window!=='undefined'?window:globalThis,function(){
@@ -10,6 +10,8 @@ function inspect(plan,pedigree,homebreds,modules={}){
  const errors=[];
  if(!plan?.id||!plan?.chain09||!plan?.routeDraft?.slots)errors.push('9工程の計画情報が不足');
  const graph=modules.flowGuard?.verify?.(plan,homebreds,modules.reuseApi);
+ const lineage=modules.lineage?.inspect?.(plan,homebreds,modules.stageResolver);
+ if(!lineage?.ok)errors.push(...(lineage?.errors||['9工程の親子血統照合を利用できない']));
  if(!graph?.ok)errors.push(...(graph?.failures||['親子・工程検査が利用できない']));
  const rows=Array.isArray(pedigree?.rows)?pedigree.rows:[];
  if(pedigree?.known!==31||rows.length!==31||pedigree?.conflicts?.length)errors.push('最終血統31枠または祖先位置に不整合');
@@ -29,7 +31,7 @@ function inspect(plan,pedigree,homebreds,modules={}){
   }
   if(norm(member.variant)&&norm(row.factorVariant)&&norm(member.variant)!==norm(row.factorVariant))errors.push(`${path}：異因名の不一致`);
  }
- return {ok:errors.length===0,errors,checkedPositions:rows.length,checkedStages:graph?.checked||0,gameVerified:false,
+ return {ok:errors.length===0,errors,checkedPositions:rows.length,checkedStages:graph?.checked||0,checkedLineageStages:lineage?.checked||0,gameVerified:false,
   status:errors.length?'一次条件を満たさないため保存しない':'血統・工程の一次検査通過（ゲーム内未確認）'};
 }
 return Object.freeze({inspect});

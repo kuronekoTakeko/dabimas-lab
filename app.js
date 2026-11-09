@@ -2573,6 +2573,7 @@ function auto21Create(){
  run.disabled=true;out.innerHTML='<p class="notice">名牝と取得済み種牡馬から血統を試算しています…</p>';
  // Allow the progress text to paint before the CPU-only bounded search.
  setTimeout(()=>{
+ let mildRollback=null,mildCommitted=false;
  try{
   // v4.5: Automatic anchor selection uses completed 6-mare/X foundations,
   // not just the three stallions' displayed factor counts. Bounded for responsiveness.
@@ -2674,6 +2675,7 @@ function auto21Create(){
    // Build all nine offspring in memory first. A missing parent must not
    // leave an attractive-looking partial production plan in persistent data.
    const oldPlans=state.plans.slice(),oldHomebreds=state.homebreds.slice();
+   mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
    let reusedCount=0;
    draft.note=`【v4.1自動設計】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。至高成立、予想能力は未確認。`;
@@ -2692,7 +2694,9 @@ function auto21Create(){
      const inspection=window.DabimasMildGate51?.inspect(draft,finalPair?.ped,state.homebreds,{
       flowGuard:window.DabimasFlowGuard41,
       reuseApi:window.DabimasReuse50,
-      validation:window.DabimasResearchValidation38
+      validation:window.DabimasResearchValidation38,
+      lineage:window.DabimasMildLineage52,
+      stageResolver:n=>chain09Parents(draft,n)
      });
      if(!inspection?.ok)problems.push(...(inspection?.errors||['マイルド型の最終検査モジュールが利用できません']));
     }
@@ -2703,11 +2707,8 @@ function auto21Create(){
     out.innerHTML=`<div class="notice warn">マイルド型の9工程を完成できませんでした。部分的なプラン・仮馬は保存せず破棄しました：${esc(problems.slice(0,4).join('／'))}</div>`;
     return;
    }
-   if(!persist()){
-    state.plans=oldPlans;state.homebreds=oldHomebreds;
-    out.innerHTML='<div class="notice warn">保存容量不足のため、生成した9工程は取り消しました。既存データは変更していません。</div>';
-    return;
-   }
+   // v5.2: Keep the complete provisional plan in memory until all metadata
+   // and the external report are ready. Save once, atomically, below.
    saved=draft;
    const finalPair=chain09Parents(draft,9);
    if(finalPair.ready&&finalPair.ped?.known===31){
@@ -2715,7 +2716,7 @@ function auto21Create(){
     parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount,limited:false};
    }
    draft.mild50={version:50,reusedCount,productionStages:9-reusedCount,gameVerified:false};
-   draft.mildAcceptance51={version:51,status:"血統・工程の一次検査通過（ゲーム内未確認）",gameVerified:false};
+   draft.mildAcceptance51={version:52,status:"全9工程の親子血統と一次条件検査通過（ゲーム内未確認）",gameVerified:false};
   }
   const chosenQuality=auto35Quality(pedigree,saved);
   const evidence37=auto37Evidence(pedigree,saved);
@@ -2733,11 +2734,26 @@ function auto21Create(){
     unresolvedCrossNames:evidence37.unresolvedCrossNames??null,verifiedTheory:false}};
   saved.externalReview48=external48Snapshot(saved,pedigree,parents.sire,parents.mare);
   const errors=[];
-  persist();auto21LastPlanId=saved.id;
+  if(mode==='mild'&&!persist()){
+   if(mildRollback){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;}
+   out.innerHTML='<div class="notice warn">保存に失敗したため、新規のマイルド配合プランと仮馬を取り消しました。既存の保存データは変更していません。</div>';
+   return;
+  }
+  if(mode!=='mild'&&!persist()){
+   out.innerHTML='<div class="notice warn">本気型プランの保存に失敗しました。バックアップと保存容量を確認してください。</div>';
+   return;
+  }
+  if(mode==='mild')mildCommitted=true;
+  auto21LastPlanId=saved.id;
   renderSavedPlans();
   out.innerHTML=((autoPick||familyPick)?`<div class="notice"><b>v4.9 異因名・祖先配置の比較：</b>${esc(selectionInfo.family||'全馬名')}の一次候補${selectionInfo.available}組から${anchorTried}組・計${placementSearches}配置を名牝6頭・補助Xと合わせて比較し、${esc(selected.base)}（${esc(selected.set.map(r=>r.variant||r.id).join('・'))}）を採用。${mode==='hard'?`本気型は異因名・祖先配置を横断して${hardCompared}案を追加仕込みまで比較。`: ''}成立はゲーム内未確認、全血統の完全網羅探索でもありません。</div>`:'')+auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');
   out.querySelector('#auto21OpenPlan').onclick=()=>{switchTab('library');showPlanEditor(saved.id);};
- }catch(e){out.innerHTML=`<div class="notice warn">自動設計中のエラー：${esc(e.message)}。既存プランは変更されていません。</div>`;}
+ }catch(e){
+  // A late exception before the final commit must not leave staged mild records
+  // in memory. This is separate from the capacity-failure return path.
+  if(mildRollback&&!mildCommitted){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;}
+  out.innerHTML=`<div class="notice warn">自動設計中のエラー：${esc(e.message)}。${mildRollback&&!mildCommitted?'マイルド型の仮生成データは破棄しました。':'保存内容を確認してください。'}</div>`;
+ }
  finally{run.disabled=false;}
  },25);
 }

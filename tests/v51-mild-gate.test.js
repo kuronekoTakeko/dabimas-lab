@@ -4,6 +4,7 @@ const fs=require('node:fs'),path=require('node:path');
 const gate=require('../research-mild-gate-v51.js');
 const flow=require('../research-flow-guard.js');
 const theory=require('../research-validation.js');
+const lineage=require('../research-mild-lineage-v52.js');
 let passed=0;function test(name,fn){fn();console.log('PASS '+name);passed++;}
 const paths=[];for(let depth=1;depth<=5;depth++)for(let i=0;i<2**(depth-1);i++){
  let route='';for(let bit=depth-2;bit>=0;bit--)route+=i&(1<<bit)?'D':'S';paths.push(route+'S');
@@ -24,7 +25,7 @@ function scenario(){
  for(const def of flow.definitions){const id='F'+def.n;outputs[def.n]=id;
   records.push({id,planId:plan.id,stepNo:def.n,sex:def.sex,fatherId:def.sireStep?outputs[def.sireStep]:def.sireSlot?slots[def.sireSlot]:'X',motherId:def.mareStep?outputs[def.mareStep]:mares[def.n],ancestry:paths.map(p=>({path:p,horse:'馬_'+p}))});
  }
- return {plan,pedigree,records,dependencies:{flowGuard:flow,validation:theory}};
+ return {plan,pedigree,records,dependencies:{flowGuard:flow,validation:theory,lineage,stageResolver:n=>({ready:true,ped:{rows:records[n-1].ancestry.map(a=>({path:a.path,name:a.horse}))}})}};
 }
 const inspect=x=>gate.inspect(x.plan,x.pedigree,x.records,x.dependencies);
 test('complete mild nine-step pedigree passes as unverified premise',()=>{const x=scenario(),v=inspect(x);assert.equal(v.ok,true);assert.equal(v.gameVerified,false);assert.equal(v.checkedStages,9);assert.equal(v.checkedPositions,31);});
@@ -44,6 +45,6 @@ test('duplicate owned IDs are not three distinct anchors',()=>{const x=scenario(
 test('final parent transmission conflict blocks saving',()=>{const x=scenario();x.pedigree.transmission.conflicts=[{path:'S',field:'name'}];assert.equal(inspect(x).ok,false);});
 test('known inherited position missing blocks saving',()=>{const x=scenario();x.pedigree.transmission.unresolved=[{path:'S'}];assert.equal(inspect(x).ok,false);});
 test('same variant with contradictory recorded factors blocks saving',()=>{const x=scenario();const r=x.pedigree.rows.find(r=>r.path==='DS');r.name='ディープインパクト';r.factorVariant='央獅';r.factors=['底','底'];assert.equal(inspect(x).ok,false);});
-test('mild branch gate executes before first save and hard branch remains untouched',()=>{const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');const mild=app.indexOf('}else{\n   // Build all nine offspring in memory first.');const gateIndex=app.indexOf('DabimasMildGate51?.inspect(',mild);const saveIndex=app.indexOf('if(!persist()){',mild);assert(mild>0&&gateIndex>mild&&saveIndex>gateIndex);assert(app.includes("mode==='hard'"));});
-test('v5.1 loader and service worker isolate new gate to changed assets',()=>{const root=path.join(__dirname,'..');const html=fs.readFileSync(path.join(root,'index.html'),'utf8');const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(html.indexOf('research-mild-gate-v51.js?v=51')<html.indexOf('app.js?v=51'));assert(sw.includes('research-mild-gate-v51.js'));assert(sw.includes('dbms-v51-1'));});
+test('mild branch gate executes before first save and hard branch remains untouched',()=>{const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');const mild=app.indexOf('}else{\n   // Build all nine offspring in memory first.');const gateIndex=app.indexOf('DabimasMildGate51?.inspect(',mild);const saveIndex=app.indexOf("if(mode==='mild'&&!persist()){",mild);assert(mild>0&&gateIndex>mild&&saveIndex>gateIndex);assert(app.includes("mode==='hard'"));});
+test('v5.2 loader and service worker isolate new gate to changed assets',()=>{const root=path.join(__dirname,'..');const html=fs.readFileSync(path.join(root,'index.html'),'utf8');const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(html.indexOf('research-mild-gate-v51.js?v=52')<html.indexOf('app.js?v=52'));assert(sw.includes('research-mild-gate-v51.js'));assert(sw.includes('dbms-v52-1'));});
 console.log(`${passed} v5.1 mild gating tests passed`);

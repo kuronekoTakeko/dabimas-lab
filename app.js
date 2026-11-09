@@ -2046,15 +2046,16 @@ const AUTO21_RACES=[
 let auto21Candidates=[],auto21LastPlanId='';
 function auto21RefreshCandidates(){
  const sel=$('auto21Horse');if(!sel)return;
+ const autoSelected=sel.value==='auto'||!sel.options.length;
  const previous=auto21Candidates[Number(sel.value)];
  const oldSignature=previous?window.DabimasCandidateSelector43?.signature(previous):'';
  const goal=$('auto21Goal')?.value||'balance';
  const source=getCandidates(0).filter(c=>c.set.length===3);
  const api=window.DabimasCandidateSelector43;
  auto21Candidates=api?api.choose(source,goal,4,120):[];
- sel.innerHTML=auto21Candidates.length?auto21Candidates.map((c,i)=>`<option value="${i}">${esc(c.base)}：${esc(c.set.map(r=>r.variant||r.id).join('・'))}（${c.kinds.length}種類／研究指数${c.researchScore}）</option>`).join(''):'<option value="">候補なし（取得済み3因名を確認）</option>';
+ sel.innerHTML=auto21Candidates.length?'<option value="auto">所持種牡馬から自動選択（候補を比較）</option>'+auto21Candidates.map((c,i)=>`<option value="${i}">${esc(c.base)}：${esc(c.set.map(r=>r.variant||r.id).join('・'))}（${c.kinds.length}種類／研究指数${c.researchScore}）</option>`).join(''):'<option value="">候補なし（取得済み3因名を確認）</option>';
  const index=auto21Candidates.findIndex(c=>c.signature===oldSignature);
- if(index>=0)sel.value=String(index);
+ if(autoSelected||!previous)sel.value='auto';else if(index>=0)sel.value=String(index);
  $('auto21CandidateNote').textContent=auto21Candidates.length?`取得済みの至高一次候補：${auto21Candidates.length}組（同名の異因名セットを最大4組ずつ表示・全体120組まで）。権利数0も対象。順位は研究用でゲーム内成立は未確認です。`:
  '取得済みの同名3頭・因子6種類以上の候補がありません。公開マスター・所持チェック・検査モジュールを確認してください。';
 }
@@ -2495,8 +2496,9 @@ function evidence37Html(ped,plan){
 }
 function auto21Create(){
  const out=$('auto21Result'),run=$('auto21Run');
- const selected=auto21Candidates[Number($('auto21Horse').value)];
- if(!selected){out.innerHTML='<div class="notice warn">取得済みの至高候補を先に確認してください。</div>';return;}
+ const autoPick=$('auto21Horse').value==='auto';
+ let selected=autoPick?null:auto21Candidates[Number($('auto21Horse').value)];
+ if(!autoPick&&!selected||!auto21Candidates.length){out.innerHTML='<div class="notice warn">取得済みの至高候補を先に確認してください。</div>';return;}
  if(!master.length){out.innerHTML='<div class="notice warn">血統の自動生成には公開マスターが必要です。「データ管理」からCSVを読み込んでください。</div>';return;}
  const goal=$('auto21Goal').value,mode=$('auto21Mode').value;
  const race=$('auto21Race').value;
@@ -2504,17 +2506,41 @@ function auto21Create(){
  // Allow the progress text to paint before the CPU-only bounded search.
  setTimeout(()=>{
  try{
-  const draft=newPlan(selected);draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
-  draft.goal=goal;draft.target=`公式BC想定：${race}`;
-  const slots=defaultRouteSlots(draft.source.members);
-  draft.routeDraft={slots,paths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},validated:false};
-  draft.steps=buildDraftSteps(slots);
-  const researched=opt10Find(draft,'meihin');
-  const eligible=researched.results.filter(x=>x.matches===3);
-  // The pre-existing search order is the secondary tie breaker. No candidate
-  // gains fictitious SP/ST points from having more populated data fields.
-  const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
-   .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||a.i-b.i);
+  // v4.5: Automatic anchor selection uses completed 6-mare/X foundations,
+  // not just the three stallions' displayed factor counts. Bounded for responsiveness.
+  // Never mutate persistent user data while comparing potential foundations.
+  function foundationFor(anchor){
+   const draft=newPlan(anchor);draft.goal=goal;draft.target=`公式BC想定：${race}`;
+   const slots=defaultRouteSlots(draft.source.members);
+   draft.routeDraft={slots,paths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},validated:false};
+   draft.steps=buildDraftSteps(slots);
+   const researched=opt10Find(draft,'meihin');
+   const eligible=researched.results.filter(x=>x.matches===3);
+   const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
+    .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||a.i-b.i);
+   return {anchor,draft,researched,eligible,ranked};
+  }
+  let initial, anchorTried=0,anchorQualified=0;
+  if(autoPick){
+   // Limit joint six-mare searches to six highest-ranked triples; expose limitation.
+   // Each trial is ranked by inspectable completeness, theory evidence, and the
+   // existing foundation sort. This is not an exhaustive global optimum proof.
+   for(const anchor of auto21Candidates.slice(0,6)){
+    anchorTried++;
+    const trial=foundationFor(anchor);
+    if(!trial.ranked.length)continue;
+    anchorQualified++;
+    if(!initial){initial=trial;continue;}
+    const a=trial.ranked[0],b=initial.ranked[0];
+    const quality=auto35CompareQuality(a.quality,b.quality);
+    const evidence=auto37Compare(a.evidence,b.evidence);
+    if(quality<0||(quality===0&&(evidence<0||(evidence===0&&opt10Sort(a.candidate,b.candidate)<0))))initial=trial;
+   }
+   if(!initial){out.innerHTML=`<div class="notice warn">自動候補${anchorTried}組では血統の揃った名牝6頭と補助種牡馬Xを確定できませんでした。公開マスターや名牝データを確認してください。保存データは変更していません。</div>`;return;}
+  }else{initial=foundationFor(selected);anchorTried=1;anchorQualified=initial.ranked.length?1:0;}
+  selected=initial.anchor;
+  const {draft,researched,ranked}=initial;
+  draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
   const base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   auto21SetResearch(draft,base);
@@ -2584,7 +2610,7 @@ function auto21Create(){
   }
   const chosenQuality=auto35Quality(pedigree,saved);
   const evidence37=auto37Evidence(pedigree,saved);
-  saved.autoDesign21={createdAt:nowISO(),mode,goal,race,searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',mareTests:researched.tests,confirmedTheory:false,
+  saved.autoDesign21={createdAt:nowISO(),mode,goal,race,autoAnchor45:{enabled:autoPick,anchorCandidatesCompared:anchorTried,qualifiedCandidates:anchorQualified,totalPrimaryCandidates:auto21Candidates.length,selectedAnchor:selected.base,searchCap:6,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:'名牝＋9工程',mareTests:researched.tests,confirmedTheory:false,
    dataQuality35:{structural:chosenQuality.structural,missingNames:chosenQuality.missingNames,
     coverage:chosenQuality.coverage,unavailable:!!chosenQuality.unavailable,verifiedTheory:false},
    researchEvidence37:{anchorObserved:!!evidence37.anchorObserved,anchorFactorKinds:evidence37.anchorFactorKinds??null,
@@ -2593,7 +2619,7 @@ function auto21Create(){
   const errors=[];
   persist();auto21LastPlanId=saved.id;
   renderSavedPlans();
-  out.innerHTML=auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');
+  out.innerHTML=(autoPick?`<div class="notice"><b>v4.5 自動中心馬選択：</b>至高一次候補${auto21Candidates.length}組のうち上位${anchorTried}組を名牝・補助種牡馬と合わせて比較し、${esc(selected.base)}を採用（完全網羅探索ではありません）。ゲーム内成立は未確認です。</div>`:'')+auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');
   out.querySelector('#auto21OpenPlan').onclick=()=>{switchTab('library');showPlanEditor(saved.id);};
  }catch(e){out.innerHTML=`<div class="notice warn">自動設計中のエラー：${esc(e.message)}。既存プランは変更されていません。</div>`;}
  finally{run.disabled=false;}

@@ -2512,6 +2512,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${cross36Html(ped)}
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
+ ${plan.mild55?`<div class="notice"><b>v5.5 マイルド型・複数枠の同時改善：</b>2枠変更${esc(plan.mild55.checked)}候補を照合（名牝ペア${esc(plan.mild55.marePairTrials)}／補助X＋名牝${esc(plan.mild55.xMareTrials)}）。${plan.mild55.improved?'研究上の評価が改善':'上位候補は従来案を維持'}。網羅探索・ゲーム内成立保証ではありません。</div>`:''}
  ${plan.mild53?`<div class="notice"><b>v5.3 マイルド型の同工程改善：</b>名牝・補助Xの差し替えを${esc(plan.mild53.searched)}件比較。追加クロス候補 ${esc((plan.mild53.namedExtraCrosses||[]).join('、')||'未検出')}。評価は研究上の局所比較であり、最強・ゲーム内成立を保証しません。</div>`:''}
  ${plan.mildDistance54?`<div class="notice"><b>v5.4 マイルド型の目標距離チェック：</b>締め種父系の起点となる3代目 ${esc(plan.mildDistance54.anchorG3)}／公開距離 ${plan.mildDistance54.range?esc(`${plan.mildDistance54.range.min}〜${plan.mildDistance54.range.max}m`):'未収録'}／目標 ${esc(plan.mildDistance54.race)}。<b>${plan.mildDistance54.rangeStatus==='covered'?'距離範囲内':plan.mildDistance54.rangeStatus==='outside'?'距離範囲外（要注意）':'距離適性未確認'}</b>。自家製締め種への継承は有志研究による推定で、得意距離の一致やゲーム内の能力を保証しません。</div>`:''}
  ${mild30Html(plan)}
@@ -2645,22 +2646,41 @@ function auto21Create(){
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
   let base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
+  // v5.5: Also consider bounded, mutually beneficial TWO-slot replacements.
   // v5.3 MILD ONLY: after selecting a complete foundation, compare one-slot
   // substitutions for all ranked meihin mares and all owned X stallions.
   // This runs before any saved plan or provisional offspring are created.
-  let mild53=null;
+  let mild53=null,mild55=null;
   // v5.0 real-horse reuse takes priority over swapping candidates. Until the
   // local optimizer models reuse cost, do not risk losing an already reusable
   // horse just to improve a research score. (No real records: full polish.)
-  const mild53ReusePriority=mode==='mild'&&state.homebreds.some(h=>h.mode==='real');
+  // v5.5: A completely unrelated recorded horse must not freeze mild
+  // optimization. Protect a REAL, exactly reusable early-stage sire only.
+  const mild55Api=window.DabimasMildPairs55;
+  let mild55ReusableRoots=0;
+  if(mode==='mild'&&mild55Api&&state.homebreds.some(h=>h.mode==='real')){
+   const roots=[['g3',1],['g4',3],['g5',5]].map(([slot,n])=>{
+    const sireId=draft.routeDraft?.slots?.[slot],mareId=base.choices[n];
+    const sire=routeSnapshotMember(sireId,draft),mare=map.get(key(mareId));
+    if(!sire||!mare)return {ready:false};
+    return {step:n,ready:true,sireId,mareId,lineage:sire.lineage||'',ped:getFoalPedigree(sire,mare)};
+   });
+   mild55ReusableRoots=mild55Api.rootReuseCount({records:state.homebreds,roots,reuseApi:window.DabimasReuse50});
+  }
+  const mild53ReusePriority=mode==='mild'&&mild55ReusableRoots>0;
   if(mode==='mild'){
    const api=window.DabimasMildPolish53;
    if(api&&!mild53ReusePriority){
     const mares=mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝');
     const sires=opt10XPool(draft).all;
-    const polished=api.optimize({initial:base,mares,sires,
-      evaluate:(choices,xId)=>opt10Trial(draft,choices,xId),goal,budget:900});
+    const evaluate=(choices,xId)=>opt10Trial(draft,choices,xId);
+    const polished=api.optimize({initial:base,mares,sires,evaluate,goal,budget:900});
     if(polished?.winner?.matches===3){base=polished.winner;mild53=polished.audit;}
+    if(mild55Api){
+     const paired=mild55Api.optimize({initial:base,mares,sires,evaluate,compare:api.compare,
+      goal,budget:420,perSlot:10});
+     if(paired?.winner?.matches===3){base=paired.winner;mild55=paired.audit;}
+    }
    }
   }
   auto21SetResearch(draft,base);
@@ -2673,6 +2693,7 @@ function auto21Create(){
     preferredRaceConfirmed:false,gameVerified:false};
   }
   if(mild53)draft.mild53=mild53;
+  if(mild55)draft.mild55=mild55;
   let hardCompared=0,hardTrial=null;
   let saved=null,pedigree=base.full,parents={sire:base.finalSire,mare:base.finalMare,limited:false};
   if(mode==='hard'){
@@ -2720,7 +2741,7 @@ function auto21Create(){
    mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
    let reusedCount=0;
-   draft.note=`【v5.4マイルド型】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?'実馬登録があるため、実馬再利用を優先して差し替え探索を省略。':''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
+   draft.note=`【v5.5マイルド型】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);

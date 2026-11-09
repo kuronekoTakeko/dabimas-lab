@@ -77,8 +77,8 @@ t('source, HTML script and Service Worker cache integrate in correct order',()=>
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
  assert(html.includes('research-distance-v54.js?v=54'));
- assert(html.indexOf('research-distance-v54.js?v=54')<html.indexOf('app.js?v=54'));
- assert(sw.includes('dbms-v54-1'));
+ assert(html.indexOf('research-distance-v54.js?v=54')<html.indexOf('app.js?v=55'));
+ assert(sw.includes('dbms-v55-1'));
  assert(sw.includes("'./research-distance-v54.js'"));
  assert(!sw.includes('dbms-v53-1'));
 });

@@ -27,7 +27,7 @@ try:
   page.wait_for_timeout(1500)
   print('title:',page.title())
   main=page.locator('body').inner_text()
-  assert 'v5.4' in main[:500],main[:500]
+  assert 'v5.5' in main[:500],main[:500]
   assert '315 所持チェック' in main
   assert page.evaluate('typeof window.DabimasMildLineage52')=='object'
   assert page.evaluate('typeof window.DabimasMildGate51')=='object'
@@ -46,7 +46,7 @@ try:
   page.reload(wait_until='load',timeout=30000)
   page.wait_for_timeout(500)
   assert page.evaluate('typeof window.DabimasMildLineage52')=='object'
-  assert 'v5.4' in page.locator('body').inner_text()[:500]
+  assert 'v5.5' in page.locator('body').inner_text()[:500]
   assert not errors,errors
   print('offline reload: PASS, versioned scripts resolved from current cache')
   context.close();browser.close()

@@ -2513,6 +2513,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
  ${plan.mild53?`<div class="notice"><b>v5.3 マイルド型の同工程改善：</b>名牝・補助Xの差し替えを${esc(plan.mild53.searched)}件比較。追加クロス候補 ${esc((plan.mild53.namedExtraCrosses||[]).join('、')||'未検出')}。評価は研究上の局所比較であり、最強・ゲーム内成立を保証しません。</div>`:''}
+ ${plan.mildDistance54?`<div class="notice"><b>v5.4 マイルド型の目標距離チェック：</b>締め種父系の起点となる3代目 ${esc(plan.mildDistance54.anchorG3)}／公開距離 ${plan.mildDistance54.range?esc(`${plan.mildDistance54.range.min}〜${plan.mildDistance54.range.max}m`):'未収録'}／目標 ${esc(plan.mildDistance54.race)}。<b>${plan.mildDistance54.rangeStatus==='covered'?'距離範囲内':plan.mildDistance54.rangeStatus==='outside'?'距離範囲外（要注意）':'距離適性未確認'}</b>。自家製締め種への継承は有志研究による推定で、得意距離の一致やゲーム内の能力を保証しません。</div>`:''}
  ${mild30Html(plan)}
  ${reuse44Html(plan)}
  ${auto21Flow(plan)}
@@ -2587,7 +2588,13 @@ function auto21Create(){
    const positioning=window.DabimasPlacement49;
    const permutations=positioning?.rank(anchor.set.map(r=>r.id),slots=>getRouteAudit(proto,slots),goal)||[];
    const layoutLimit=selectionInfo.pool.length<=3?6:2;
-   const selectedLayouts=positioning?.pick(permutations,layoutLimit,defaults)||[];
+   // v5.4 MILD ONLY: compare the three possible 3rd-generation fathers by
+   // published distance range BEFORE cutting the 6 placement options to 2.
+   // Keep the legacy baseline layout and the old ordering if the range is unknown.
+   const distanceApi=window.DabimasDistance54;
+   const distanceSorted=mode==='mild'&&distanceApi?
+    distanceApi.rankPlacements(permutations,race,id=>map.get(key(id))||null):permutations;
+   const selectedLayouts=positioning?.pick(distanceSorted,layoutLimit,defaults)||[];
    const trials=[];let tests=0;
    for(const layout of selectedLayouts){
     const draft=newPlan(anchor);draft.goal=goal;draft.target=`公式BC想定：${race}`;
@@ -2620,9 +2627,16 @@ function auto21Create(){
     viableAnchorTrials.push(trial);
     if(!initial){initial=trial;continue;}
     const a=trial.ranked[0],b=initial.ranked[0];
+    // v5.4: distance priority is a MILD-only ranking, never a Shiko gate.
+    // Unknown distance does not mean incompatible. Hard-mode selection unchanged.
+    const distanceApi=window.DabimasDistance54;
+    const g3Record=t=>map.get(key(t.draft?.routeDraft?.slots?.g3||''))||null;
+    const distanceOrder=mode==='mild'&&distanceApi?
+      distanceApi.compare(distanceApi.assess(race,g3Record(trial)),distanceApi.assess(race,g3Record(initial))):0;
     const quality=auto35CompareQuality(a.quality,b.quality);
     const evidence=auto37Compare(a.evidence,b.evidence);
-    if(quality<0||(quality===0&&(evidence<0||(evidence===0&&opt10Sort(a.candidate,b.candidate)<0))))initial=trial;
+    const researchOrder=quality||evidence||opt10Sort(a.candidate,b.candidate);
+    if(distanceOrder<0||(distanceOrder===0&&researchOrder<0))initial=trial;
    }
   }
   if(!initial){out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組では血統の揃った名牝6頭と補助種牡馬Xを確定できませんでした。公開マスターや名牝データを確認してください。保存データは変更していません。</div>`;return;}
@@ -2650,6 +2664,14 @@ function auto21Create(){
    }
   }
   auto21SetResearch(draft,base);
+  if(mode==='mild'&&window.DabimasDistance54){
+   const g3=draft.routeDraft?.slots?.g3||'';
+   const checked=window.DabimasDistance54.assess(race,map.get(key(g3))||null);
+   draft.mildDistance54={version:54,anchorG3:g3,source:'公開マスターの種牡馬「距離」欄',
+    race,range:checked.range,rangeStatus:checked.status,preferredCandidateCount:checked.preferredCandidateCount,
+    inheritedAlongPaternalLine:'研究上の仮定（最終締め種でゲーム内未確認）',
+    preferredRaceConfirmed:false,gameVerified:false};
+  }
   if(mild53)draft.mild53=mild53;
   let hardCompared=0,hardTrial=null;
   let saved=null,pedigree=base.full,parents={sire:base.finalSire,mare:base.finalMare,limited:false};
@@ -2698,7 +2720,7 @@ function auto21Create(){
    mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
    let reusedCount=0;
-   draft.note=`【v5.3マイルド型】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?'実馬登録があるため、実馬再利用を優先して差し替え探索を省略。':''}至高成立、予想能力は未確認。`;
+   draft.note=`【v5.4マイルド型】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?'実馬登録があるため、実馬再利用を優先して差し替え探索を省略。':''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);

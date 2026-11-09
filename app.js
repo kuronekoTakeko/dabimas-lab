@@ -597,6 +597,7 @@ function showPlanEditor(id){const p=getPlan(id);if(!p)return;openPlanId=id;const
 <div class="plan-fields"><label class="wide"><span class="plan-label">計画名</span><input class="plan-input" data-plan-field="title" value="${esc(p.title)}" maxlength="160"></label><label class="wide"><span class="plan-label">目標レース・距離</span><input class="plan-input" data-plan-field="target" value="${esc(p.target||'')}" maxlength="160"></label><label><span class="plan-label">育成方針</span><select class="plan-input" data-plan-field="goal">${Object.entries(GOAL_LABELS).map(([k,v])=>`<option value="${k}" ${p.goal===k?'selected':''}>${v}</option>`).join('')}</select></label><label><span class="plan-label">進捗</span><select class="plan-input" data-plan-field="status">${PLAN_STATUSES.map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></label></div><details class="prod-optional"><summary>計画メモ・保存した種牡馬の因子（必要なときだけ表示）</summary><div class="card"><label class="field"><span class="plan-label">計画メモ</span><textarea class="plan-textarea" data-plan-field="note">${esc(p.note||'')}</textarea></label>
 <h4 style="margin:18px 0 6px">種牡馬・因子</h4><div class="muted">${esc(p.source?.basis||'手動登録')} ／ ${p.source?.validated?'成立確認済':'因子の一次候補。至高の成立未確認'}</div><div class="metrics">${(p.source?.factors||[]).map(f=>chip(f)).join('')}</div>${members.length?members.map(m=>`<div class="slot"><strong>${esc(m.id)}</strong><span>${(m.factors||[]).map(f=>chip(f)).join('')} 権利数（保存時）${esc(m.rightsAtSave??'-')}</span></div>`).join(''):'<p class="muted">候補から保存すると種牡馬と因子が記録されます。</p>'}</div></details>
 ${mild30Html(p)}${reuse44Html(p)}
+${p.externalReview48?`<div class="btnrow"><button class="btn grey small" type="button" data-external-review="${esc(p.id)}">種・肌・産駒 血統照合TXTを出力</button></div>`:''}
 ${p.hard23?`<details class="prod-optional"><summary>本気型の事前仕込み工程（${p.hard23.preparations?.length||0}工程）</summary>${renderHard23Panel(p)}</details>`:''}
 ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：実測因子を反映した最終血統（未測定の場合は参考値）</summary>${v28LivePanel(p)}</details>`:''}
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
@@ -2441,6 +2442,24 @@ function cross36Html(ped){
  ${a.sameSide.length?`<p class="muted">同一側だけの重複（有効クロスとして数えない）：${out(a.sameSide.map(x=>x.name))}</p>`:''}
  <p class="muted">${out(a.warnings)}。独立クロス・派生重複の計算結果とは別の根拠表示です。</p></details>`;
 }
+
+// v4.8: Store an immutable-at-generation reference snapshot; do not mutate
+// older plans or the live pedigree when exporting. Saved plans retain this
+// optional reference until a new plan is generated.
+function external48Snapshot(plan,ped,sire,mare){
+ const api=window.DabimasExternalReview48;if(!api||!ped?.rows||!sire||!mare)return null;
+ const s=parentPedigree20(sire),d=parentPedigree20(mare);
+ return api.make({sire,mare,foalRows:ped.rows,sireRows:s.rows,mareRows:d.rows,planTitle:plan.title,anchorSlots:plan.routeDraft?.slots||{}});
+}
+function external48Download(plan){
+ const api=window.DabimasExternalReview48,report=plan?.externalReview48;
+ if(!api||!report){alert('このプランには外部照合用の血統情報がありません。v4.8以降に自動生成したプランで利用してください。');return;}
+ const data=api.format(report),blob=new Blob(['\uFEFF',data],{type:'text/plain;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;
+ a.download='dabimas_pedigree_crosscheck_'+String(plan.id||'plan').replace(/[^a-z0-9_-]/gi,'_')+'.txt';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
  const lines4=ped.rows.filter(r=>r.path.length===4);
@@ -2466,6 +2485,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${reuse44Html(plan)}
  ${auto21Flow(plan)}
  ${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}
+ ${plan.externalReview48?`<div class="btnrow"><button class="btn grey" type="button" data-external-review="${esc(plan.id)}">種・肌・産駒の31枠を外部照合用に出力（TXT）</button></div><p class="muted">ダビふぁく等に照らして目視で確認するための資料です。ツールへの自動転送・至高成立の確定判定ではありません。</p>`:''}
  <div class="notice warn">これは研究用の血統シミュレーションです。至高の成立・全兄弟姉妹の除外条件・クロス効果・本人因子・SP/STは未確認です。牝馬の採用SP/ST基準は実際のゲノム解析を確認してから設定してください。${meta.limited?'追加クロスは上限付きの部分探索です。':''}</div>
  <div class="btnrow"><button class="btn" type="button" id="auto21OpenPlan" data-plan-id="${esc(plan.id)}">保存プランを開き、工程と採用ラインを編集</button></div></div>`;
 }
@@ -2645,6 +2665,7 @@ function auto21Create(){
    researchEvidence37:{anchorObserved:!!evidence37.anchorObserved,anchorFactorKinds:evidence37.anchorFactorKinds??null,
     bothSideNames:evidence37.bothSideNames??null,fullyDocumented:evidence37.fullyDocumented??null,
     unresolvedCrossNames:evidence37.unresolvedCrossNames??null,verifiedTheory:false}};
+  saved.externalReview48=external48Snapshot(saved,pedigree,parents.sire,parents.mare);
   const errors=[];
   persist();auto21LastPlanId=saved.id;
   renderSavedPlans();
@@ -2661,6 +2682,8 @@ function setupAuto21(){
  run.addEventListener('click',auto21Create);
  auto21RefreshCandidates();
 }
+
+document.addEventListener('click',e=>{const b=e.target.closest('[data-external-review]');if(!b)return;const p=getPlan(b.dataset.externalReview);if(p)external48Download(p);});
 
 // wiring
 $('homeSire').oninput=()=>{homeDraftPair=null;$('homePreviewArea').innerHTML='';};

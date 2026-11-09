@@ -1,0 +1,21 @@
+ダビマス配合研究所 v4.9 / 2026-11-09
+
+v38-validation.test.js: 15件 PASS
+v39-transmission.test.js: 12件 PASS
+v40-optimizer.test.js: 13件 PASS
+v41-flow-guard.test.js: 13件 PASS
+v42-production.test.js: 16件 PASS
+v43-candidate-selector.test.js: 11件 PASS
+v44-reuse.test.js: 14件 PASS
+v45-auto-anchor.test.js: 8件 PASS
+v46-family-search.test.js: 12件 PASS
+v47-global-shortlist.test.js: 8件 PASS
+v48-external-review.test.js: 6件 PASS
+v49-txt-and-search.test.js: 10件 PASS
+合計 138件 PASS
+
+JavaScript全ソース: node --check PASS
+TXT 2件: 内部整合 31枠×3表、親から子の継承不一致 0件
+ブラウザE2E: localhost接続が実行環境でブロックされたため未実施
+ゲーム内至高確認: 未実施
+ダビふぁく外部入力: 未実施

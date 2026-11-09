@@ -26,7 +26,7 @@ test('bounded and non-destructive selection',()=>{
 test('invalid trials excluded',()=>assert.equal(api.select([null,{}, {ranked:[{}]}],3,cmp).length,0));
 test('hard route evaluation spans shortlisted center sets',()=>{
  assert(app.includes('viableAnchorTrials.push(trial)'));
- assert(app.includes('DabimasGlobalShortlist47?.select(viableAnchorTrials,3'));
+ assert(app.includes('DabimasGlobalShortlist49?.select(viableAnchorTrials,4') || app.includes('DabimasGlobalShortlist47?.select(viableAnchorTrials,3'));
  assert(app.includes('for(const item of shortlist)'));
  assert(app.includes('selected=chosenAnchor;hardCompared=compared;hardTrial=chosenTrial'));
 });
@@ -36,9 +36,9 @@ test('selected center set persisted with hard route and comparison scope',()=>{
  assert(app.includes("mareTests:mode==='hard'?hardTrial.researched.tests:researched.tests"));
 });
 test('new module loads before app, offline cache holds it',()=>{
- assert(html.indexOf('research-global-shortlist.js?v=47')<html.indexOf('app.js?v=48'));
+ assert(html.indexOf('research-global-shortlist.js?v=47')<html.indexOf('app.js?v=49'));
  assert(sw.includes('research-global-shortlist.js'));
- assert(sw.includes('dbms-v48-1'));
+ assert(sw.includes('dbms-v49-1'));
 });
 test('all JS modules parse',()=>{
  for(const file of fs.readdirSync(root).filter(x=>x.endsWith('.js')))cp.execFileSync('node',['--check',path.join(root,file)]);

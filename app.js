@@ -1216,12 +1216,12 @@ function opt10Trial(p,choices,xId){
  const lineScore=p.goal==='speed'?spL*2+stL:p.goal==='stamina'?stL*2+spL:spL+stL;
  const risk=extra.filter(x=>x.paths.some(path=>path.length<=3)).length;
  const idx=lineScore+crossScore-risk*2-effective.uncertain.length;
- return {choices:{...choices},xId,full:final,closingPed:selected[7],finalSire:outputs[2],finalMare:outputs[8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
+ return {diversity60:window.DabimasMildDiversity60?.summarize(final,window.DabimasParentTheory56)||null,choices:{...choices},xId,full:final,closingPed:selected[7],finalSire:outputs[2],finalMare:outputs[8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
    xLineage:(map.get(key(xId))||{}).lineage||'',xResearchFactors:[...(map.get(key(xId))?.factors||[])],xSearchCount:0};
 }
 function opt10Sort(a,b){
  // Full specified positions first, then a research sorting index, then fewer early overlaps.
- return b.matches-a.matches||b.idx-a.idx||a.risk-b.risk||a.extra.length-b.extra.length;
+ return b.matches-a.matches||b.idx-a.idx||(window.DabimasMildDiversity60?.compareAtTie(a.diversity60,b.diversity60)||0)||a.risk-b.risk||a.extra.length-b.extra.length;
 }
 function opt10UniqueKey(t){return OPT10_MARE_STEPS.map(n=>key(t.choices[n])).join('|')+'|'+key(t.xId);}
 function opt10Find(p,scope){
@@ -1229,9 +1229,9 @@ function opt10Find(p,scope){
  const mares=opt10MarePool(p,fast?'meihin':scope),x=opt10XPool(p),ch=chain09Data(p);
  if(fast){
   // Small, deterministic shortlist; favorites are preferred, but never overwrite saved flags.
-  mares.pool.sort((a,b)=>Number(!!state.mareFavorites[key(b.id)])-Number(!!state.mareFavorites[key(a.id)]));
+  mares.pool=window.DabimasMildDiversity60?.orderCandidates(mares.pool,window.DabimasParentTheory56,{mare:true,favorites:Object.fromEntries(mares.pool.map(r=>[r.id,!!state.mareFavorites[key(r.id)]]))})||mares.pool;
   mares.pool=mares.pool.slice(0,12);
-  x.pool=x.pool.slice(0,8);
+  x.pool=(window.DabimasMildDiversity60?.orderCandidates(x.pool,window.DabimasParentTheory56)||x.pool).slice(0,8);
  }
  const obstacles=[];
  if(!mares.pool.length)obstacles.push('対象ランクで血統15枠の揃った繁殖牝馬が見つかりません。名牝の区分を繁殖牝馬タブで確認・登録するか、探索範囲を変更してください。');
@@ -2537,6 +2537,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜名牝6頭と所持種牡馬を自動配置しました。</p>
  ${plan.mild50?.reusedCount?`<p class="notice"><b>v5.0 実馬再利用：${plan.mild50.reusedCount}工程短縮</b>。基本9工程のうち新規生産は${plan.mild50.productionStages}工程です。既存実馬の父母・性別・31枠を一致検証しました。実馬記録の編集時はリンクを再確認します。</p>`:''}
  ${!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
+ ${plan.mildDiversity60?`<details class="a21-flow"><summary>v6.0｜親系統・子系統の配置監査（非Ro優先）</summary><p>必須至高の3×4×5祖先とその子孫を除く、4・5代目の対象${esc(plan.mildDiversity60.eligibleSlots)}枠：親系統判明${esc(plan.mildDiversity60.parentKnown)}枠／未確認${esc(plan.mildDiversity60.parentUnknown)}枠。判明したRo ${esc(plan.mildDiversity60.extraRoyalCharger)}枠・非Ro ${esc(plan.mildDiversity60.nonRoyalCharger)}枠。子系統判明${esc(plan.mildDiversity60.childLineKnown)}枠／異なる子系統${esc(plan.mildDiversity60.distinctChildLines)}種類。</p><p class="muted">親系統は公式に明記された一部の祖先のみ参照。未確認は非Roとみなしません。至高と途中の完璧・超完璧の条件を優先し、研究評価が同点の場合だけ重複Roを抑えます。子系統数が多ければ強いと保証するものではありません。</p></details>`:''}
  <p class="muted">自家製種牡馬の本人因子はゲーム内実測待ちです。表示するクロス因子${c.total}${c.complete?'':'+'}個は公開血統中心の試算であり、最終確定値ではありません。実測因子を登録した後は、保存プランを開いて保存プランの実測因子プレビューで反映位置を確認してください。</p>
  <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
@@ -2612,13 +2613,14 @@ function auto21Create(){
  const fast=mode==='mild'&&($('auto21Fast')?.checked!==false);
  run.disabled=true;out.innerHTML='<p class="notice">名牝と取得済み種牡馬から血統を試算しています…</p>';
  // Allow the progress text to paint before the CPU-only bounded search.
- setTimeout(()=>{
+ setTimeout(async ()=>{
+ const yieldToBrowser=()=>new Promise(resolve=>setTimeout(resolve,0));
  let mildRollback=null,mildCommitted=false;
  try{
   // v4.5: Automatic anchor selection uses completed 6-mare/X foundations,
   // not just the three stallions' displayed factor counts. Bounded for responsiveness.
   // Never mutate persistent user data while comparing potential foundations.
-  function foundationFor(anchor){
+  async function foundationFor(anchor){
    // Evaluate all six permutations with their visible 5-generation pedigrees.
    // Run the expensive complete six-mare/X search only for a bounded subset.
    const proto=newPlan(anchor);proto.goal=goal;proto.target=`公式BC想定：${race}`;
@@ -2640,6 +2642,7 @@ function auto21Create(){
     draft.routeDraft={slots,paths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},validated:false};
     draft.steps=buildDraftSteps(slots);
     const researched=opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
+    if(fast)await yieldToBrowser();
     const eligible=researched.results.filter(x=>x.matches===3);
     const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
      .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
@@ -2654,7 +2657,8 @@ function auto21Create(){
   // instead of treating a single preselected arrangement as immutable.
   for(const anchor of selectionInfo.pool){
    anchorTried++;
-   const packet=foundationFor(anchor);
+   if(fast){out.innerHTML=`<p class="notice">血統を比較しています：中心候補${anchorTried}/${selectionInfo.pool.length}（高速限定探索）。保存データはまだ変更していません。</p>`;await yieldToBrowser();}
+   const packet=await foundationFor(anchor);
    placementSearches+=packet.selectedLayouts;placementQualified+=packet.trials.length;
    candidateAudit.push({base:anchor.base,ids:anchor.set.map(r=>r.id),qualified:!!packet.trials.length,
     placementOptions:packet.permutations,placementsEvaluated:packet.selectedLayouts,
@@ -2681,7 +2685,7 @@ function auto21Create(){
   selected=initial.anchor;
   const {draft,researched,ranked}=initial;
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
-  if(fast)draft.fastSearch59={enabled:true,shortlistMares:12,shortlistXSires:8,version:59,complete:false};
+  if(fast)draft.fastSearch59={enabled:true,shortlistMares:12,shortlistXSires:8,version:60,complete:false,parentSystemBias:'非Ro優先・未確認保持・必須至高祖先は除外せず'};
   let base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   // v5.5: Also consider bounded, mutually beneficial TWO-slot replacements.
@@ -2707,6 +2711,7 @@ function auto21Create(){
   }
   const mild53ReusePriority=mode==='mild'&&mild55ReusableRoots>0;
   if(mode==='mild'){
+   await yieldToBrowser();
    const api=window.DabimasMildPolish53;
    if(api&&!mild53ReusePriority){
     const mares=mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝');
@@ -2724,6 +2729,7 @@ function auto21Create(){
   // v5.7: continue with the already-validated 9-step route; only compare
   // swaps that keep all 31 ancestor slots and three Shiko anchor positions.
   // A partially populated parent-line registry must not turn UNKNOWN into YES.
+  if(mode==='mild')await yieldToBrowser();
   if(mode==='mild'&&!mild53ReusePriority&&window.DabimasMildMare57&&window.DabimasParentTheory56){
    const api=window.DabimasMildMare57;
    const result=api.optimize({initial:base,
@@ -2733,11 +2739,13 @@ function auto21Create(){
     compareResearch:window.DabimasMildPolish53?.compare||opt10Sort});
    if(result?.winner?.matches===3){base=result.winner;mild57=result.audit;}
   }
+  if(mode==='mild')draft.mildDiversity60={schema:60,...(base.diversity60||{}),selection:'同じ研究スコアの場合のみ、必須至高枠以外の判明Ro重複を抑制。親系統未確認は非Ro扱いしない。',gameVerified:false};
   auto21SetResearch(draft,base);
   // v5.8: Optional SINGLE maternal preparation at stage 6. Run only
   // when there are no protected reusable real-horse roots. A confirmed
   // perfect/super-perfect improvement must outweigh the extra birth.
   let mild58=null,mild58Trial=null;
+  if(mode==='mild')await yieldToBrowser();
   if(mode==='mild'&&!mild53ReusePriority&&window.DabimasMildGraft58&&window.DabimasParentTheory56){
    const baseline58=hard23Trial(draft,{},goal);
    if(!baseline58.error){

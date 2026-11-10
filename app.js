@@ -1225,7 +1225,14 @@ function opt10Sort(a,b){
 }
 function opt10UniqueKey(t){return OPT10_MARE_STEPS.map(n=>key(t.choices[n])).join('|')+'|'+key(t.xId);}
 function opt10Find(p,scope){
- const mares=opt10MarePool(p,scope),x=opt10XPool(p),ch=chain09Data(p);
+ const fast=scope==='meihin_fast';
+ const mares=opt10MarePool(p,fast?'meihin':scope),x=opt10XPool(p),ch=chain09Data(p);
+ if(fast){
+  // Small, deterministic shortlist; favorites are preferred, but never overwrite saved flags.
+  mares.pool.sort((a,b)=>Number(!!state.mareFavorites[key(b.id)])-Number(!!state.mareFavorites[key(a.id)]));
+  mares.pool=mares.pool.slice(0,12);
+  x.pool=x.pool.slice(0,8);
+ }
  const obstacles=[];
  if(!mares.pool.length)obstacles.push('対象ランクで血統15枠の揃った繁殖牝馬が見つかりません。名牝の区分を繁殖牝馬タブで確認・登録するか、探索範囲を変更してください。');
  if(!x.pool.length)obstacles.push('血統が揃う所持種牡馬Xがありません。所持チェックを確認してください。');
@@ -1234,7 +1241,7 @@ function opt10Find(p,scope){
  function evaluate(choices,xId){const k=OPT10_MARE_STEPS.map(n=>key(choices[n]||'')).join('|')+'|'+key(xId);if(cache.has(k))return cache.get(k);evalCount++;const r=opt10Trial(p,choices,xId);cache.set(k,r);return r;}
  const options=mares.pool.map(r=>r.id),xopts=x.pool.map(r=>r.id),seeds=[],seen=new Set();
  // Include current choices in the starts without treating them as validated/optimal.
- for(let seed=0;seed<4;seed++){
+ for(let seed=0;seed<(fast?2:4);seed++){
   const chs={};for(let i=0;i<OPT10_MARE_STEPS.length;i++){
    const n=OPT10_MARE_STEPS[i],chosen=ch.mares[n];
    chs[n]=seed===0&&options.includes(chosen)?chosen:options[(seed*7+i*3)%options.length];
@@ -1249,7 +1256,7 @@ function opt10Find(p,scope){
   const initialX=seed===0&&xopts.includes(ch.xId)?ch.xId:xopts[seed%xopts.length];
   let best=evaluate(chs,initialX);if(!best)continue;
   let current={choices:{...chs},xId:initialX};
-  for(let round=0;round<2;round++){
+  for(let round=0;round<(fast?1:2);round++){
    for(const n of OPT10_MARE_STEPS){
     let local=best,cid=current.choices[n];
     for(const id of options){
@@ -1267,7 +1274,7 @@ function opt10Find(p,scope){
    // omission that could choose a suboptimal Nureyev over owned Lyphard or
    // El Condor Pasa. The six-mare joint search remains bounded.
    let chosen=best,chosenX=current.xId;
-   for(const sire of x.all){const test=evaluate(current.choices,sire.id);
+   for(const sire of (fast?x.pool:x.all)){const test=evaluate(current.choices,sire.id);
     if(test&&opt10Sort(test,chosen)<0){chosen=test;chosenX=sire.id;}
    }
    current.xId=chosenX;best=chosen;
@@ -1279,7 +1286,7 @@ function opt10Find(p,scope){
     }current.choices[n]=cid;best=local;
    }
    // Score X again under the new slate; no claim of global joint optimality.
-   for(const sire of x.all){const test=evaluate(current.choices,sire.id);
+   for(const sire of (fast?x.pool:x.all)){const test=evaluate(current.choices,sire.id);
     if(test&&opt10Sort(test,best)<0)best=test;
    }
    if(best){best.xSearchCount=x.all.length;const k=opt10UniqueKey(best);if(!seen.has(k)){seeds.push(best);seen.add(k);}}
@@ -1292,7 +1299,7 @@ function opt10Find(p,scope){
  // selected X and never alter pre-existing saved plans or owner flags.
  for(const result of seeds.slice(0,3)){
   const equivalents=[];
-  for(const sire of x.all){
+  for(const sire of (fast?x.pool:x.all)){
    const trial=evaluate(result.choices,sire.id);
    if(trial&&opt10Sort(trial,result)===0)equivalents.push(sire.id);
   }
@@ -2602,6 +2609,7 @@ function auto21Create(){
  if(!master.length){out.innerHTML='<div class="notice warn">血統の自動生成には公開マスターが必要です。「データ管理」からCSVを読み込んでください。</div>';return;}
  const goal=$('auto21Goal').value,mode=$('auto21Mode').value;
  const race=$('auto21Race').value;
+ const fast=mode==='mild'&&($('auto21Fast')?.checked!==false);
  run.disabled=true;out.innerHTML='<p class="notice">名牝と取得済み種牡馬から血統を試算しています…</p>';
  // Allow the progress text to paint before the CPU-only bounded search.
  setTimeout(()=>{
@@ -2631,7 +2639,7 @@ function auto21Create(){
     const slots={...layout.slots};
     draft.routeDraft={slots,paths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},validated:false};
     draft.steps=buildDraftSteps(slots);
-    const researched=opt10Find(draft,'meihin');tests+=researched.tests||0;
+    const researched=opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
     const eligible=researched.results.filter(x=>x.matches===3);
     const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
      .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
@@ -2673,6 +2681,7 @@ function auto21Create(){
   selected=initial.anchor;
   const {draft,researched,ranked}=initial;
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
+  if(fast)draft.fastSearch59={enabled:true,shortlistMares:12,shortlistXSires:8,version:59,complete:false};
   let base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   // v5.5: Also consider bounded, mutually beneficial TWO-slot replacements.
@@ -2703,11 +2712,11 @@ function auto21Create(){
     const mares=mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝');
     const sires=opt10XPool(draft).all;
     const evaluate=(choices,xId)=>opt10Trial(draft,choices,xId);
-    const polished=api.optimize({initial:base,mares,sires,evaluate,goal,budget:900});
+    const polished=api.optimize({initial:base,mares:fast?mares.slice(0,12):mares,sires:fast?sires.slice(0,12):sires,evaluate,goal,budget:fast?90:900});
     if(polished?.winner?.matches===3){base=polished.winner;mild53=polished.audit;}
     if(mild55Api){
      const paired=mild55Api.optimize({initial:base,mares,sires,evaluate,compare:api.compare,
-      goal,budget:420,perSlot:10});
+      goal,budget:fast?50:420,perSlot:fast?4:10});
      if(paired?.winner?.matches===3){base=paired.winner;mild55=paired.audit;}
     }
    }
@@ -2720,7 +2729,7 @@ function auto21Create(){
    const result=api.optimize({initial:base,
     mares:mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝'),
     sires:opt10XPool(draft).all,evaluate:(choices,xId)=>opt10Trial(draft,choices,xId),
-    goal,budget:360,theory:window.DabimasParentTheory56,
+    goal,budget:fast?70:360,theory:window.DabimasParentTheory56,
     compareResearch:window.DabimasMildPolish53?.compare||opt10Sort});
    if(result?.winner?.matches===3){base=result.winner;mild57=result.audit;}
   }
@@ -2737,7 +2746,7 @@ function auto21Create(){
     // Bounded deterministic pool, includes all three-factor choices before two-factor.
     pool58.sort((a,b)=>(b.factors.length-a.factors.length)||a.id.localeCompare(b.id,'ja'));
     const checked58=api58.optimize({baseline:baseline58,theory:window.DabimasParentTheory56,
-     sires:pool58,evaluate:id=>hard23Trial(draft,{6:[id]},goal),budget:180,maxStages:10});
+     sires:pool58,evaluate:id=>hard23Trial(draft,{6:[id]},goal),budget:fast?30:180,maxStages:10});
     if(checked58?.audit){mild58=checked58.audit;if(checked58.improved)mild58Trial=checked58.winner;}
    }
   }
@@ -2809,7 +2818,7 @@ function auto21Create(){
    mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
    let reusedCount=0;
-   draft.note=`【v5.8マイルド型】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
+   draft.note=`【v5.9マイルド型${fast?'・高速限定探索':''}】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);

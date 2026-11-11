@@ -753,8 +753,10 @@ function mareDetail(id){const r=map.get(key(id));if(!r||horseSex(r)!=='female')r
 }
 function getPairParents(p){const x=p.pairCheck||{}; const sire=(x.sireId&&findParentHorse(x.sireId))||(x.sireSnapshot?.id?x.sireSnapshot:null);const mare=(x.mareId&&findParentHorse(x.mareId))||(x.mareSnapshot?.id?x.mareSnapshot:null);return {sire,mare};}
 function getFoalPedigree(sire,mare){
+ const ancestor64=window.DabimasDirectAncestor64?.inspect(sire,mare)||{blocked:false,unknown:true,paths:[]};
  // 1 sire root + 15 male ancestors of each selected parent -> all 31 possible sire positions.
  const at=new Map(),conflicts=[];
+ if(ancestor64.blocked)conflicts.push(`直接祖先種付け禁止：${sire.name||sire.id} は母側の祖先（${ancestor64.paths.join('・')}）に存在`);
  function add(path,name,factors=[],line='',source='',factorVariant=''){
   if(!path||path.length>5||!name)return;
   if(at.has(path)&&key(at.get(path).name)!==key(name)){conflicts.push(`${path}: ${at.get(path).name} と ${name}`);return;}
@@ -769,7 +771,7 @@ function getFoalPedigree(sire,mare){
  const repeats=[...byName.values()].filter(x=>x.length>1).map(x=>({name:x[0].name,paths:x.map(a=>a.path)}));
  const triple=[...byName.values()].filter(x=>[3,4,5].every(d=>x.some(a=>a.path.length===d))).map(x=>x[0].name);
  const factorCounts=countItems(known.flatMap(x=>x.factors));const lineCounts=countItems(known.map(x=>x.line));
- return {rows,known:known.length,repeats,triple,factorCounts,lineCounts,conflicts,transmission,
+ return {rows,known:known.length,repeats,triple,factorCounts,lineCounts,conflicts,transmission,directAncestor:ancestor64,
   crossCheck:classifyIndependentCross15(rows)};
 }
 function renderPairReport(sire,mare){const a=getFoalPedigree(sire,mare);
@@ -954,7 +956,8 @@ function chain09Parents(p,n){
  if(sire&&mare&&horseSex(sire)==='male'&&horseSex(mare)==='female'){
   ped=getFoalPedigree(sire,mare);
   if(ped.known<31)problems.push(`祖先${ped.known}/31枠：不足している血統を確認`);
-  if(ped.conflicts.length)problems.push('祖先位置の矛盾あり');
+  if(ped.directAncestor?.blocked)problems.push(`直接祖先種付け禁止：${sire.name||sire.id} が母の血統内（${ped.directAncestor.paths.join('・')}）に存在します。種牡馬を変更してください`);
+  if(ped.conflicts.length&&!ped.directAncestor?.blocked)problems.push('祖先位置の矛盾あり');
  }
  return {sireId,mareId,sire,mare,ped,problems,ready:problems.length===0};
 }
@@ -2523,6 +2526,21 @@ function external48Download(plan){
  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
+function production63Html(plan){
+ const api=window.DabimasProductionReady63;if(!api||plan?.autoDesign21?.mode!=='mild')return '';
+ const closing=chain09Parents(plan,8);
+ const theory=closing?.ready&&closing?.ped?window.DabimasParentTheory56?.inspect(closing.ped):null;
+ const data=api.analyze({plan,inventory:state.owned,resolve:id=>findParentHorse(id),theory});
+ const entry=data.first;
+ const list=data.steps.map(x=>`<li>工程${x.step}の起点種牡馬：${esc(x.sire)} ／ ${esc(x.status)}${x.rights!==null?`（現在${x.rights}回）`:''}</li>`).join('');
+ return `<details class="a21-flow" open><summary>v6.3｜生産開始前の所持・種付け権利チェック</summary>
+ <p class="muted">${entry?`最初の交配候補：<b>${esc(entry.sire)} × ${esc(plan.chain09?.mares?.[1]||'母馬未指定')}</b>。`:'最初の交配は未確定です。'}
+ ${data.zero?`権利数0の起点種牡馬${data.zero}件。種付け前に権利の補充を確認してください。`:''}
+ ${data.missing?`所持未確認${data.missing}件。`:''}
+ 締め肌の工程8：${esc(data.closingTheory)}。${data.breedingReady?'起点種牡馬の所持・権利は登録上確認できました。':'起点種牡馬の所持・権利に要確認項目があります。'}
+ ただし、同一権利の複数回使用・母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
+ <ul>${list}</ul><p class="muted">締め肌の超完璧・完璧、最終至高はゲーム内で必ず確認してください。表示値は現在のブラウザの登録情報に基づきます。未確認の能力値を予想しません。</p></details>`;
+}
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
  const lines4=ped.rows.filter(r=>r.path.length===4);
@@ -2554,6 +2572,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${plan.mildDistance54?`<div class="notice"><b>v5.4 マイルド型の目標距離チェック：</b>締め種父系の起点となる3代目 ${esc(plan.mildDistance54.anchorG3)}／公開距離 ${plan.mildDistance54.range?esc(`${plan.mildDistance54.range.min}〜${plan.mildDistance54.range.max}m`):'未収録'}／目標 ${esc(plan.mildDistance54.race)}。<b>${plan.mildDistance54.rangeStatus==='covered'?'距離範囲内':plan.mildDistance54.rangeStatus==='outside'?'距離範囲外（要注意）':'距離適性未確認'}</b>。自家製締め種への継承は有志研究による推定で、得意距離の一致やゲーム内の能力を保証しません。</div>`:''}
  ${mild30Html(plan)}
  ${reuse44Html(plan)}
+ ${production63Html(plan)}
  ${auto21Flow(plan)}
  ${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}
  ${plan.externalReview48?`<div class="btnrow"><button class="btn grey" type="button" data-external-review="${esc(plan.id)}">種・肌・産駒の31枠を外部照合用に出力（TXT）</button></div><p class="muted">ダビふぁく等に照らして目視で確認するための資料です。ツールへの自動転送・至高成立の確定判定ではありません。</p>`:''}

@@ -73,8 +73,8 @@ test('v5.3 SW and html both load and cache module',()=>{
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
  assert(html.includes('research-mild-polish-v53.js?v=61'));
- assert(html.indexOf('research-mild-polish-v53.js?v=61')<html.indexOf('app.js?v=69'));
- assert(sw.includes('dbms-v69-1'));
+ assert(html.indexOf('research-mild-polish-v53.js?v=61')<html.indexOf('app.js?v=69b'));
+ assert(sw.includes('dbms-v69b-1'));
  assert(sw.includes("'./research-mild-polish-v53.js'"));
 });
 console.log(`${n} v5.3 mild-polish tests passed`);

@@ -48,8 +48,8 @@ check('v58 application hooks, stage6 only, PWA cache and existing save key',()=>
  assert(app.includes("hard23Save(draft,mild58Trial,goal,{tested:mild58.tested},{mode:'mild'})"));
  assert(app.includes("options.mode==='mild'?'mild':'hard'"));
  assert(app.includes('p?.mild58?.chosenSireId===t.grafts[6][0]'));
- assert(html.indexOf('research-mild-graft-v58.js?v=62')<html.indexOf('app.js?v=69'));
- assert(sw.includes('dbms-v69-1')&&sw.includes("'./research-mild-graft-v58.js'"));
+ assert(html.indexOf('research-mild-graft-v58.js?v=62')<html.indexOf('app.js?v=69b'));
+ assert(sw.includes('dbms-v69b-1')&&sw.includes("'./research-mild-graft-v58.js'"));
  assert(app.includes("const SAVE_KEY='dabimas_lab_v02_state'"));
 });
 console.log(`${count} v5.8 tests passed`);

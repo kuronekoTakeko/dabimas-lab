@@ -251,8 +251,35 @@ function renderHard23Panel(p){
   <div class="notice warn">${linked<9?`基本9工程の仮馬連結が現在${linked}/9件です。親の変更により血統が更新されている場合は再確認してください。`:'基本9工程は仮馬として連結されています。'}
   工程が増えても血統5代の枠に残らない場合は追加していません。数値の採用基準はウマゲノム等の結果から入力してください。</div></section>`;
 }
+// v6.9b: The optional prerequisite births are real production stages, but
+// not slots in the immutable 9-stage pedigree inheritance DAG. Preserve those
+// nine indices and all pre-v6.9 saved plans; render prerequisites BEFORE step1.
+function mild69PrepStages(p){
+ if(!isMaternalDDS67(p)||!p?.mild67)return [];
+ const items=[];
+ for(const [kind,info,label,sex,target] of [
+  ['sire',p.mild67.prep,'締め肌の父を1代生産','牡','基幹工程2の父'],
+  ['mare',p.mild67.marePrep,'ディープに付ける基礎牝馬を1代生産','牝','基幹工程1の母']]){
+  if(!info)continue;
+  const foal=state.homebreds.find(h=>key(h.id)===key(info.foalId));
+  const progress=p.mild67.prepProgress?.[kind]||{};
+  items.push({kind,info,label,sex,target,foal,progress});
+ }
+ return items;
+}
+function mild69FlowCount(p){return (p.steps||[]).length+mild69PrepStages(p).length;}
+function mild69PrepDone(p){return mild69PrepStages(p).filter(x=>x.progress.done===true).length;}
+function mild69PrepEditor(p){
+ const items=mild69PrepStages(p);if(!items.length)return '';
+ return `<div class="notice"><b>追加の準備工程 ${items.length}件</b>：これらを先に生産してから、下の基幹工程1〜9へ進みます。9工程の血統配置はそのまま維持し、準備工程を省略しません。</div>`+
+ items.map((x,i)=>`<details class="prod-step" data-m69-kind="${x.kind}"><summary><span><b>準備${i+1}｜${esc(x.label)}</b><small>${esc(x.info.fatherId)} × ${esc(x.info.motherId)} → ${esc(x.foal?.name||x.info.foalId||'仮馬未登録')}</small></span><span class="prod-step-meta">${x.sex} ／ ${x.progress.done?'完了':'未完了'}<span class="prod-step-chevron">詳細</span></span></summary><div class="prod-step-body"><p class="muted">生産順 ${i+1}/${mild69FlowCount(p)} ｜ ${x.target}として使用（登録ID：${esc(x.info.foalId||'未記録')}）。${x.foal?.mode==='real'?'自家製馬の記録は「実馬」です。':'仮馬のため、ゲーム内ではまだ生産済みとは扱いません。'}</p>
+ <div class="plan-fields"><label>必要な性別<input class="plan-input" value="${x.sex}" disabled></label><label>工程の状態<select class="plan-input" data-m69-field="done"><option value="false" ${!x.progress.done?'selected':''}>未完了</option><option value="true" ${x.progress.done?'selected':''}>完了（手動記録）</option></select></label>
+ <label>最低許容 SP（実測後に設定）<input class="plan-input" data-m69-field="minSP" value="${esc(x.progress.minSP||'')}" placeholder="未設定"></label><label>最低許容 ST（実測後に設定）<input class="plan-input" data-m69-field="minST" value="${esc(x.progress.minST||'')}" placeholder="未設定"></label>
+ <label class="wide">ゲーム内の生産・ゲノム結果<input class="plan-input" data-m69-field="result" value="${esc(x.progress.result||'')}" placeholder="未確認（予想値は自動入力しません）"></label><label class="wide">準備メモ<textarea class="plan-textarea" data-m69-field="note">${esc(x.progress.note||'')}</textarea></label></div>
+ <p class="muted">工程の完了チェックと、自家製馬を実馬として登録する操作は別です。父母・因子の実測は「自家製馬」画面で確認してください。</p></div></details>`).join('');
+}
 function renderSavedPlans(){const all=Array.isArray(state.plans)?state.plans:[];const q=normalize($('planSearch')?.value||'').toLowerCase();const sf=$('planStatusFilter')?.value||'all';let arr=[...all].filter(p=>(sf==='all'||p.status===sf)&&(!q||normalize([p.title,p.target,p.note,(p.source?.members||[]).map(m=>m.id).join(' ')].join(' ')).toLowerCase().includes(q)));arr.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));$('savedPlanCount').textContent=`保存済み${all.length}件 ／ 表示${arr.length}件`;
-$('savedPlans').innerHTML=arr.length?arr.map(p=>{const extra=p.hard23?.preparations||p.prep17?.steps||[],n=(p.steps||[]).length+extra.length,d=(p.steps||[]).filter(s=>s.done).length+extra.filter(s=>s.done).length;return`<div class="card"><div class="plan-head"><div><strong>${esc(p.title)}</strong><div class="muted">${esc(p.target||'対象レース未設定')} ／ ${esc(p.status||'構想')}</div></div>${chip(`${d}/${n}工程`)}</div><p class="muted" style="margin:8px 0">${(p.source?.members||[]).map(m=>esc(m.id)).join('、')||'使用馬は未登録'}</p><div class="muted">更新：${esc(dateJP(p.updatedAt))} ／ ${p.source?.validated?'':'至高成立未検証'}</div><div class="plan-actions"><button class="btn small" data-open-plan="${esc(p.id)}">計画を開く・編集</button><button class="btn ghost small" data-duplicate-plan="${esc(p.id)}">複製</button><button class="btn danger small" data-delete-plan="${esc(p.id)}">削除</button></div></div>`}).join(''):'<div class="empty">保存された配合プランはありません。「自動設計」で条件を選び、配合プランを作成してください。</div>';
+$('savedPlans').innerHTML=arr.length?arr.map(p=>{const extra=p.hard23?.preparations||p.prep17?.steps||[],preps=mild69PrepStages(p),n=(p.steps||[]).length+extra.length+preps.length,d=(p.steps||[]).filter(s=>s.done).length+extra.filter(s=>s.done).length+mild69PrepDone(p);return`<div class="card"><div class="plan-head"><div><strong>${esc(p.title)}</strong><div class="muted">${esc(p.target||'対象レース未設定')} ／ ${esc(p.status||'構想')}</div></div>${chip(`${d}/${n}工程`)}</div><p class="muted" style="margin:8px 0">${(p.source?.members||[]).map(m=>esc(m.id)).join('、')||'使用馬は未登録'}</p><div class="muted">更新：${esc(dateJP(p.updatedAt))} ／ ${p.source?.validated?'':'至高成立未検証'}</div><div class="plan-actions"><button class="btn small" data-open-plan="${esc(p.id)}">計画を開く・編集</button><button class="btn ghost small" data-duplicate-plan="${esc(p.id)}">複製</button><button class="btn danger small" data-delete-plan="${esc(p.id)}">削除</button></div></div>`}).join(''):'<div class="empty">保存された配合プランはありません。「自動設計」で条件を選び、配合プランを作成してください。</div>';
 
 }
 
@@ -620,9 +647,9 @@ ${p.externalReview48?`<div class="btnrow"><button class="btn grey small" type="b
 ${p.hard23?`<details class="prod-optional"><summary>本気型の事前仕込み工程（${p.hard23.preparations?.length||0}工程）</summary>${renderHard23Panel(p)}</details>`:''}
 ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：実測因子を反映した最終血統（未測定の場合は参考値）</summary>${v28LivePanel(p)}</details>`:''}
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
-<h3 class="heading">生産フローの確認・進捗記録（${(p.steps||[]).length}工程）</h3>
+<h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-<div id="planStepEditor">${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
+<div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
 <p class="muted" id="planSaveStatus">最終保存：${esc(dateJP(p.updatedAt))}</p>`;
@@ -746,8 +773,17 @@ $('candidates')?.addEventListener('click',e=>{const btn=e.target.closest('[data-
 if($('createPlan'))$('createPlan').onclick=()=>{const p=newPlan();state.plans.unshift(p);persist();renderSavedPlans();showPlanEditor(p.id);};
 $('planSearch').oninput=renderSavedPlans;$('planStatusFilter').onchange=renderSavedPlans;
 $('savedPlans').addEventListener('click',e=>{const open=e.target.closest('[data-open-plan]'),dup=e.target.closest('[data-duplicate-plan]'),del=e.target.closest('[data-delete-plan]');if(open){showPlanEditor(open.dataset.openPlan);return;}if(dup){const p=getPlan(dup.dataset.duplicatePlan);if(!p)return;const c=JSON.parse(JSON.stringify(p));c.id=uid();c.title+='（コピー）';c.createdAt=nowISO();c.updatedAt=c.createdAt;state.plans.unshift(c);persist();renderSavedPlans();return;}if(del){const p=getPlan(del.dataset.deletePlan);if(!p)return;if(!confirm('「'+p.title+'」を削除しますか？ この操作は元に戻せません。'))return;state.plans=state.plans.filter(x=>x.id!==p.id);persist();renderSavedPlans();}});
-$('planEditor').addEventListener('input',e=>{const p=getPlan(openPlanId);if(!p)return;const v=e.target;const f=v.dataset.planField;if(f){p[f]=v.value;touchPlan(p);return;}const sf=v.dataset.stepField;if(sf){const i=Number(v.closest('[data-step-index]')?.dataset.stepIndex);if(p.steps[i]){p.steps[i][sf]=sf==='done'?v.value==='true':v.value;touchPlan(p);const missing=$('benchMissingCount');if(missing)missing.textContent=String(p.steps.filter(x=>!x.minSP||!x.minST).length);}}const hf=v.dataset.h23Field;if(hf&&p.hard23){const i=Number(v.closest('[data-h23-index]')?.dataset.h23Index),r=p.hard23.preparations[i];if(r){r[hf]=hf==='done'?v.value==='true':v.value;touchPlan(p);}}});
-$('planEditor').addEventListener('change',e=>{if(e.target.matches('select[data-plan-field],select[data-step-field],select[data-h23-field]'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
+$('planEditor').addEventListener('input',e=>{const p=getPlan(openPlanId);if(!p)return;const v=e.target;const mf=v.dataset.m69Field;
+ if(mf&&p.mild67){const kind=v.closest('[data-m69-kind]')?.dataset.m69Kind;
+  if(['sire','mare'].includes(kind)&&['done','minSP','minST','result','note'].includes(mf)){
+   p.mild67.prepProgress=p.mild67.prepProgress||{};
+   const rec=p.mild67.prepProgress[kind]||(p.mild67.prepProgress[kind]={});
+   rec[mf]=mf==='done'?v.value==='true':v.value;
+   touchPlan(p);return;
+  }
+ }
+ const f=v.dataset.planField;if(f){p[f]=v.value;touchPlan(p);return;}const sf=v.dataset.stepField;if(sf){const i=Number(v.closest('[data-step-index]')?.dataset.stepIndex);if(p.steps[i]){p.steps[i][sf]=sf==='done'?v.value==='true':v.value;touchPlan(p);const missing=$('benchMissingCount');if(missing)missing.textContent=String(p.steps.filter(x=>!x.minSP||!x.minST).length);}}const hf=v.dataset.h23Field;if(hf&&p.hard23){const i=Number(v.closest('[data-h23-index]')?.dataset.h23Index),r=p.hard23.preparations[i];if(r){r[hf]=hf==='done'?v.value==='true':v.value;touchPlan(p);}}});
+$('planEditor').addEventListener('change',e=>{if(e.target.matches('select[data-plan-field],select[data-step-field],select[data-h23-field],select[data-m69-field]'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
 $('planEditor').addEventListener('click',e=>{const p=getPlan(openPlanId);if(!p)return;const step=e.target.closest('[data-step-index]'),i=Number(step?.dataset.stepIndex),mv=e.target.closest('[data-move-step]'),rm=e.target.closest('[data-remove-step]');if(!Number.isInteger(i)||!p.steps[i])return;if(rm){if(!confirm('この工程を削除しますか？'))return;p.steps.splice(i,1);touchPlan(p);showPlanEditor(p.id);}else if(mv){const k=i+(mv.dataset.moveStep==='up'?-1:1);if(k<0||k>=p.steps.length)return;[p.steps[i],p.steps[k]]=[p.steps[k],p.steps[i]];touchPlan(p);showPlanEditor(p.id);}});
 if($('exportPlans'))$('exportPlans').onclick=()=>dl('dabimas_saved_plans_v13.json',{version:13,plans:state.plans,homebreds:state.homebreds});
 
@@ -1071,15 +1107,15 @@ function renderChain09(p){
  const ch=chain09Data(p),ss=chain09Summary(p);
  const mareOpts=[...mareRows(),...getHomeParents('female')].map(r=>`<option value="${esc(r.id)}"></option>`).join('');
  const sireOpts=[...maleRows(),...getHomeParents('male')].map(r=>`<option value="${esc(r.id)}"></option>`).join('');
- let body=`<div class="card"><h3>v1.1｜9工程の血統を自動で連結</h3><p class="muted">${isMaternal66(p)?isMaternalDDS67(p)?'P1・Q1・Q2・R1・R2・R3の名牝と所持種牡馬A（必要時は1代仕込み）を使用。工程1はディープ直仔牝、工程2で締め肌を作ります。':'登録済みのP1・P2・Q1・Q2・R1・R2・R3と取得済みディープ3因名を使います。補助種牡馬Xは不要です。':'登録済みのP1〜R2と補助種牡馬Xを使います。'}<b>順番に進める</b>場合は作成後に次の工程へ移動し、<b>一括連結</b>では親の揃った工程を1→9の順で自動生成します。途中で親馬が不足していればそこで止まります。生成する馬はすべて<b>未生産の計画上の仮馬</b>です。</p><div class="chain-summary"><b>有効な連結 ${ss.linked}/9工程</b> ／ 次に生成できる工程 ${ss.ready}件 ／ 再確認が必要 ${ss.stale}件<br><span class="chain-note">後から親を変更した場合は影響を受ける工程の仮馬を再生成します。古い仮馬の記録は削除されません。</span></div><div class="chain-actions"><button class="btn small ghost" id="chain09GoNext">次の未完了工程へ移動</button><button class="btn small" id="chain09AutoAll" ${ss.linked===9?'disabled':''}>残りを1→9で一括仮連結</button></div><p id="chain09Status" class="chain09-status" role="status" aria-live="polite"></p><datalist id="chainMareList09">${mareOpts}</datalist><datalist id="chainSireList09">${sireOpts}</datalist><div class="chain-grid">`;
+ let body=`<div class="card"><h3>${mild69PrepStages(p).length?`v6.9b｜生産全${mild69FlowCount(p)}工程（準備${mild69PrepStages(p).length}＋基幹9）の血統連結`:'v1.1｜9工程の血統を自動で連結'}</h3><p class="muted">${isMaternal66(p)?isMaternalDDS67(p)?'P1・Q1・Q2・R1・R2・R3の名牝と所持種牡馬A（必要時は1代仕込み）を使用。工程1はディープ直仔牝、工程2で締め肌を作ります。':'登録済みのP1・P2・Q1・Q2・R1・R2・R3と取得済みディープ3因名を使います。補助種牡馬Xは不要です。':'登録済みのP1〜R2と補助種牡馬Xを使います。'}<b>順番に進める</b>場合は作成後に次の工程へ移動し、<b>一括連結</b>では親の揃った工程を1→9の順で自動生成します。途中で親馬が不足していればそこで止まります。生成する馬はすべて<b>未生産の計画上の仮馬</b>です。</p><div class="chain-summary"><b>有効な連結 ${ss.linked}/9工程</b> ／ 次に生成できる工程 ${ss.ready}件 ／ 再確認が必要 ${ss.stale}件<br><span class="chain-note">後から親を変更した場合は影響を受ける工程の仮馬を再生成します。古い仮馬の記録は削除されません。</span></div><div class="chain-actions"><button class="btn small ghost" id="chain09GoNext">次の未完了工程へ移動</button><button class="btn small" id="chain09AutoAll" ${ss.linked===9?'disabled':''}>残りを1→9で一括仮連結</button></div><p id="chain09Status" class="chain09-status" role="status" aria-live="polite"></p><datalist id="chainMareList09">${mareOpts}</datalist><datalist id="chainSireList09">${sireOpts}</datalist><div class="chain-grid">`;
  // v6.7: show the optional 10th birth explicitly; it is not an untracked 'X'.
  if(isMaternalDDS67(p)&&p.mild67?.prep){
   const prep=p.mild67.prep,prepared=state.homebreds.find(h=>key(h.id)===key(prep.foalId));
-  body+=`<div class="chain-tile ${prepared?'ok':'stale'}" data-chain-tile="prep"><div class="chain-title">追加準備｜締め肌の父Aを1代生産（工程1より前）</div><div class="chain-parents"><label>父（取得済み種牡馬）<div class="chain-parent-static">${esc(prep.fatherId)}</div></label><label>母（公開名牝）<div class="chain-parent-static">${esc(prep.motherId)}</div></label></div><div class="chain-state">牡馬を生産・選別。G1実績や実測値が必要かはゲーム内で確認。</div><div class="chain-output">産駒：${esc(prepared?.name||'未登録・要確認')} ${chip(prepared?.mode==='real'?'実馬':'未生産の仮馬',prepared?.mode==='real'?'owned':'warn')}</div></div>`;
+  body+=`<div class="chain-tile ${prepared?'ok':'stale'}" data-chain-tile="prep"><div class="chain-title">準備1｜締め肌の父Aを1代生産（基幹工程1より前）</div><div class="chain-parents"><label>父（取得済み種牡馬）<div class="chain-parent-static">${esc(prep.fatherId)}</div></label><label>母（公開名牝）<div class="chain-parent-static">${esc(prep.motherId)}</div></label></div><div class="chain-state">牡馬を生産・選別。G1実績や実測値が必要かはゲーム内で確認。</div><div class="chain-output">産駒：${esc(prepared?.name||'未登録・要確認')} ${chip(prepared?.mode==='real'?'実馬':'未生産の仮馬',prepared?.mode==='real'?'owned':'warn')}</div></div>`;
  }
  if(isMaternalDDS67(p)&&p.mild67?.marePrep){
   const prep=p.mild67.marePrep,prepared=state.homebreds.find(h=>key(h.id)===key(prep.foalId));
-  body+=`<div class="chain-tile ${prepared?'ok':'stale'}" data-chain-tile="prep-mare"><div class="chain-title">追加準備｜ディープに付ける基礎繁殖牝馬を1代生産（工程1より前）</div><div class="chain-parents"><label>父（取得済み種牡馬）<div class="chain-parent-static">${esc(prep.fatherId)}</div></label><label>母（公開名牝）<div class="chain-parent-static">${esc(prep.motherId)}</div></label></div><div class="chain-state">牝馬を生産してディープに種付けします。ゲーム内理論・能力は未確認。</div><div class="chain-output">産駒：${esc(prepared?.name||'未登録・要確認')} ${chip(prepared?.mode==='real'?'実馬':'未生産の仮馬',prepared?.mode==='real'?'owned':'warn')}</div></div>`;
+  body+=`<div class="chain-tile ${prepared?'ok':'stale'}" data-chain-tile="prep-mare"><div class="chain-title">準備${p.mild67?.prep?2:1}｜ディープに付ける基礎繁殖牝馬を1代生産（基幹工程1より前）</div><div class="chain-parents"><label>父（取得済み種牡馬）<div class="chain-parent-static">${esc(prep.fatherId)}</div></label><label>母（公開名牝）<div class="chain-parent-static">${esc(prep.motherId)}</div></label></div><div class="chain-state">牝馬を生産してディープに種付けします。ゲーム内理論・能力は未確認。</div><div class="chain-output">産駒：${esc(prepared?.name||'未登録・要確認')} ${chip(prepared?.mode==='real'?'実馬':'未生産の仮馬',prepared?.mode==='real'?'owned':'warn')}</div></div>`;
  }
  for(const d of chain09Definitions(p)){
   const pair=chain09Parents(p,d.n),out=chain09Output(p,d.n),status=out.horse?'次工程へ連結済み':pair.ready?'親が揃いました。仮馬を作成できます':pair.problems.join(' ／ ');
@@ -2841,6 +2877,10 @@ function auto21Flow(plan){
  for(const step of plan.prep17?.steps||[]){
   lines.push(`<li class="a21-step"><b>準備${esc(step.label)}牝：${esc(step.father)} × ${esc(step.mother)}</b><small>牝馬を生産 → ${step.targetStep===0?'準備P1牝の母として使用':'通常工程'+step.targetStep+'へ'}。最低SP/STはゲノム確認後に設定</small></li>`);
  }
+ const mildPreps=mild69PrepStages(plan);
+ for(const [i,x] of mildPreps.entries()){
+  lines.push(`<li class="a21-step"><b>準備${i+1}｜${esc(x.info.fatherId)} × ${esc(x.info.motherId)} → ${esc(x.foal?.name||x.info.foalId||'未登録')}</b><small>${esc(x.label)}。必要な性別：${x.sex}／用途：${x.target}。進捗：${x.progress.done?'完了（手動記録）':'未完了'}。${x.foal?.mode==='real'?'自家製馬は実馬登録済み':'未生産の仮馬'}。</small></li>`);
+ }
  for(let n=1;n<=9;n++){
   const step=plan.steps[n-1],sex=chain09Definitions(plan)[n-1].sex==='female'?'牝':n===9?'性別不問':'牡';
   const chosen=n===9?'公式BC向けの本番産駒':sex==='牝'?'繁殖牝馬に採用':'次工程用の牡馬';
@@ -2849,7 +2889,7 @@ function auto21Flow(plan){
   if(reused){lines.push(`<li class="a21-step"><b>工程${n}｜実馬 ${esc(reused.id)} を再利用（新規生産不要）</b><small>父母・性別・登録31枠の一致を検査済み。元の実馬記録には変更を加えません。本人因子や元データの変更時は再検証してください。</small></li>`);continue;}
   lines.push(`<li class="a21-step"><b>工程${n}｜${esc(step.cross)}</b><small>必要：${esc(chosen)}／${sex}。${sex==='牝'?'SP/ST最低ライン：未設定（ゲーム内解析を記録して設定）':'SP/ST：実測データなし・数値を捏造しません'}</small>${v27MaleCore(n,plan)?`<small>${v27FactorHint(plan,v27Wanted(plan,step),plan.chain09?.outputs?.[n])}</small>`:''}${xReason}</li>`);
  }
- return `<details class="a21-flow" open><summary>生産順の配合フロー（${plan.mild50?`新規${plan.mild50.productionStages}工程／9枠`:lines.length+'工程'}）</summary><p class="muted v27-note">本人因子のゲーム内確認：${v27ConfirmedCount(plan).actual}/${v27ConfirmedCount(plan).total}頭（連結済みの自家製牡馬）。<br>自家製牡馬の「希望因子」は能力方針から示した<b>仮目標</b>です。因子付与を保証しません。生産後は「自家製馬」タブで実際の本人因子を記録してください。実測因子の影響は、保存プラン内の実測因子プレビューで再計算します。至高成立は未確認です。</p><ol>${lines.join('')}</ol></details>`;
+ return `<details class="a21-flow" open><summary>生産順の配合フロー（${plan.mild50?`合計${plan.mild50.productionStages}工程／基幹9枠`:lines.length+'工程'}）</summary><p class="muted v27-note">本人因子のゲーム内確認：${v27ConfirmedCount(plan).actual}/${v27ConfirmedCount(plan).total}頭（連結済みの自家製牡馬）。<br>自家製牡馬の「希望因子」は能力方針から示した<b>仮目標</b>です。因子付与を保証しません。生産後は「自家製馬」タブで実際の本人因子を記録してください。実測因子の影響は、保存プラン内の実測因子プレビューで再計算します。至高成立は未確認です。</p><ol>${lines.join('')}</ol></details>`;
 }
 // v3.4: transparent read-only preflight; no ability prediction, no theory confirmation.
 function audit34Html(plan,ped){
@@ -2900,15 +2940,17 @@ function production63Html(plan){
  const closing=chain09Parents(plan,chain09ClosureStep(plan));
  const theory=closing?.ready&&closing?.ped?currentParentTheory68()?.inspect(closing.ped):null;
  const data=api.analyze({plan,inventory:state.owned,resolve:id=>findParentHorse(id),theory});
- const entry=data.first;
+ const entry=data.first,firstPrep=mild69PrepStages(plan)[0];
+ const prepStart=firstPrep?`最初の準備交配：<b>${esc(firstPrep.info.fatherId)} × ${esc(firstPrep.info.motherId)}</b> → ${firstPrep.sex}を生産（${firstPrep.target}に使用）。`:'',
+  prepLists=mild69PrepStages(plan).map((x,i)=>`<li>準備${i+1}：${esc(x.info.fatherId)} × ${esc(x.info.motherId)} → ${esc(x.foal?.name||x.info.foalId||'未登録')}（${x.sex}）</li>`).join('');
  const list=data.steps.map(x=>`<li>工程${x.step}の起点種牡馬：${esc(x.sire)} ／ ${esc(x.status)}${x.rights!==null?`（現在${x.rights}回）`:''}</li>`).join('');
  return `<details class="a21-flow" open><summary>v6.3｜生産開始前の所持・種付け権利チェック</summary>
- <p class="muted">${entry?`最初の交配候補：<b>${esc(entry.sire)} × ${esc(plan.chain09?.mares?.[1]||'母馬未指定')}</b>。`:'最初の交配は未確定です。'}
+ <p class="muted">${prepStart|| (entry?`最初の交配候補：<b>${esc(entry.sire)} × ${esc(plan.chain09?.mares?.[1]||'母馬未指定')}</b>。`:'最初の交配は未確定です。')}
  ${data.zero?`権利数0の起点種牡馬${data.zero}件。種付け前に権利の補充を確認してください。`:''}
  ${data.missing?`所持未確認${data.missing}件。`:''}
- 締め肌の工程${chain09ClosureStep(plan)}：${esc(data.closingTheory)}。${data.breedingReady?'起点種牡馬の所持・権利は登録上確認できました。':'起点種牡馬の所持・権利に要確認項目があります。'}
- ただし、同一権利の複数回使用・母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
- <ul>${list}</ul><p class="muted">締め肌の超完璧・完璧、最終至高はゲーム内で必ず確認してください。表示値は現在のブラウザの登録情報に基づきます。未確認の能力値を予想しません。</p></details>`;
+ 締め肌の工程${chain09ClosureStep(plan)}：${esc(data.closingTheory)}。${data.breedingReady?'基幹工程の起点種牡馬の所持・権利は登録上確認できました。':'基幹工程の起点種牡馬の所持・権利に要確認項目があります。'}
+ ただし、追加準備で使う種牡馬の権利数、同一権利の複数回使用・母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
+ <ul>${prepLists}${list}</ul><p class="muted">締め肌の超完璧・完璧、最終至高はゲーム内で必ず確認してください。表示値は現在のブラウザの登録情報に基づきます。未確認の能力値を予想しません。</p></details>`;
 }
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
@@ -2922,6 +2964,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
  <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計・追加仕込み含む）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜${isMaternalDDS67(plan)?'ディープ直仔牝馬×取得済み締め肌父Aを逆算（必要なら1代仕込み）':isMaternal66(plan)?'公開名牝7頭と所持ディープ3頭を配置しました（補助X不要）':'名牝6頭と所持種牡馬を自動配置しました'}。</p>
+ ${mild69PrepStages(plan).length?`<p class="notice"><b>追加準備 ${mild69PrepStages(plan).length}工程</b>を基幹工程1より前に生産します。下の「生産順の配合フロー」に父母・産駒を記載しています。</p>`:''}
  ${plan.mild50?.reusedCount?`<p class="notice"><b>v5.0 実馬再利用：${plan.mild50.reusedCount}工程短縮</b>。基本9工程のうち新規生産は${plan.mild50.productionStages}工程です。既存実馬の父母・性別・31枠を一致検証しました。実馬記録の編集時はリンクを再確認します。</p>`:''}
  ${!isMaternal66(plan)&&!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
  ${plan.mildDiversity60?`<details class="a21-flow"><summary>v6.0｜親系統・子系統の配置監査（非Ro優先）</summary><p>必須至高の3×4×5祖先とその子孫を除く、4・5代目の対象${esc(plan.mildDiversity60.eligibleSlots)}枠：親系統判明${esc(plan.mildDiversity60.parentKnown)}枠／未確認${esc(plan.mildDiversity60.parentUnknown)}枠。判明したRo ${esc(plan.mildDiversity60.extraRoyalCharger)}枠・非Ro ${esc(plan.mildDiversity60.nonRoyalCharger)}枠。子系統判明${esc(plan.mildDiversity60.childLineKnown)}枠／異なる子系統${esc(plan.mildDiversity60.distinctChildLines)}種類。</p><p class="muted">親系統は公式に明記された一部の祖先のみ参照。未確認は非Roとみなしません。至高と途中の完璧・超完璧の条件を優先し、研究評価が同点の場合だけ重複Roを抑えます。子系統数が多ければ強いと保証するものではありません。</p></details>`:''}

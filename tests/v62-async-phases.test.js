@@ -44,7 +44,7 @@ async function check(label,fn){await fn();count++;console.log('PASS',label);}
   const sw=fs.readFileSync(require('node:path').join(__dirname,'../sw.js'),'utf8');
   assert(app.includes('await mild55Api.optimizeAsync('));assert(app.includes('await api.optimizeAsync({initial:base'));
   assert(app.includes('await api58.optimizeAsync('));assert(html.includes('v6.9'));
-  assert(sw.includes('dbms-v69-1'));
+  assert(sw.includes('dbms-v69b-1'));
  });
  console.log(`${count} v6.2 tests passed`);
 })().catch(e=>{console.error(e);process.exitCode=1});

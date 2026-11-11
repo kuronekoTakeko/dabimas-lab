@@ -35,6 +35,6 @@ test('saved plan version and ownership-compatible storage unchanged',()=>{
 });
 test('browser loads module before app and cache is isolated',()=>{
  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),sw=fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8');
- assert(html.indexOf('research-mild-lineage-v52.js?v=52')<html.indexOf('app.js?v=69'));assert(sw.includes('research-mild-lineage-v52.js'));assert(sw.includes('dbms-v69-1'));
+ assert(html.indexOf('research-mild-lineage-v52.js?v=52')<html.indexOf('app.js?v=69b'));assert(sw.includes('research-mild-lineage-v52.js'));assert(sw.includes('dbms-v69b-1'));
 });
 console.log(n+' v5.2 tests passed');

@@ -68,5 +68,5 @@ for(const goal of ['speed','stamina']){
 }
 assert(html.includes('value="maternal-auto" selected'));
 assert(html.includes('research-flow-guard.js?v=67'));
-assert(html.includes('app.js?v=69'));
-assert(read('sw.js').includes('dbms-v69-1'));
+assert(html.includes('app.js?v=69b'));
+assert(read('sw.js').includes('dbms-v69b-1'));

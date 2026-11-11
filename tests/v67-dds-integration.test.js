@@ -52,7 +52,7 @@ assert.equal(box.DabimasMaternalDDS67.routePriority('dds'),3);
 assert(box.DabimasMaternalDDS67.routePriority('dds')>box.DabimasMaternalDDS67.routePriority('maternal'));
 assert(box.DabimasMaternalDDS67.routePriority('maternal')>box.DabimasMaternalDDS67.routePriority('paternal'));
 assert(source.includes('DabimasMaternalDDS67?.routePriority(trial.routeType)'),'cross-anchor auto route priority must be enforced');
-assert(source.includes('追加準備｜締め肌の父Aを1代生産'),'optional father prep must be visible in plan');
+assert(source.includes('準備1｜締め肌の父Aを1代生産'),'optional father prep must be visible in plan');
 assert.equal(JSON.stringify(box.DabimasMaternalDDS67.derivedPaths()),JSON.stringify({g3:'DDS',g4:'SSSS',g5:'SDSSS'}));
 // A controlled synthetic confirmed-theory oracle is required for the old
 // graph integration fixtures: they contain no reliable parent-system evidence.

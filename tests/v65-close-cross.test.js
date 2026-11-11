@@ -12,6 +12,6 @@ assert(app.includes('if(close65.blocked)conflicts.push('));
 assert(app.includes('if(ped.conflicts.length||ped.known!==31)return null;'));
 assert(app.includes('if(ped.closeCross65?.blocked)problems.push('));
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');const sw=fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8');
-assert(html.indexOf('research-close-cross-v65.js?v=65')<html.indexOf('app.js?v=69'));
+assert(html.indexOf('research-close-cross-v65.js?v=65')<html.indexOf('app.js?v=69b'));
 assert(sw.includes('research-close-cross-v65.js'));
 console.log('PASS v65 close crosses');

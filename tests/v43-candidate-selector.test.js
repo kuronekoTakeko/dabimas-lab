@@ -15,6 +15,6 @@ t('per-family cap and global cap enforced',()=>assert.equal(api.choose([a,b,c,d]
 t('missing factors rejected',()=>assert.equal(api.choose([mk('X',['X1','X2','X3'],[['速'],['長'],['速']])]).length,0));
 t('duplicate IDs rejected',()=>assert.equal(api.choose([mk('X',['X1','X1','X3'],[['短','速'],['長','走'],['中','底']])]).length,0));
 t('input not mutated',()=>{const before=JSON.stringify([a,b]);api.choose([a,b]);assert.equal(JSON.stringify([a,b]),before);});
-t('cache integration and asset order',()=>{const root=path.join(__dirname,'..');const index=fs.readFileSync(path.join(root,'index.html'),'utf8');const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');const app=fs.readFileSync(path.join(root,'app.js'),'utf8');assert(index.indexOf('research-candidate-selector.js?v=43')<index.indexOf('app.js?v=69'));assert(sw.includes('research-candidate-selector.js'));assert(app.includes('getCandidates(0)'));});
+t('cache integration and asset order',()=>{const root=path.join(__dirname,'..');const index=fs.readFileSync(path.join(root,'index.html'),'utf8');const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');const app=fs.readFileSync(path.join(root,'app.js'),'utf8');assert(index.indexOf('research-candidate-selector.js?v=43')<index.indexOf('app.js?v=69b'));assert(sw.includes('research-candidate-selector.js'));assert(app.includes('getCandidates(0)'));});
 t('selector not dependent on rights count',()=>{const owned=JSON.parse(JSON.stringify(a));owned.set[0].rights=0;assert.equal(api.choose([owned]).length,1);});
 console.log(count+' v4.3 tests passed');

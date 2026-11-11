@@ -58,7 +58,7 @@ assert.equal(JSON.stringify({plan,records,pedigree}),before);
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 const app=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');
 const sw=fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8');
-assert(html.indexOf('research-maternal-route-v66.js?v=66')<html.indexOf('app.js?v=69'));
+assert(html.indexOf('research-maternal-route-v66.js?v=66')<html.indexOf('app.js?v=69b'));
 assert(html.includes('id="auto21Route"'));
 assert(sw.includes('research-maternal-route-v66.js'));
 assert(app.includes("n<=(isMaternalDDS67(p)?7:isMaternal66(p)?7:6)"));

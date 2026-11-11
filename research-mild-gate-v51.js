@@ -18,7 +18,7 @@ function inspect(plan,pedigree,homebreds,modules={}){
  if(pedigree?.transmission){const x=pedigree.transmission;
   if(x.conflicts?.length||x.invalid?.length||x.duplicates?.length||x.unresolved?.length)errors.push('親子血統の継承に不整合または未収録がある');
  }
- const positionsForPlan=plan?.routeDraft?.layout==='maternal-g3'?[['DSS','g3'],['SSSS','g4'],['SDSSS','g5']]:positions;
+ const positionsForPlan=plan?.routeDraft?.layout==='maternal-dds-g3'?[['DDS','g3'],['SSSS','g4'],['SDSSS','g5']]:plan?.routeDraft?.layout==='maternal-g3'?[['DSS','g3'],['SSSS','g4'],['SDSSS','g5']]:positions;
  const anchorIds=positionsForPlan.map(([path,slot])=>plan?.routeDraft?.slots?.[slot]);
  const theory=modules.validation?.inspect?.(pedigree,anchorIds,positionsForPlan.map(([path])=>path));
  if(!theory?.sameName||!theory?.idsDistinct||!theory?.sixKindCase||theory?.variantFactorConflicts?.length)errors.push('3×4×5・異因名・6因子種類の一次条件が不足');

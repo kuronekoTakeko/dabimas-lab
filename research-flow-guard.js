@@ -30,12 +30,13 @@ function verify(plan,homebreds,reuseApi=null){
  const byId=new Map((homebreds||[]).map(h=>[norm(h.id),h]));
  const seen=new Set();
  if(!Array.isArray(plan?.steps)||plan.steps.length<9)failures.push('通常9工程の計画が不足');
- const route=plan?.routeDraft?.layout==='maternal-g3';
- const maternalApi=route?(typeof globalThis!=='undefined'&&globalThis.DabimasMaternal66)||null:null;
+ const layout=plan?.routeDraft?.layout;
+ const route=layout==='maternal-g3'||layout==='maternal-dds-g3';
+ const maternalApi=route?(typeof globalThis!=='undefined'&&(layout==='maternal-dds-g3'?globalThis.DabimasMaternalDDS67:globalThis.DabimasMaternal66))||null:null;
  // Never silently validate a maternal-route plan against the legacy DAG.
  // Old cached v6.5 code misreads steps 2/6 sexes and step 7 parents.
- if(route&&(!maternalApi||maternalApi.validateGraph?.().ok!==true||maternalApi.derivedPaths?.().g3!=='DSS')){
-  return {ok:false,failures:['母側3代目の工程検査定義が未読込・不正です。v6.6bのファイルとキャッシュを確認してください'],checked:0,linked:0,route:'maternal-g3'};
+ if(route&&(!maternalApi||maternalApi.validateGraph?.().ok!==true||maternalApi.derivedPaths?.().g3!==(layout==='maternal-dds-g3'?'DDS':'DSS'))){
+  return {ok:false,failures:['母側3代目の工程検査定義が未読込・不正です。v6.7のファイルとキャッシュを確認してください'],checked:0,linked:0,route:layout};
  }
  const defs=route?maternalApi.definitions:definitions;
  for(const def of defs){
@@ -57,7 +58,7 @@ function verify(plan,homebreds,reuseApi=null){
   if(norm(horse.fatherId)!==norm(sire)||norm(horse.motherId)!==norm(mare))failures.push(`工程${def.n}：父母リンクが不一致`);
   if(!validAncestry(horse.ancestry))failures.push(`工程${def.n}：血統31枠の欠落・位置重複・不正`);
  }
- return {ok:failures.length===0,failures,checked:defs.length,linked:seen.size,route:route?'maternal-g3':'paternal-g3'};
+ return {ok:failures.length===0,failures,checked:defs.length,linked:seen.size,route:route?layout:'paternal-g3'};
 }
 return Object.freeze({verify,validAncestry,definitions:Object.freeze(definitions.map(d=>Object.freeze({...d})))});
 });

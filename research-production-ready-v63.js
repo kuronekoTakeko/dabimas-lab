@@ -3,16 +3,18 @@
 const norm=s=>String(s||'').normalize('NFKC').trim().toLowerCase();
 function analyze({plan,inventory={},resolve=null,theory=null}={}){
  const slots=plan?.routeDraft?.slots||{},ch=plan?.chain09||{},mares=ch.mares||{},x=ch.xId||plan?.routeDraft?.xSire||'';
- const parents=plan?.routeDraft?.layout==='maternal-g3'?[slots.g3,'',slots.g4,'',slots.g5,'','','','']: [slots.g3,'',slots.g4,'',slots.g5,'',x,'',''];
+ const parents=plan?.routeDraft?.layout==='maternal-dds-g3'?[slots.g3,x,slots.g4,'',slots.g5,'','','','']:plan?.routeDraft?.layout==='maternal-g3'?[slots.g3,'',slots.g4,'',slots.g5,'','','','']:[slots.g3,'',slots.g4,'',slots.g5,'',x,'',''];
  const steps=[];let missing=0,zero=0,unknown=0;
  for(let n=1;n<=9;n++){
   const sire=parents[n-1],mare=mares[n]||'';
   if(!sire)continue; // produced sire on subsequent steps; check root-source rights only
   const rec=inventory[norm(sire)]||null,source=typeof resolve==='function'?resolve(sire):null;
-  const owned=rec?.owned===true;
+  const pendingPrep=plan?.mild67?.prep?.foalId===sire;
+  const owned=pendingPrep?false:rec?.owned===true;
   const rights=rec&&Number.isFinite(Number(rec.rights))?Math.max(0,Number(rec.rights)):null;
   let status='要確認';
-  if(!owned){status='所持確認が必要';missing++;}
+  if(pendingPrep){status='自家製種牡馬の生産・実測待ち';missing++;}
+  else if(!owned){status='所持確認が必要';missing++;}
   else if(rights===0){status='権利0：種付け前に補充が必要';zero++;}
   else if(rights===null){status='権利数未確認';unknown++;}
   else status='権利あり';

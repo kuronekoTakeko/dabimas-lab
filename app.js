@@ -754,9 +754,11 @@ function mareDetail(id){const r=map.get(key(id));if(!r||horseSex(r)!=='female')r
 function getPairParents(p){const x=p.pairCheck||{}; const sire=(x.sireId&&findParentHorse(x.sireId))||(x.sireSnapshot?.id?x.sireSnapshot:null);const mare=(x.mareId&&findParentHorse(x.mareId))||(x.mareSnapshot?.id?x.mareSnapshot:null);return {sire,mare};}
 function getFoalPedigree(sire,mare){
  const ancestor64=window.DabimasDirectAncestor64?.inspect(sire,mare)||{blocked:false,unknown:true,paths:[]};
+ const close65=window.DabimasCloseCross65?.inspect(sire,mare)||{blocked:false,unknown:true,hits:[]};
  // 1 sire root + 15 male ancestors of each selected parent -> all 31 possible sire positions.
  const at=new Map(),conflicts=[];
  if(ancestor64.blocked)conflicts.push(`直接祖先種付け禁止：${sire.name||sire.id} は母側の祖先（${ancestor64.paths.join('・')}）に存在`);
+ if(close65.blocked)conflicts.push(`近親交配回避：2×2・2×3・3×2の共通祖先（${close65.hits.map(h=>h.name+' '+h.degree).join('・')}）`);
  function add(path,name,factors=[],line='',source='',factorVariant=''){
   if(!path||path.length>5||!name)return;
   if(at.has(path)&&key(at.get(path).name)!==key(name)){conflicts.push(`${path}: ${at.get(path).name} と ${name}`);return;}
@@ -771,7 +773,7 @@ function getFoalPedigree(sire,mare){
  const repeats=[...byName.values()].filter(x=>x.length>1).map(x=>({name:x[0].name,paths:x.map(a=>a.path)}));
  const triple=[...byName.values()].filter(x=>[3,4,5].every(d=>x.some(a=>a.path.length===d))).map(x=>x[0].name);
  const factorCounts=countItems(known.flatMap(x=>x.factors));const lineCounts=countItems(known.map(x=>x.line));
- return {rows,known:known.length,repeats,triple,factorCounts,lineCounts,conflicts,transmission,directAncestor:ancestor64,
+ return {rows,known:known.length,repeats,triple,factorCounts,lineCounts,conflicts,transmission,directAncestor:ancestor64,closeCross65:close65,
   crossCheck:classifyIndependentCross15(rows)};
 }
 function renderPairReport(sire,mare){const a=getFoalPedigree(sire,mare);
@@ -957,6 +959,7 @@ function chain09Parents(p,n){
   ped=getFoalPedigree(sire,mare);
   if(ped.known<31)problems.push(`祖先${ped.known}/31枠：不足している血統を確認`);
   if(ped.directAncestor?.blocked)problems.push(`直接祖先種付け禁止：${sire.name||sire.id} が母の血統内（${ped.directAncestor.paths.join('・')}）に存在します。種牡馬を変更してください`);
+  if(ped.closeCross65?.blocked)problems.push(`近親交配回避：${ped.closeCross65.hits.map(h=>h.name+' '+h.degree).join('・')} が父母双方にあります。種牡馬または繁殖牝馬を変更してください`);
   if(ped.conflicts.length&&!ped.directAncestor?.blocked)problems.push('祖先位置の矛盾あり');
  }
  return {sireId,mareId,sire,mare,ped,problems,ready:problems.length===0};

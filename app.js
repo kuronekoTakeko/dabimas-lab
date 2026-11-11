@@ -188,10 +188,10 @@ function v27FactorHint(plan,desired,horseId){
  }
  return `<span class="v27-factor">本人因子の目標（仮）：<b>${esc(goal)}</b> ／ 実際の本人因子：<b>${esc(observed.text)}</b>${observed.verified?'（記録済）':''}${esc(note)}</span>`;
 }
-function v27MaleCore(n){return n>=1&&n<=5;}
+function v27MaleCore(n,plan=null){return plan&&isMaternal66(plan)?chain09Definitions(plan)[n-1]?.sex==='male'&&n!==9:n>=1&&n<=5;}
 function v27ConfirmedCount(plan){
  const ids=[];
- for(let n=1;n<=5;n++)ids.push(plan.chain09?.outputs?.[n]||'');
+ for(let n=1;n<=9;n++)if(v27MaleCore(n,plan))ids.push(plan.chain09?.outputs?.[n]||'');
  for(const r of plan.hard23?.preparations||[])if(r.sex==='牡')ids.push(r.foal);
  const actual=ids.filter(Boolean).filter(id=>v27HomeObserved(id).verified).length;
  return {actual,total:ids.filter(Boolean).length};
@@ -303,7 +303,7 @@ function sumNamedVariants16(entries){
 function effectiveCrossFactors16(rows,plan=null){
  const byPath=new Map((rows||[]).map(r=>[r.path,r]));
  const independent=classifyIndependentCross15(rows||[]),crosses=[],frequency={};
- const slotMap={SSS:'g3',DSSS:'g4',DDDSS:'g5'};
+ const slotMap=plan?Object.fromEntries(anchorPositions66(plan).map(([path,slot])=>[path,slot])):{SSS:'g3',DSSS:'g4',DDDSS:'g5'};
  for(const cross of independent.candidates){
   // Include only endpoints of INDEPENDENT paternal/maternal path pairs.
   const validPaths=[...new Set(cross.pairs.flat())];
@@ -335,7 +335,6 @@ function effectiveCrossFactors16(rows,plan=null){
 function renderCrossFactor16(m){
  const result=m.effective16;
  const counts=Object.entries(result.frequency).sort((a,b)=>FACTORS.indexOf(a[0])-FACTORS.indexOf(b[0]));
- const want=['SSS','DSSS','DDDSS'];
  const shikouCross=result.crosses.find(x=>key(x.name)===key(m.anchors?.[0]?.seen||''));
  const shikouKinds=shikouCross?Object.keys(shikouCross.counts):[];
  return `<section class="r16-section"><h4>v1.6｜有効クロス因子（判明した因名のみ）</h4>
@@ -435,7 +434,7 @@ document.addEventListener('click',e=>{const node=e.target.closest('.p20-node[dat
 });
 function renderGamePedigree20(sire,mare,foal,p=null){
  if(!sire||!mare||!foal?.rows)return '';
- const info=gamePedigreeData20(sire,mare,foal),anchors=new Set(p?.routeDraft?.slots?['SSS','DSSS','DDDSS']:[]);
+ const info=gamePedigreeData20(sire,mare,foal),anchors=new Set(p?.routeDraft?.slots?Object.values(anchorPaths66(p)):[]);
  const rootData=[
   {title:'最終産駒（交配後の5代）',name:'最終産駒',rows:foal.rows,prefix:'',known:foal.known,defaultOpen:true},
   {title:'最終種牡馬（交配前の自身の5代祖先）',name:sire.id||sire.name,rows:info.s.rows,prefix:'S',known:info.s.known},
@@ -456,7 +455,7 @@ function renderGamePedigree20(sire,mare,foal,p=null){
 function kanaPath(p){return String(p||'').replace(/父/g,'S').replace(/母/g,'D');}
 function routeSnapshotMember(id,p){return map.get(key(id))||(p.source?.members||[]).find(x=>key(x.id)===key(id))||null;}
 function getRouteAudit(p,slots,xId=''){
- const raw=[['g3','SSS'],['g4','DSSS'],['g5','DDDSS']];const known=[],issues=[];
+ const raw=anchorPositions66(p).map(([path,slot])=>[slot,path]);const known=[],issues=[];
  function addFrom(r,path,label){
   known.push({path,id:r.name||splitName(r.id).name,label,source:'種牡馬マスター',factors:(r.factors||[]).filter(Boolean),line:r.lineage||'',depth:path.length});
   for(const a of r.ancestry||[]){const ap=kanaPath(a.path),dest=path+ap;if(dest.length>5||!a.horse)continue;known.push({path:dest,id:a.horse,label:a.horse,source:label+'の公開血統',factors:a.factors||[],line:a.line||'',depth:dest.length});}
@@ -573,6 +572,7 @@ function setupRouteAuditPanel(el,p){
 function routeMemberOptions(members,chosen){return members.map(m=>`<option value="${esc(m.id)}" ${m.id===chosen?'selected':''}>${esc(m.id)}</option>`).join('');}
 function defaultRouteSlots(members){const by=v=>members.find(m=>m.variant===v)?.id;return {g3:by('翔燕')||members[0]?.id||'',g4:by('央獅')||members[1]?.id||'',g5:by('煌魂')||members[2]?.id||''};}
 function renderRoutePanel(p){const m=p.source?.members||[];if(m.length<3)return '';
+if(isMaternal66(p))return `<div class="card"><h3>v6.6｜母側3代目ルート</h3><p>指定位置は母側DSS／父側SSSS・SDSSS。位置を変更するとすべての親子工程の再構築が必要です。現在の保存プランは旧式の3×4×5配置へ自動変換しません。</p></div>`;
 const draft=p.routeDraft?.slots||defaultRouteSlots(m);
 return `<div class="card"><h3>3×4×5 祖先配置から仮ルートを作る</h3><p class="muted">因名違いの3頭を3・4・5代へ配置します。「仮ルートを別プランとして生成」を押すと元の保存プランは残したまま、9工程の新しい計画を作ります。</p><div class="route-grid"><label>3代目（父系 SSS）<select id="routeGen3">${routeMemberOptions(m,draft.g3)}</select></label><label>4代目（母系 DSSS）<select id="routeGen4">${routeMemberOptions(m,draft.g4)}</select></label><label>5代目（母系 DDDSS）<select id="routeGen5">${routeMemberOptions(m,draft.g5)}</select></label></div><div class="research"><b>配置の読み方：</b> Sは父、Dは母。たとえば SSS は「父の父の父」、DSSS は「母の父の父の父」、DDDSS は「母の母の母の父の父」です。交配できる血統の形だけを示した仮設計で、空き枠の親系統、血統重複、近親や特殊配合理論は未判定です。</div>${p.routeDraft?`<div class="notice warn">この計画には仮ルートが含まれています。原案は保存されています。</div>`:''}<button class="btn" id="generateRoute">9工程の仮ルートを別プランとして生成</button><div id="routeAuditor"></div></div>`;
 }
@@ -678,7 +678,7 @@ function v28PlanPedigree(p){
  if(ped.conflicts.length)return {error:'最終血統内に祖先矛盾があります',issues:ped.conflicts};
  // If requested 3x4x5 anchors drifted, do not display a cross score as if the
  // original theory assumption were still satisfied.
- const check=[['SSS','g3'],['DSSS','g4'],['DDDSS','g5']].map(([path,slot])=>{
+ const check=anchorPositions66(p).map(([path,slot])=>{
   const r=ped.rows.find(x=>x.path===path),original=routeSnapshotMember(p.routeDraft.slots[slot],p);
   const ok=!!r?.name&&!!original&&key(r.name)===key(original.name||splitName(original.id).name)&&
    JSON.stringify([...(r.factors||[])].sort())===JSON.stringify([...(original.factors||[])].sort());
@@ -718,7 +718,7 @@ function v28LivePanel(p){
 function renderPlanStep(s,i,len,p){return`<details class="prod-step" data-step-index="${i}"><summary><span><b>工程${i+1}｜${esc(s.title||'作業工程')}</b><small>${esc(s.cross||'配合内容未入力')}</small></span><span class="prod-step-meta">${esc(s.sex||'性別未設定')} ／ ${s.done?'完了':'未完了'}<span class="prod-step-chevron">詳細</span></span></summary><div class="prod-step-body"><div class="plan-head"><h4>工程${i+1}の編集</h4><div class="btnrow"><button class="btn grey small" data-move-step="up" ${i===0?'disabled':''}>↑</button><button class="btn grey small" data-move-step="down" ${i===len-1?'disabled':''}>↓</button><button class="btn danger small" data-remove-step="1">削除</button></div></div><div class="plan-fields">
 <label class="wide"><span class="plan-label">工程名</span><input class="plan-input" data-step-field="title" value="${esc(s.title||'')}" maxlength="120"></label><label class="wide"><span class="plan-label">使用種牡馬・繁殖牝馬／作業内容</span><textarea class="plan-textarea" data-step-field="cross">${esc(s.cross||'')}</textarea></label>
 <label><span class="plan-label">必要な性別</span><select class="plan-input" data-step-field="sex">${['','牡','牝','不問'].map(x=>`<option value="${x}" ${s.sex===x?'selected':''}>${x||'未設定'}</option>`).join('')}</select></label><label><span class="plan-label">工程の状態</span><select class="plan-input" data-step-field="done"><option value="false" ${!s.done?'selected':''}>未完了</option><option value="true" ${s.done?'selected':''}>完了</option></select></label>
-${v27MaleCore(i+1)&&s.sex==='牡'?`<label class="wide">希望する本人因子（仮目標・保証なし）<input class="plan-input" data-step-field="wantedFactors" value="${esc(v27Wanted(p,s))}" placeholder="例：速・長"></label><div class="wide">${v27FactorHint(p,v27Wanted(p,s),p.chain09?.outputs?.[i+1])}</div>`:''}
+${v27MaleCore(i+1,p)&&s.sex==='牡'?`<label class="wide">希望する本人因子（仮目標・保証なし）<input class="plan-input" data-step-field="wantedFactors" value="${esc(v27Wanted(p,s))}" placeholder="例：速・長"></label><div class="wide">${v27FactorHint(p,v27Wanted(p,s),p.chain09?.outputs?.[i+1])}</div>`:''}
 <label><span class="plan-label">最低許容 SP（数値またはランク）</span><input class="plan-input" data-step-field="minSP" placeholder="未設定" value="${esc(s.minSP||'')}" maxlength="30"></label><label><span class="plan-label">最低許容 ST（数値またはランク）</span><input class="plan-input" data-step-field="minST" placeholder="未設定" value="${esc(s.minST||'')}" maxlength="30"></label>
 <label class="wide"><span class="plan-label">実測・馬体解析結果</span><input class="plan-input" data-step-field="result" value="${esc(s.result||'')}" placeholder="例：SP B／ST C、採用" maxlength="250"></label><label class="wide"><span class="plan-label">工程メモ</span><textarea class="plan-textarea" data-step-field="note">${esc(s.note||'')}</textarea></label></div></div></details>`;}
 function touchPlan(p){p.updatedAt=nowISO();const ok=persist();renderSavedPlans();const status=$('planSaveStatus');if(status)status.textContent=ok?'保存済み：'+dateJP(p.updatedAt):'保存に失敗しました。データ管理からバックアップを確認してください。';}
@@ -902,6 +902,18 @@ const CHAIN09_DEF=[
  {n:8,sireStep:4,mareStep:7,output:'最終M牝',sex:'female'},
  {n:9,sireStep:2,mareStep:8,output:'最終候補',sex:'male'}
 ];
+// v6.6: maternal Deep 3rd generation, paternal 4th/5th. New plans only;
+// old saved plans without layout continue using the original immutable DAG.
+function isMaternal66(p){return p?.routeDraft?.layout==='maternal-g3'&&!!window.DabimasMaternal66;}
+function anchorPaths66(p){return isMaternal66(p)?window.DabimasMaternal66.anchorPaths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'};}
+function anchorPositions66(p){const paths=anchorPaths66(p);return ['g3','g4','g5'].map(slot=>[paths[slot],slot]);}
+function chain09Definitions(p){return isMaternal66(p)?window.DabimasMaternal66.definitions:CHAIN09_DEF;}
+function chain09ClosureStep(p){return isMaternal66(p)?2:8;}
+function buildMaternal66Steps(slots){return window.DabimasMaternal66.steps(slots).map((d,i)=>makeStep(
+  `${String(i+1).padStart(2,'0')} ${i===1?'締め肌M':i===7?'最終種牡馬':i===8?'公式BC本番':'血統の仕込み'}・${d.sex==='female'?'牝':'牡'}`,
+  d.cross,d.n===9?'不問':d.sex==='female'?'牝':'牡',
+  'v6.6：母側DSS／父側SSSS・SDSSSを9工程の仮交配で構築。至高・途中理論・本人因子・SP/STはゲーム内未確認。'
+ ));}
 function chain09Data(p){if(!p.chain09||typeof p.chain09!=='object')p.chain09={};
  const ch=p.chain09;if(!ch.mares||typeof ch.mares!=='object')ch.mares={};
  if(!ch.outputs||typeof ch.outputs!=='object')ch.outputs={};
@@ -909,7 +921,7 @@ function chain09Data(p){if(!p.chain09||typeof p.chain09!=='object')p.chain09={};
  if(!['male','female'].includes(ch.finalSex))ch.finalSex='male';
  return ch;
 }
-function chain09ExpectedSex(p,n){return n===9?chain09Data(p).finalSex:CHAIN09_DEF[n-1].sex;}
+function chain09ExpectedSex(p,n){return n===9?chain09Data(p).finalSex:chain09Definitions(p)[n-1].sex;}
 function chain09Output(p,n){
  if(!n||n>9)return {horse:null};
  const ch=chain09Data(p),id=ch.outputs[n];
@@ -934,7 +946,7 @@ function chain09Output(p,n){
  return {horse,reason:''};
 }
 function chain09Parents(p,n){
- const def=CHAIN09_DEF[n-1],ch=chain09Data(p),slots=p.routeDraft?.slots||{};
+ const def=chain09Definitions(p)[n-1],ch=chain09Data(p),slots=p.routeDraft?.slots||{};
  const depS=def.sireStep?chain09Output(p,def.sireStep):null;
  const depM=def.mareStep?chain09Output(p,def.mareStep):null;
  const sireId=def.sireSlot?(slots[def.sireSlot]||''):def.sireStep?(depS?.horse?.id||''):(ch.xId||'');
@@ -996,14 +1008,14 @@ function mild56TheoryHtml(plan){
  if(plan.hard23||!plan.routeDraft?.slots||!plan.steps?.length)return '';
  const api=window.DabimasParentTheory56;
  if(!api)return '<div class="notice warn">v5.6 親系統診断モジュールが未読込です。</div>';
- const pair=chain09Parents(plan,8);
- if(!pair.ready||!pair.ped)return `<div class="notice warn"><b>v5.6 工程8（締め肌M）の途中配合理論：</b>未確認。${esc(pair.problems.join('・')||'親子血統の再連結が必要です')}。工程7までの仮馬を連結後に再判定します。</div>`;
+ const closingStep=chain09ClosureStep(plan),pair=chain09Parents(plan,closingStep);
+ if(!pair.ready||!pair.ped)return `<div class="notice warn"><b>v5.6 工程${closingStep}（締め肌M）の途中配合理論：</b>未確認。${esc(pair.problems.join('・')||'親子血統の再連結が必要です')}。締め肌を生産する前の工程を連結後に再判定します。</div>`;
  const r=api.inspect(pair.ped);
  const unknown=r.missing||[];
  const refs=api.PROFILES.map(p=>p.source);
  const status=x=>`<b>${esc(x)}</b>`;
  const issue=r.blocked?`<p class="notice warn">${esc((r.reasons||[]).join('・'))}</p>`:'';
- return `<details class="a21-flow" open><summary>v5.6｜工程8：締め肌を作る途中配合理論（三値診断）</summary>
+ return `<details class="a21-flow" open><summary>v5.6｜工程${closingStep}：締め肌を作る途中配合理論（三値診断）</summary>
  <p class="muted">${esc(pair.sire?.name||pair.sireId)} × ${esc(pair.mare?.name||pair.mareId)} → 最終繁殖牝馬M。<b>子系統とは別の親系統で判定</b>。現時点の根拠：公式種牡馬詳細4件・親系統49頭（公開の一部のみ）。</p>
  <div class="metrics">${chip('完璧：'+r.perfect)} ${chip('超完璧：'+r.superPerfect)} ${chip('奇跡：'+r.miracle+'（参考・マイルド探索対象外）')}</div>
  <p class="muted">面白7系統以上：${status(r.interesting)}（判明${esc(r.interestingDistinct??0)}種類）／見事4枠一致：${status(r.matching)}／面白8系統：${status(r.interestingEight||'未確認')}／奇跡用4×3：${status(r.miracleCross||'未確認')}。</p>
@@ -1016,7 +1028,7 @@ function chain09FinalAudit(p){
  const last=chain09Output(p,9);
  if(!last.horse)return '';
  const pair=chain09Parents(p,9);if(!pair.ready||!pair.ped)return '';
- const expected=[['SSS','g3'],['DSSS','g4'],['DDDSS','g5']];
+ const expected=anchorPositions66(p);
  const rows=new Map(pair.ped.rows.map(r=>[r.path,r]));let matches=0;
  const details=expected.map(([path,g])=>{
   const a=rows.get(path),id=p.routeDraft?.slots?.[g]||'',original=routeSnapshotMember(id,p);
@@ -1033,8 +1045,8 @@ function renderChain09(p){
  const ch=chain09Data(p),ss=chain09Summary(p);
  const mareOpts=[...mareRows(),...getHomeParents('female')].map(r=>`<option value="${esc(r.id)}"></option>`).join('');
  const sireOpts=[...maleRows(),...getHomeParents('male')].map(r=>`<option value="${esc(r.id)}"></option>`).join('');
- let body=`<div class="card"><h3>v1.1｜9工程の血統を自動で連結</h3><p class="muted">登録済みのP1〜R2と補助種牡馬Xを使って仮馬を生成します。<b>順番に進める</b>場合は作成後に次の工程へ移動し、<b>一括連結</b>では親の揃った工程を1→9の順で自動生成します。途中で親馬が不足していればそこで止まります。生成する馬はすべて<b>未生産の計画上の仮馬</b>です。</p><div class="chain-summary"><b>有効な連結 ${ss.linked}/9工程</b> ／ 次に生成できる工程 ${ss.ready}件 ／ 再確認が必要 ${ss.stale}件<br><span class="chain-note">後から親を変更した場合は影響を受ける工程の仮馬を再生成します。古い仮馬の記録は削除されません。</span></div><div class="chain-actions"><button class="btn small ghost" id="chain09GoNext">次の未完了工程へ移動</button><button class="btn small" id="chain09AutoAll" ${ss.linked===9?'disabled':''}>残りを1→9で一括仮連結</button></div><p id="chain09Status" class="chain09-status" role="status" aria-live="polite"></p><datalist id="chainMareList09">${mareOpts}</datalist><datalist id="chainSireList09">${sireOpts}</datalist><div class="chain-grid">`;
- for(const d of CHAIN09_DEF){
+ let body=`<div class="card"><h3>v1.1｜9工程の血統を自動で連結</h3><p class="muted">${isMaternal66(p)?'登録済みのP1・P2・Q1・Q2・R1・R2・R3と取得済みディープ3因名を使います。補助種牡馬Xは不要です。':'登録済みのP1〜R2と補助種牡馬Xを使います。'}<b>順番に進める</b>場合は作成後に次の工程へ移動し、<b>一括連結</b>では親の揃った工程を1→9の順で自動生成します。途中で親馬が不足していればそこで止まります。生成する馬はすべて<b>未生産の計画上の仮馬</b>です。</p><div class="chain-summary"><b>有効な連結 ${ss.linked}/9工程</b> ／ 次に生成できる工程 ${ss.ready}件 ／ 再確認が必要 ${ss.stale}件<br><span class="chain-note">後から親を変更した場合は影響を受ける工程の仮馬を再生成します。古い仮馬の記録は削除されません。</span></div><div class="chain-actions"><button class="btn small ghost" id="chain09GoNext">次の未完了工程へ移動</button><button class="btn small" id="chain09AutoAll" ${ss.linked===9?'disabled':''}>残りを1→9で一括仮連結</button></div><p id="chain09Status" class="chain09-status" role="status" aria-live="polite"></p><datalist id="chainMareList09">${mareOpts}</datalist><datalist id="chainSireList09">${sireOpts}</datalist><div class="chain-grid">`;
+ for(const d of chain09Definitions(p)){
   const pair=chain09Parents(p,d.n),out=chain09Output(p,d.n),status=out.horse?'次工程へ連結済み':pair.ready?'親が揃いました。仮馬を作成できます':pair.problems.join(' ／ ');
   const cls=out.horse?'ok':out.reason&&out.reason!=='産駒未登録'?'stale':'';
   const sireCtrl=d.sireInput?`<input data-chain-edit="sire" data-chain-no="${d.n}" list="chainSireList09" value="${esc(ch.xId||'')}" placeholder="種牡馬Xを選ぶ">`:`<div class="chain-parent-static">${esc(pair.sireId||'前工程待ち')}</div>`;
@@ -1092,7 +1104,7 @@ function setupChainPlanner09(el,p){const root=el.querySelector('#chainPlanner09'
  root.addEventListener('change',e=>{
   const t=e.target,edit=t.dataset.chainEdit;if(!edit)return;
   const ch=chain09Data(p),n=Number(t.dataset.chainNo);
-  if(edit==='mare'&&n>=1&&n<=6)ch.mares[n]=t.value.trim();
+  if(edit==='mare'&&n>=1&&n<=(isMaternal66(p)?7:6))ch.mares[n]=t.value.trim();
   else if(edit==='sire'&&n===7)ch.xId=t.value.trim();
   else if(edit==='sex')ch.finalSex=t.value;
   else return;
@@ -1185,7 +1197,7 @@ function opt10Trial(p,choices,xId){
  const slots=p.routeDraft?.slots||{},outputs={};
  const selected=[];
  for(let n=1;n<=9;n++){
-  const d=CHAIN09_DEF[n-1];
+  const d=chain09Definitions(p)[n-1];
   const sire=d.sireSlot?routeSnapshotMember(slots[d.sireSlot],p):d.sireStep?outputs[d.sireStep]:findParentHorse(xId);
   const mare=d.mareStep?outputs[d.mareStep]:map.get(key(choices[n]||''));
   if(!sire||!mare||horseSex(sire)!=='male'||horseSex(mare)!=='female'||!opt10Self(sire)||!opt10Self(mare))return null;
@@ -1197,7 +1209,7 @@ function opt10Trial(p,choices,xId){
  }
  const final=selected[8];
  const byPath=new Map(final.rows.map(x=>[x.path,x]));
- const anchors=[['SSS',slots.g3],['DSSS',slots.g4],['DDDSS',slots.g5]];
+ const anchors=anchorPositions66(p).map(([path,slot])=>[path,slots[slot]]);
  const matches=anchors.filter(([path,id])=>{
   const r=routeSnapshotMember(id,p),a=byPath.get(path);
   return r&&a&&key(a.name)===key(r.name||splitName(id).name)
@@ -1222,8 +1234,72 @@ function opt10Trial(p,choices,xId){
  const lineScore=p.goal==='speed'?spL*2+stL:p.goal==='stamina'?stL*2+spL:spL+stL;
  const risk=extra.filter(x=>x.paths.some(path=>path.length<=3)).length;
  const idx=lineScore+crossScore-risk*2-effective.uncertain.length;
- return {diversity60:window.DabimasMildDiversity60?.summarize(final,window.DabimasParentTheory56)||null,choices:{...choices},xId,full:final,closingPed:selected[7],finalSire:outputs[2],finalMare:outputs[8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
+ return {diversity60:window.DabimasMildDiversity60?.summarize(final,window.DabimasParentTheory56,{anchors:Object.values(anchorPaths66(p))})||null,choices:{...choices},xId,full:final,closingPed:selected[chain09ClosureStep(p)-1],finalSire:outputs[isMaternal66(p)?8:2],finalMare:outputs[isMaternal66(p)?2:8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
    xLineage:(map.get(key(xId))||{}).lineage||'',xResearchFactors:[...(map.get(key(xId))?.factors||[])],xSearchCount:0};
+}
+// v6.6: Seven public meihin dams + three owned Deep variants, nine REAL mating steps.
+// Conservative: unknown intermediate theory is NOT treated as a success.
+function opt66TheoryRank(candidate){
+ const verdict=candidate?.theory66;if(!verdict||verdict.blocked)return -1;
+ return verdict.superPerfect==='成立'?3:verdict.perfect==='成立'?2:
+  verdict.superPerfect==='未確認'||verdict.perfect==='未確認'?1:0;
+}
+function opt66Compare(a,b){
+ if(!a)return 1;if(!b)return -1;
+ if(a.matches!==b.matches)return b.matches-a.matches;
+ const ta=opt66TheoryRank(a),tb=opt66TheoryRank(b);
+ if(ta!==tb)return tb-ta;
+ return opt10Sort(a,b);
+}
+function opt66Find(p,scope){
+ const fast=scope==='meihin_fast',mareData=opt10MarePool(p,'meihin');
+ const ordered=window.DabimasMildDiversity60?.orderCandidates(mareData.pool,window.DabimasParentTheory56,{mare:true,
+  favorites:Object.fromEntries(mareData.pool.map(r=>[r.id,!!state.mareFavorites[key(r.id)]]))})||mareData.pool;
+ const pool=ordered.slice(0,fast?12:24),mareSteps=window.DabimasMaternal66.mareSteps;
+ if(pool.length<7)return {results:[],tests:0,mares:mareData.eligible,x:0,message:'母側3代目ルートには7枠の名牝候補が必要です。'};
+ const cache=new Map();let count=0;
+ function evaluate(choices){
+  const signature=mareSteps.map(n=>key(choices[n])).join('|');
+  if(cache.has(signature))return cache.get(signature);
+  count++;
+  let c=opt10Trial(p,choices,'');
+  if(c?.matches===3){
+   const verdict=window.DabimasParentTheory56?.inspect?.(c.closingPed)||null;
+   c.theory66=verdict;c.maternal66={closingStep:2,gameVerified:false};
+   const members=Object.fromEntries(['g3','g4','g5'].map(k=>[k,routeSnapshotMember(p.routeDraft.slots[k],p)]));
+   const v=window.DabimasMaternal66.validateFinal(c.full,p.routeDraft.slots,members);
+   if(!v.ok)c=null;
+  }else c=null;
+  cache.set(signature,c);return c;
+ }
+ const results=[];const unique=new Set(),limit=fast?240:560;
+ for(let seed=0;seed<(fast?3:5)&&count<limit;seed++){
+  const choices={};
+  mareSteps.forEach((n,i)=>{choices[n]=pool[(seed*7+i*3)%pool.length].id;});
+  // Births are separate, even when their shared base mare would be reusable;
+  // distinct source mares reduce hidden near-relative concerns.
+  mareSteps.forEach((n,i)=>{
+   if(mareSteps.slice(0,i).some(prior=>key(choices[prior])===key(choices[n])))
+    choices[n]=pool.find(r=>!mareSteps.slice(0,i).some(prior=>key(choices[prior])===key(r.id)))?.id||choices[n];
+  });
+  let best=evaluate(choices);if(!best)continue;
+  for(let round=0;round<2&&count<limit;round++){
+   for(const n of mareSteps){
+    let local=best,chosen=choices[n];
+    for(const record of pool){
+     if(count>=limit)break;
+     if(mareSteps.some(other=>other!==n&&key(choices[other])===key(record.id)))continue;
+     const test=evaluate({...choices,[n]:record.id});
+     if(test&&opt66Compare(test,local)<0){local=test;chosen=record.id;}
+    }
+    choices[n]=chosen;best=local;
+   }
+  }
+  if(best){const k=mareSteps.map(n=>key(best.choices[n])).join('|');if(!unique.has(k)){unique.add(k);results.push(best);}}
+ }
+ results.sort(opt66Compare);
+ return {scope,results:results.slice(0,3),tests:count,mares:mareData.eligible,x:0,
+  limited:count>=limit,message:results.length?'':'母側3代目の9工程と近親検査を同時に通過する候補が見つかりません。'};
 }
 function opt10Sort(a,b){
  // Full specified positions first, then a research sorting index, then fewer early overlaps.
@@ -1335,6 +1411,7 @@ function opt10SaveProposal(p,result,index){
  return {id:duplicate.id};
 }
 function opt10RenderRoot(p){
+ if(isMaternal66(p))return '<div class="optimize10"><h3>v6.6｜母側3代目ルートの7名牝探索</h3><p class="muted">このルートは自動設計で7頭を同時に選択・保存しました。旧式の6名牝＋補助Xの局所比較は、この別ルートでは利用できません。再計算する場合はホームからマイルド自動設計をご利用ください。</p></div>';
  if(!p.routeDraft?.slots||p.steps?.length<9)return '<div class="optimize10"><h3>v1.0｜繁殖牝馬の配合候補比較</h3><p class="muted">9工程の仮ルートを生成した保存プランで使用できます。</p></div>';
  return `<section class="optimize10" aria-label="研究用配合候補探索"><h3>v1.0｜繁殖牝馬P1〜R2と種牡馬Xの候補を一括比較</h3>
  <p class="muted">現在の9工程を<b>変更せず</b>、公開血統から最終産駒まで仮想計算します。候補を残すときだけ<b>別の保存プラン</b>にします。権利数0の所持種牡馬も含めます。</p>
@@ -1528,6 +1605,7 @@ function prep17Trial(p,selectedA,selectedB,choicePool=null,extra22=null){
  return {a,b,parents,deep22,final,finalSire,finalMare,anchors,cross,extras,totalStages:deep22?15:13,baseMares:{...ch.mares},xId:ch.xId||p.routeDraft?.xSire||''};
 }
 function prep17Render(p){
+ if(isMaternal66(p))return '<section class="r12-card"><h3>追加クロス仕込み</h3><p>母側3代目の新ルートには旧父側3代目専用の仕込みを適用できません。9工程を維持し、確定した血統と途中理論を先に検証してください。</p></section>';
  if(!p.routeDraft?.slots||p.steps?.length<9)return '<section class="r12-card"><h3>v1.7｜多重クロス仕込み</h3><p>至高の9工程プランで利用できます。</p></section>';
  const eligible=prep17Selection(p);
  const opt=(id)=>prep18SortPairs(eligible.items,p.goal||'balance').map(x=>`<option value="${esc(x.id)}" ${id===x.id?'selected':''}>${esc(x.name)}〔${esc(x.a.variant)} × ${esc(x.b.variant)}〕・${x.sp}SP系／${x.st}ST系・所持済</option>`).join('');
@@ -1755,7 +1833,7 @@ function reviewMetrics12(p){
  const kindsST=[...new Set(eligibleST.map(r=>canonicalLine(r.line)))].sort();
  const spByDepth=[4,5].map(d=>eligibleSP.filter(r=>r.path.length===d).length);
  const stByDepth=[4,5].map(d=>eligibleST.filter(r=>r.path.length===d).length);
- const targets=[['SSS','g3'],['DSSS','g4'],['DDDSS','g5']];const byPath=new Map(rows.map(r=>[r.path,r]));
+ const targets=anchorPositions66(p);const byPath=new Map(rows.map(r=>[r.path,r]));
  const anchors=targets.map(([path,slot])=>{
   const wantedId=p.routeDraft.slots[slot],wanted=routeSnapshotMember(wantedId,p),seen=byPath.get(path);
   const sameName=!!wanted&&key(seen?.name)===key(wanted.name||splitName(wantedId).name);
@@ -1872,6 +1950,7 @@ function reviewExport12(m){return {known:m.ped.known,match:m.anchorCount,spFacto
 const PROD13_ROLES=[
  '父系の中継牡馬','最終種牡馬A2の候補','母父系の中継牡馬','母父系の牡馬B2','母母系の中継牡馬',
  '母母系の繁殖牝馬C2','母母系の繁殖牝馬C3','最終繁殖牝馬M','公式BC用の最終産駒'];
+const MAT66_PROD_ROLES=['母父B1・牡','締め肌M・牝','父系A1・牡','父系A2・牡','父母系C1・牡','父母系C2・牡','父母C3・牝','最終種牡馬A3・牡','公式BC用の最終産駒'];
 const PROD13_CHOICES=['未確認','ゲームで至高成立を確認','ゲームで不成立を確認'];
 function productionData13(p,create=false){
  const recorded=p.production13&&typeof p.production13==='object';
@@ -1883,7 +1962,7 @@ function productionData13(p,create=false){
 function product13Theory(p,m){
  const refs=p.routeDraft?.slots||{},ids=['g3','g4','g5'].map(k=>refs[k]||'');
  let byPath=m?.ready?new Map(m.rows.map(r=>[r.path,r])):new Map();
- const anchors=['SSS','DSSS','DDDSS'].map((path,i)=>({path,id:ids[i],row:byPath.get(path)}));
+ const anchors=anchorPositions66(p).map(([path,slot],i)=>({path,id:ids[i],row:byPath.get(path)}));
  const names=anchors.map(x=>key(x.row?.name||''));
  const sameBase=names.every(x=>!!x&&x===names[0]);
  const factors=[...new Set(anchors.flatMap(x=>x.row?.factors||[]))];
@@ -1937,8 +2016,8 @@ function renderProductionGuide13(p){
  const mark=(ok)=>ok?'✓':'未';
  const pill=(txt)=>`<span class="p13-pill">${esc(txt)}</span>`;
  const stepHtml=Array.from({length:9},(_,i)=>{
-  const n=i+1,d=CHAIN09_DEF[i],out=chain09Output(p,n),pair=chain09Parents(p,n),g=data.genomes[n];
-  const role=PROD13_ROLES[i],step=p.steps[i]||{},ready=!!out.horse,gOk=product13Usable(p,n,g);
+  const n=i+1,d=chain09Definitions(p)[i],out=chain09Output(p,n),pair=chain09Parents(p,n),g=data.genomes[n];
+  const role=(isMaternal66(p)?MAT66_PROD_ROLES:PROD13_ROLES)[i],step=p.steps[i]||{},ready=!!out.horse,gOk=product13Usable(p,n,g);
   const inputs=['sp0','sp1','sp2','st0','st1','st2'].map((k,j)=>`<label>${['SP 最小','SP 中央','SP 最大','ST 最小','ST 中央','ST 最大'][j]}<input inputmode="decimal" type="number" min="0" step="any" data-p13-g="${k}" value="${g&&product13Metric(g)?esc(g[k]):''}" placeholder="未記録"></label>`).join('');
   return `<details class="p13-step" data-p13-step="${n}"><summary><b>工程${n}・${esc(role)}</b><span class="p13-flag">${ready?'仮連結済み':'未連結'} ／ ${g?(gOk?'ゲノム記録あり':'過去記録・要再確認'):'解析未記録'}</span></summary>
   <p class="r12-foot">父：${esc(pair.sireId||'前工程待ち')} ／ 母：${esc(pair.mareId||'前工程待ち')}<br>${esc(ready?'仮馬の血統連結済み。実際の競走馬ではありません。':pair.problems.join('・')||'前工程待ち')}</p>
@@ -2140,17 +2219,17 @@ function auto21RefreshCandidates(){
 
 function auto21SetResearch(p,base){
  const ch=chain09Data(p);ch.mares={...base.choices};ch.outputs={};ch.xId=base.xId;ch.finalSex='male';
- p.routeDraft.xSire=base.xId;
+ p.routeDraft.xSire=isMaternal66(p)?'':base.xId;
  const x=findParentHorse(base.xId);
- if(x)p.routeDraft.xSireSnapshot={id:x.id,name:x.name,variant:x.variant,lineage:x.lineage,factors:[...(x.factors||[])],ancestry:x.ancestry||[]};
+ if(x&&!isMaternal66(p))p.routeDraft.xSireSnapshot={id:x.id,name:x.name,variant:x.variant,lineage:x.lineage,factors:[...(x.factors||[])],ancestry:x.ancestry||[]};
  const slots=p.routeDraft.slots,ms=ch.mares;
- const texts=[`${slots.g3} × ${ms[1]} → A1牡`,`A1牡 × ${ms[2]} → A2牡`,`${slots.g4} × ${ms[3]} → B1牡`,`B1牡 × ${ms[4]} → B2牡`,`${slots.g5} × ${ms[5]} → C1牡`,`C1牡 × ${ms[6]} → C2牝`,`${base.xId} × C2牝 → C3牝`,'B2牡 × C3牝 → 最終繁殖牝馬M','A2牡 × M牝 → 公式BC候補'];
- p.steps.slice(0,9).forEach((s,i)=>{s.cross=texts[i];s.done=false;s.minSP='';s.minST='';s.result='';if(i<5)s.wantedFactors=v27FactorGoal(p);});
+ const texts=isMaternal66(p)?window.DabimasMaternal66.steps(slots,ms).map(x=>x.cross):[`${slots.g3} × ${ms[1]} → A1牡`,`A1牡 × ${ms[2]} → A2牡`,`${slots.g4} × ${ms[3]} → B1牡`,`B1牡 × ${ms[4]} → B2牡`,`${slots.g5} × ${ms[5]} → C1牡`,`C1牡 × ${ms[6]} → C2牝`,`${base.xId} × C2牝 → C3牝`,'B2牡 × C3牝 → 最終繁殖牝馬M','A2牡 × M牝 → 公式BC候補'];
+ p.steps.slice(0,9).forEach((s,i)=>{s.cross=texts[i];s.done=false;s.minSP='';s.minST='';s.result='';if(v27MaleCore(i+1,p))s.wantedFactors=v27FactorGoal(p);});
  p.research10={createdAt:nowISO(),sortIndex:base.idx,summary:{sp:base.sp,st:base.st,spL:base.spL,stL:base.stL,otherCrosses:base.extra.length},sourcePlanId:'',mareScope:'meihin',
   xSelection31:{candidateCount:base.xSearchCount||0,selected:base.xId,lineage:base.xLineage,
     tiedCount:base.xTieCount||1, tiedIds:base.xTieIds||[base.xId],
     extraIndependentCrosses:(base.extraEffective||[]).map(c=>c.name),crossFactorCounts:base.extraFactorCounts||{},
-    method:'取得済みXを全件比較・6牝馬は候補数制限付き・研究用順位',verified:false}};
+    method:isMaternal66(p)?'名牝7枠の上限付き探索・補助X不要（成立未確認）':'取得済みXを全件比較・6牝馬は候補数制限付き・研究用順位',verified:false}};
 }
 // v2.3 — Dependency-aware, variable-length preparation graph.
 // Only visible sire positions in the final five-generation pedigree can justify a
@@ -2476,12 +2555,12 @@ function auto21Flow(plan){
   lines.push(`<li class="a21-step"><b>準備${esc(step.label)}牝：${esc(step.father)} × ${esc(step.mother)}</b><small>牝馬を生産 → ${step.targetStep===0?'準備P1牝の母として使用':'通常工程'+step.targetStep+'へ'}。最低SP/STはゲノム確認後に設定</small></li>`);
  }
  for(let n=1;n<=9;n++){
-  const step=plan.steps[n-1],sex=CHAIN09_DEF[n-1].sex==='female'?'牝':n===9?'性別不問':'牡';
+  const step=plan.steps[n-1],sex=chain09Definitions(plan)[n-1].sex==='female'?'牝':n===9?'性別不問':'牡';
   const chosen=n===9?'公式BC向けの本番産駒':sex==='牝'?'繁殖牝馬に採用':'次工程用の牡馬';
-  const xReason=n===7&&!plan.hard23&&plan.research10?.xSelection31?`<small>補助Xは所持${plan.research10.xSelection31.candidateCount}頭を比較した暫定採用です。子系統と独立クロス候補で評価し、ゲーム内の有効因子は未確認です。</small>`:'';
+  const xReason=!isMaternal66(plan)&&n===7&&!plan.hard23&&plan.research10?.xSelection31?`<small>補助Xは所持${plan.research10.xSelection31.candidateCount}頭を比較した暫定採用です。子系統と独立クロス候補で評価し、ゲーム内の有効因子は未確認です。</small>`:'';
   const reused=plan.chain09?.reused50?.[n];
   if(reused){lines.push(`<li class="a21-step"><b>工程${n}｜実馬 ${esc(reused.id)} を再利用（新規生産不要）</b><small>父母・性別・登録31枠の一致を検査済み。元の実馬記録には変更を加えません。本人因子や元データの変更時は再検証してください。</small></li>`);continue;}
-  lines.push(`<li class="a21-step"><b>工程${n}｜${esc(step.cross)}</b><small>必要：${esc(chosen)}／${sex}。${sex==='牝'?'SP/ST最低ライン：未設定（ゲーム内解析を記録して設定）':'SP/ST：実測データなし・数値を捏造しません'}</small>${v27MaleCore(n)?`<small>${v27FactorHint(plan,v27Wanted(plan,step),plan.chain09?.outputs?.[n])}</small>`:''}${xReason}</li>`);
+  lines.push(`<li class="a21-step"><b>工程${n}｜${esc(step.cross)}</b><small>必要：${esc(chosen)}／${sex}。${sex==='牝'?'SP/ST最低ライン：未設定（ゲーム内解析を記録して設定）':'SP/ST：実測データなし・数値を捏造しません'}</small>${v27MaleCore(n,plan)?`<small>${v27FactorHint(plan,v27Wanted(plan,step),plan.chain09?.outputs?.[n])}</small>`:''}${xReason}</li>`);
  }
  return `<details class="a21-flow" open><summary>生産順の配合フロー（${plan.mild50?`新規${plan.mild50.productionStages}工程／9枠`:lines.length+'工程'}）</summary><p class="muted v27-note">本人因子のゲーム内確認：${v27ConfirmedCount(plan).actual}/${v27ConfirmedCount(plan).total}頭（連結済みの自家製牡馬）。<br>自家製牡馬の「希望因子」は能力方針から示した<b>仮目標</b>です。因子付与を保証しません。生産後は「自家製馬」タブで実際の本人因子を記録してください。実測因子の影響は、保存プラン内の実測因子プレビューで再計算します。至高成立は未確認です。</p><ol>${lines.join('')}</ol></details>`;
 }
@@ -2490,7 +2569,7 @@ function audit34Html(plan,ped){
  const api=window.DabimasResearchAudit34;
  if(!api)return '<p class="notice warn">血統監査モジュールを読み込めませんでした。配合理論は未確認です。</p>';
  const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
- const a=api.audit(ped,{anchorIds:ids});
+ const a=api.audit(ped,{anchorIds:ids,anchorPaths:Object.values(anchorPaths66(plan))});
  const escList=items=>items.length?items.map(x=>esc(x)).join('、'):'なし';
  return `<details class="a21-flow" open><summary>v3.4｜自動生成血統のデータ品質監査：${esc(a.status)}</summary>
  <p class="muted">祖先名 ${a.known}/31枠 ／ 3×4×5同名 ${a.anchors.sameName?'一致':'未達'} ／ 因子 ${a.anchors.factorKinds}種類 ／ 異なる登録ID ${a.anchors.distinctRegisteredIds?'3頭':'要確認'}。<b>至高のゲーム内成立を保証する判定ではありません。</b></p>
@@ -2531,7 +2610,7 @@ function external48Download(plan){
 
 function production63Html(plan){
  const api=window.DabimasProductionReady63;if(!api||plan?.autoDesign21?.mode!=='mild')return '';
- const closing=chain09Parents(plan,8);
+ const closing=chain09Parents(plan,chain09ClosureStep(plan));
  const theory=closing?.ready&&closing?.ped?window.DabimasParentTheory56?.inspect(closing.ped):null;
  const data=api.analyze({plan,inventory:state.owned,resolve:id=>findParentHorse(id),theory});
  const entry=data.first;
@@ -2540,7 +2619,7 @@ function production63Html(plan){
  <p class="muted">${entry?`最初の交配候補：<b>${esc(entry.sire)} × ${esc(plan.chain09?.mares?.[1]||'母馬未指定')}</b>。`:'最初の交配は未確定です。'}
  ${data.zero?`権利数0の起点種牡馬${data.zero}件。種付け前に権利の補充を確認してください。`:''}
  ${data.missing?`所持未確認${data.missing}件。`:''}
- 締め肌の工程8：${esc(data.closingTheory)}。${data.breedingReady?'起点種牡馬の所持・権利は登録上確認できました。':'起点種牡馬の所持・権利に要確認項目があります。'}
+ 締め肌の工程${chain09ClosureStep(plan)}：${esc(data.closingTheory)}。${data.breedingReady?'起点種牡馬の所持・権利は登録上確認できました。':'起点種牡馬の所持・権利に要確認項目があります。'}
  ただし、同一権利の複数回使用・母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
  <ul>${list}</ul><p class="muted">締め肌の超完璧・完璧、最終至高はゲーム内で必ず確認してください。表示値は現在のブラウザの登録情報に基づきます。未確認の能力値を予想しません。</p></details>`;
 }
@@ -2555,9 +2634,9 @@ function auto21Result(plan,ped,goal,mode,meta){
  const counts=Object.entries(c.frequency).map(([f,n])=>chip(f+' ×'+n)).join('');
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
  <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
- <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜名牝6頭と所持種牡馬を自動配置しました。</p>
+ <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜${isMaternal66(plan)?'公開名牝7頭と所持ディープ3頭を配置しました（補助X不要）':'名牝6頭と所持種牡馬を自動配置しました'}。</p>
  ${plan.mild50?.reusedCount?`<p class="notice"><b>v5.0 実馬再利用：${plan.mild50.reusedCount}工程短縮</b>。基本9工程のうち新規生産は${plan.mild50.productionStages}工程です。既存実馬の父母・性別・31枠を一致検証しました。実馬記録の編集時はリンクを再確認します。</p>`:''}
- ${!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
+ ${!isMaternal66(plan)&&!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
  ${plan.mildDiversity60?`<details class="a21-flow"><summary>v6.0｜親系統・子系統の配置監査（非Ro優先）</summary><p>必須至高の3×4×5祖先とその子孫を除く、4・5代目の対象${esc(plan.mildDiversity60.eligibleSlots)}枠：親系統判明${esc(plan.mildDiversity60.parentKnown)}枠／未確認${esc(plan.mildDiversity60.parentUnknown)}枠。判明したRo ${esc(plan.mildDiversity60.extraRoyalCharger)}枠・非Ro ${esc(plan.mildDiversity60.nonRoyalCharger)}枠。子系統判明${esc(plan.mildDiversity60.childLineKnown)}枠／異なる子系統${esc(plan.mildDiversity60.distinctChildLines)}種類。</p><p class="muted">親系統は公式に明記された一部の祖先のみ参照。未確認は非Roとみなしません。至高と途中の完璧・超完璧の条件を優先し、研究評価が同点の場合だけ重複Roを抑えます。子系統数が多ければ強いと保証するものではありません。</p></details>`:''}
  <p class="muted">自家製種牡馬の本人因子はゲーム内実測待ちです。表示するクロス因子${c.total}${c.complete?'':'+'}個は公開血統中心の試算であり、最終確定値ではありません。実測因子を登録した後は、保存プランを開いて保存プランの実測因子プレビューで反映位置を確認してください。</p>
  <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
@@ -2568,11 +2647,12 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${cross36Html(ped)}
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
+ ${plan.mild66?`<div class="notice"><b>v6.6｜母側3代目の別ルート：</b>最終祖先 DSS／SSSS／SDSSS。実際の9工程を全て再連結し、近親回避・31枠・異因名と因子を照合。締め肌は工程2で、超完璧${esc(plan.mild66.evaluation?.superPerfect||'未確認')}／完璧${esc(plan.mild66.evaluation?.perfect||'未確認')}（部分的親系統）。<b>成立確定ではありません。</b>名牝7枠の上限付き探索です。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
  ${plan.mild58?`<div class="notice"><b>v5.8 マイルド・母系1代仕込み：</b>所持種牡馬${esc(plan.mild58.tested)}候補を工程6の前に追加する形で比較。${plan.mild58.chosenSireId?`採用：${esc(plan.mild58.chosenSireId)}（全${esc(plan.mild58.resultStages)}工程）。`:'途中配合理論の確実な改善と研究評価の維持を同時に満たす候補はなく、9工程のままです。'}超完璧・完璧のみ評価し、奇跡は除外。<b>ゲーム内成立・締め肌能力は未確認。</b>探索は上限付きです。</div>`:''}
  ${plan.mild55?`<div class="notice"><b>v5.5 マイルド型・複数枠の同時改善：</b>2枠変更${esc(plan.mild55.checked)}候補を照合（名牝ペア${esc(plan.mild55.marePairTrials)}／補助X＋名牝${esc(plan.mild55.xMareTrials)}）。${plan.mild55.improved?'研究上の評価が改善':'上位候補は従来案を維持'}。網羅探索・ゲーム内成立保証ではありません。</div>`:''}
  ${plan.mild53?`<div class="notice"><b>v5.3 マイルド型の同工程改善：</b>名牝・補助Xの差し替えを${esc(plan.mild53.searched)}件比較。追加クロス候補 ${esc((plan.mild53.namedExtraCrosses||[]).join('、')||'未検出')}。評価は研究上の局所比較であり、最強・ゲーム内成立を保証しません。</div>`:''}
- ${plan.mildDistance54?`<div class="notice"><b>v5.4 マイルド型の目標距離チェック：</b>締め種父系の起点となる3代目 ${esc(plan.mildDistance54.anchorG3)}／公開距離 ${plan.mildDistance54.range?esc(`${plan.mildDistance54.range.min}〜${plan.mildDistance54.range.max}m`):'未収録'}／目標 ${esc(plan.mildDistance54.race)}。<b>${plan.mildDistance54.rangeStatus==='covered'?'距離範囲内':plan.mildDistance54.rangeStatus==='outside'?'距離範囲外（要注意）':'距離適性未確認'}</b>。自家製締め種への継承は有志研究による推定で、得意距離の一致やゲーム内の能力を保証しません。</div>`:''}
+ ${plan.mildDistance54?`<div class="notice"><b>v5.4 マイルド型の目標距離チェック：</b>締め種父系の起点となる${isMaternal66(plan)?'4':'3'}代目 ${esc(plan.mildDistance54.anchorG3)}／公開距離 ${plan.mildDistance54.range?esc(`${plan.mildDistance54.range.min}〜${plan.mildDistance54.range.max}m`):'未収録'}／目標 ${esc(plan.mildDistance54.race)}。<b>${plan.mildDistance54.rangeStatus==='covered'?'距離範囲内':plan.mildDistance54.rangeStatus==='outside'?'距離範囲外（要注意）':'距離適性未確認'}</b>。自家製締め種への継承は有志研究による推定で、得意距離の一致やゲーム内の能力を保証しません。</div>`:''}
  ${mild30Html(plan)}
  ${reuse44Html(plan)}
  ${production63Html(plan)}
@@ -2586,7 +2666,7 @@ function auto21Result(plan,ped,goal,mode,meta){
 function auto35Quality(pedigree,plan){
  const api=window.DabimasResearchQuality35;
  const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
- return api?api.inspect(pedigree,ids):{unavailable:true,structural:0,missingNames:0,coverage:0,summary:'監査モジュール未読込'};
+ return api?api.inspect(pedigree,ids,Object.values(anchorPaths66(plan))):{unavailable:true,structural:0,missingNames:0,coverage:0,summary:'監査モジュール未読込'};
 }
 function auto35CompareQuality(a,b){
  const api=window.DabimasResearchQuality35;
@@ -2596,7 +2676,7 @@ function auto35CompareQuality(a,b){
 function auto37Evidence(pedigree,plan){
  const api=window.DabimasResearchEvidence37;
  const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
- return api?api.inspect(pedigree,ids):{unavailable:true};
+ return api?api.inspect(pedigree,ids,Object.values(anchorPaths66(plan))):{unavailable:true};
 }
 function auto37Compare(a,b){
  const api=window.DabimasResearchEvidence37;
@@ -2605,7 +2685,7 @@ function auto37Compare(a,b){
 function auto38Validation(pedigree,plan){
  const api=window.DabimasResearchValidation38;
  const ids=['g3','g4','g5'].map(k=>plan.routeDraft?.slots?.[k]||'');
- return api?api.inspect(pedigree,ids):null;
+ return api?api.inspect(pedigree,ids,Object.values(anchorPaths66(plan))):null;
 }
 function auto38Compare(a,b){
  const api=window.DabimasResearchValidation38;
@@ -2631,6 +2711,7 @@ function auto21Create(){
  if(!selectionInfo?.pool?.length){out.innerHTML='<div class="notice warn">取得済みの至高候補を先に確認してください。</div>';return;}
  if(!master.length){out.innerHTML='<div class="notice warn">血統の自動生成には公開マスターが必要です。「データ管理」からCSVを読み込んでください。</div>';return;}
  const goal=$('auto21Goal').value,mode=$('auto21Mode').value;
+ const routeChoice=$('auto21Route')?.value||'both';
  const race=$('auto21Race').value;
  const fast=mode==='mild'&&($('auto21Fast')?.checked!==false);
  run.disabled=true;out.innerHTML='<p class="notice">名牝と取得済み種牡馬から血統を試算しています…</p>';
@@ -2658,17 +2739,23 @@ function auto21Create(){
     distanceApi.rankPlacements(permutations,race,id=>map.get(key(id))||null):permutations;
    const selectedLayouts=positioning?.pick(distanceSorted,layoutLimit,defaults)||[];
    const trials=[];let tests=0;
-   for(const layout of selectedLayouts){
+   const routeTypes=mode==='mild'&&anchor.base==='ディープインパクト'?
+    (routeChoice==='both'?['paternal','maternal']:routeChoice==='maternal'?['maternal']:['paternal']):['paternal'];
+   for(const routeType of routeTypes)for(const layout of selectedLayouts){
     const draft=newPlan(anchor);draft.goal=goal;draft.target=`公式BC想定：${race}`;
     const slots={...layout.slots};
-    draft.routeDraft={slots,paths:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},validated:false};
-    draft.steps=buildDraftSteps(slots);
-    const researched=opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
+    draft.routeDraft={slots,paths:routeType==='maternal'?{...window.DabimasMaternal66.anchorPaths}:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},layout:routeType==='maternal'?'maternal-g3':'paternal-g3',validated:false};
+    draft.steps=routeType==='maternal'?buildMaternal66Steps(slots):buildDraftSteps(slots);
+    const researched=routeType==='maternal'?opt66Find(draft,fast?'meihin_fast':'meihin'):opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
     if(fast)await yieldToBrowser();
     const eligible=researched.results.filter(x=>x.matches===3);
+    // Closing mare theory is the first mild-mode ranking rule. Unknown is
+    // never promoted to established, and actual game confirmation is separate.
+    if(mode==='mild')for(const candidate of eligible)if(!candidate.theory66)
+     candidate.theory66=window.DabimasParentTheory56?.inspect?.(candidate.closingPed)||null;
     const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
-     .sort((a,b)=>auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
-    if(ranked.length)trials.push({anchor,draft,researched,eligible,ranked,placementKey:layout.signature,placementScore:layout.score});
+     .sort((a,b)=>(mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0)||auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
+    if(ranked.length)trials.push({anchor,draft,researched,eligible,ranked,placementKey:layout.signature,placementScore:layout.score,routeType});
    }
    return {trials,tests,permutations:permutations.length,selectedLayouts:selectedLayouts.length};
   }
@@ -2694,22 +2781,23 @@ function auto21Create(){
     // v5.4: distance priority is a MILD-only ranking, never a Shiko gate.
     // Unknown distance does not mean incompatible. Hard-mode selection unchanged.
     const distanceApi=window.DabimasDistance54;
-    const g3Record=t=>map.get(key(t.draft?.routeDraft?.slots?.g3||''))||null;
+    const anchorStud=t=>map.get(key(t.draft?.routeDraft?.slots?.[isMaternal66(t.draft)?'g4':'g3']||''))||null;
     const distanceOrder=mode==='mild'&&distanceApi?
-      distanceApi.compare(distanceApi.assess(race,g3Record(trial)),distanceApi.assess(race,g3Record(initial))):0;
+      distanceApi.compare(distanceApi.assess(race,anchorStud(trial)),distanceApi.assess(race,anchorStud(initial))):0;
     const quality=auto35CompareQuality(a.quality,b.quality);
     const evidence=auto37Compare(a.evidence,b.evidence);
+    const theoryOrder=mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0;
     const researchOrder=quality||evidence||opt10Sort(a.candidate,b.candidate);
-    if(distanceOrder<0||(distanceOrder===0&&researchOrder<0))initial=trial;
+    if(theoryOrder<0||(theoryOrder===0&&(distanceOrder<0||(distanceOrder===0&&researchOrder<0))))initial=trial;
    }
   }
-  if(!initial){out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組では血統の揃った名牝6頭と補助種牡馬Xを確定できませんでした。公開マスターや名牝データを確認してください。保存データは変更していません。</div>`;return;}
+  if(!initial){out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組では選んだ9工程ルートに必要な名牝と所持種牡馬の組合せを確定できませんでした。公開マスターや名牝データを確認してください。保存データは変更していません。</div>`;return;}
   selected=initial.anchor;
   const {draft,researched,ranked}=initial;
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
   if(fast)draft.fastSearch59={enabled:true,shortlistMares:12,shortlistXSires:8,version:60,complete:false,parentSystemBias:'非Ro優先・未確認保持・必須至高祖先は除外せず'};
   let base=ranked[0]?.candidate;
-  if(!base){out.innerHTML=`<div class="notice warn">名牝6頭と補助種牡馬Xの組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
+  if(!base){out.innerHTML=`<div class="notice warn">9工程に必要な繁殖牝馬の組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   // v5.5: Also consider bounded, mutually beneficial TWO-slot replacements.
   // v5.3 MILD ONLY: after selecting a complete foundation, compare one-slot
   // substitutions for all ranked meihin mares and all owned X stallions.
@@ -2722,7 +2810,7 @@ function auto21Create(){
   // optimization. Protect a REAL, exactly reusable early-stage sire only.
   const mild55Api=window.DabimasMildPairs55;
   let mild55ReusableRoots=0;
-  if(mode==='mild'&&mild55Api&&state.homebreds.some(h=>h.mode==='real')){
+  if(mode==='mild'&&!isMaternal66(draft)&&mild55Api&&state.homebreds.some(h=>h.mode==='real')){
    const roots=[['g3',1],['g4',3],['g5',5]].map(([slot,n])=>{
     const sireId=draft.routeDraft?.slots?.[slot],mareId=base.choices[n];
     const sire=routeSnapshotMember(sireId,draft),mare=map.get(key(mareId));
@@ -2732,7 +2820,7 @@ function auto21Create(){
    mild55ReusableRoots=mild55Api.rootReuseCount({records:state.homebreds,roots,reuseApi:window.DabimasReuse50});
   }
   const mild53ReusePriority=mode==='mild'&&mild55ReusableRoots>0;
-  if(mode==='mild'){
+  if(mode==='mild'&&!isMaternal66(draft)){
    await yieldToBrowser();
    const api=window.DabimasMildPolish53;
    if(api&&!mild53ReusePriority){
@@ -2754,7 +2842,7 @@ function auto21Create(){
   // swaps that keep all 31 ancestor slots and three Shiko anchor positions.
   // A partially populated parent-line registry must not turn UNKNOWN into YES.
   if(mode==='mild')await yieldToBrowser();
-  if(mode==='mild'&&!mild53ReusePriority&&window.DabimasMildMare57&&window.DabimasParentTheory56){
+  if(mode==='mild'&&!isMaternal66(draft)&&!mild53ReusePriority&&window.DabimasMildMare57&&window.DabimasParentTheory56){
    const api=window.DabimasMildMare57;
    const result=await api.optimizeAsync({initial:base,
     mares:mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝'),
@@ -2771,7 +2859,7 @@ function auto21Create(){
   // perfect/super-perfect improvement must outweigh the extra birth.
   let mild58=null,mild58Trial=null;
   if(mode==='mild')await yieldToBrowser();
-  if(mode==='mild'&&!mild53ReusePriority&&window.DabimasMildGraft58&&window.DabimasParentTheory56){
+  if(mode==='mild'&&!isMaternal66(draft)&&!mild53ReusePriority&&window.DabimasMildGraft58&&window.DabimasParentTheory56){
    const baseline58=hard23Trial(draft,{},goal);
    if(!baseline58.error){
     const api58=window.DabimasMildGraft58;
@@ -2786,7 +2874,7 @@ function auto21Create(){
   }
   if(mild58)draft.mild58=mild58;
   if(mode==='mild'&&window.DabimasDistance54){
-   const g3=draft.routeDraft?.slots?.g3||'';
+   const g3=draft.routeDraft?.slots?.[isMaternal66(draft)?'g4':'g3']||'';
    const checked=window.DabimasDistance54.assess(race,map.get(key(g3))||null);
    draft.mildDistance54={version:54,anchorG3:g3,source:'公開マスターの種牡馬「距離」欄',
     race,range:checked.range,rangeStatus:checked.status,preferredCandidateCount:checked.preferredCandidateCount,
@@ -2852,7 +2940,7 @@ function auto21Create(){
    mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
    let reusedCount=0;
-   draft.note=`【v5.9マイルド型${fast?'・高速限定探索':''}】名牝6頭・補助種牡馬Xを研究用評価で自動選択。${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
+   draft.note=`【${isMaternal66(draft)?'v6.6 母側3代目ルート':'v5.9マイルド型'}${fast?'・高速限定探索':''}】${isMaternal66(draft)?'公開名牝7頭を母側3代目＋父側4・5代目の9工程で探索。補助種牡馬Xなし。締め肌は工程2。':'名牝6頭・補助種牡馬Xを研究用評価で自動選択。'}${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);
@@ -2890,6 +2978,9 @@ function auto21Create(){
     parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount,limited:false};
    }
    draft.mild50={version:50,reusedCount,productionStages:9-reusedCount,gameVerified:false};
+   if(isMaternal66(draft))draft.mild66={version:66,layout:'maternal-g3',anchorPaths:{...anchorPaths66(draft)},closingStep:2,
+    evaluation:base.theory66?{perfect:base.theory66.perfect,superPerfect:base.theory66.superPerfect,blocked:!!base.theory66.blocked}:null,
+    searchCount:researched.tests,limited:!!researched.limited,gameVerified:false};
    draft.mildAcceptance51={version:52,status:"全9工程の親子血統と一次条件検査通過（ゲーム内未確認）",gameVerified:false};
    }
   }
@@ -2898,7 +2989,7 @@ function auto21Create(){
   saved.autoDesign21={createdAt:nowISO(),mode,goal,race,autoAnchor45:{enabled:autoPick||familyPick,selectionMode:selectionInfo.mode,requestedFamily:selectionInfo.family||null,
     anchorCandidatesCompared:anchorTried,qualifiedCandidates:anchorQualified,totalPrimaryCandidates:auto21Candidates.length,
     eligibleInSelection:selectionInfo.available,selectedAnchor:selected.base,selectedVariants:selected.set.map(r=>r.id),
-    candidateAudit,searchCap:selectionInfo.limit,hardFinalists:mode==='hard'?viableAnchorTrials.length:null,hardDeepCompared:mode==='hard'?hardCompared:null,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:`名牝＋${parents.stages||9}工程（実馬再利用${saved.mild50?.reusedCount||0}件）`,
+    candidateAudit,searchCap:selectionInfo.limit,hardFinalists:mode==='hard'?viableAnchorTrials.length:null,hardDeepCompared:mode==='hard'?hardCompared:null,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:`名牝＋${parents.stages||9}工程（${isMaternal66(saved)?'母側3代目＋父側4/5代目・名牝7枠':'通常3×4×5'}／実馬再利用${saved.mild50?.reusedCount||0}件）`,
    placement49:{availablePerTriple:6,layoutSearches:placementSearches,validLayouts:placementQualified,
     chosenSlots:{...saved.routeDraft.slots},deepFinalists:mode==='hard'?hardCompared:0,
     scope:selectionInfo.pool.length<=3?'各セット最大6配置':'各セット最大2配置',gameVerified:false},mareTests:mode==='hard'?hardTrial.researched.tests:researched.tests,confirmedTheory:false,

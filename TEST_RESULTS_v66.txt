@@ -1,0 +1,9 @@
+ダビマス配合研究所 v6.6 テスト記録（2026-11-11）
+- 旧資産v65の既存Nodeテスト30ファイル：すべて成功（v65固定のアセットパス・キャッシュ名のassertはv66へ更新）。
+- 新規Nodeテスト tests/v66-maternal-route.test.js：成功。9工程の親子DAG、31枠、因子、ゲート、異常系を含む。
+- JavaScript全ファイル：node --check 全件成功。
+- ブラウザテスト tests/v66-browser-smoke.py：失敗（Chromium localhostへのアクセスが管理者により遮断）。ブラウザUIのE2E・SWオフライン動作は未検証。
+- 実公開CSV、ゲーム実機、GitHub公開URL：未テスト。
+- 自家製馬・ゲノム・保存プランの既存JSONキーを変えていないことをソース確認。実ブラウザによる保存復元は未検証。
+- コマンド例：node tests/v66-maternal-route.test.js
+- コマンド例：node tests/v38-validation.test.js '/path/to/315頭バックアップ.json'

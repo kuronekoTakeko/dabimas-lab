@@ -11,7 +11,7 @@
  const normalize=x=>String(x==null?'':x).normalize('NFKC').replace(/[\s　]/g,'').toLowerCase();
  const anchors=['SSS','DSSS','DDDSS'];
  const factorSet=x=>[...new Set((Array.isArray(x)?x:[]).filter(Boolean).map(normalize))].sort().join('|');
- function inspect(pedigree,anchorIds){
+ function inspect(pedigree,anchorIds,customPaths=null){
   const rows=Array.isArray(pedigree&&pedigree.rows)?pedigree.rows:[];
   const idList=Array.isArray(anchorIds)?anchorIds:[];
   const byPath=new Map(),conflicts=[],fingerprints=new Map();
@@ -29,7 +29,8 @@
    }
    if(!byPath.has(row.path))byPath.set(row.path,row);
   }
-  const trio=anchors.map(p=>byPath.get(p));
+  const usedPaths=Array.isArray(customPaths)&&customPaths.length===3?customPaths:anchors;
+  const trio=usedPaths.map(p=>byPath.get(p));
   const knownTrio=trio.every(x=>x&&normalize(x.name));
   const sameName=knownTrio&&trio.every(x=>normalize(x.name)===normalize(trio[0].name));
   const idsComplete=idList.length===3&&idList.every(normalize);
@@ -42,7 +43,7 @@
   // verified game criteria. Never upgrade such cases to confirmed Shiko.
   const reportedFourKindCase=sameName&&idsDistinct&&factorEvidenceComplete&&distinctFactorTypes>=4&&totalKnownFactors>=6&&distinctFactorTypes<6;
   const sixKindCase=sameName&&idsDistinct&&factorEvidenceComplete&&distinctFactorTypes>=6;
-  return {schema:1,anchorPaths:anchors.slice(),sameName,idsComplete,idsDistinct,
+  return {schema:1,anchorPaths:usedPaths.slice(),sameName,idsComplete,idsDistinct,
    factorEvidenceComplete,totalKnownFactors,distinctFactorTypes,reportedFourKindCase,sixKindCase,
    variantFactorConflicts:conflicts,gameVerified:false,
    state:conflicts.length?'血統データ矛盾':sixKindCase?'6種類の研究上の一次条件':reportedFourKindCase?'4種類・計6因子の報告例に類似（未検証）':'根拠不足・未確認'};

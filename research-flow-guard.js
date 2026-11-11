@@ -30,7 +30,9 @@ function verify(plan,homebreds,reuseApi=null){
  const byId=new Map((homebreds||[]).map(h=>[norm(h.id),h]));
  const seen=new Set();
  if(!Array.isArray(plan?.steps)||plan.steps.length<9)failures.push('通常9工程の計画が不足');
- for(const def of definitions){
+ const route=plan?.routeDraft?.layout==='maternal-g3';
+ const defs=route&&globalThis.DabimasMaternal66?globalThis.DabimasMaternal66.definitions:definitions;
+ for(const def of defs){
   const id=norm(output[def.n]),horse=byId.get(id);
   if(!id||!horse){failures.push(`工程${def.n}：産駒未連結`);continue;}
   if(seen.has(id))failures.push(`工程${def.n}：同じ産駒の再使用`);seen.add(id);
@@ -49,7 +51,7 @@ function verify(plan,homebreds,reuseApi=null){
   if(norm(horse.fatherId)!==norm(sire)||norm(horse.motherId)!==norm(mare))failures.push(`工程${def.n}：父母リンクが不一致`);
   if(!validAncestry(horse.ancestry))failures.push(`工程${def.n}：血統31枠の欠落・位置重複・不正`);
  }
- return {ok:failures.length===0,failures,checked:definitions.length,linked:seen.size};
+ return {ok:failures.length===0,failures,checked:defs.length,linked:seen.size};
 }
 return Object.freeze({verify,validAncestry,definitions:Object.freeze(definitions.map(d=>Object.freeze({...d})))});
 });

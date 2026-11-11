@@ -9,9 +9,9 @@
  if(root)root.DabimasResearchQuality35=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(auditApi){
  'use strict';
- function inspect(pedigree,anchorIds){
+ function inspect(pedigree,anchorIds,anchorPaths){
   if(!auditApi||typeof auditApi.audit!=='function')return {unavailable:true,structural:0,coverage:0,summary:'血統監査が利用できません'};
-  const a=auditApi.audit(pedigree,{anchorIds:anchorIds||[]});
+  const a=auditApi.audit(pedigree,{anchorIds:anchorIds||[],anchorPaths});
   // Missing evidence and theory-blocker uncertainty cannot be treated as an
   // outright defect. Explicit broken pedigree structure is a different matter.
   const structural=a.errors.filter(s=>/祖先名の未収録|祖先位置に重複|祖先名の衝突|同名条件が未達|登録IDが独立/.test(s));

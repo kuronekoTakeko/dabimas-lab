@@ -43,7 +43,8 @@
       if(!norm(row.line))missingLines.push(path);
       if(!Array.isArray(row.factors)||row.factors.length===0)missingFactorEvidence.push(path);
     }
-    const anchors=['SSS','DSSS','DDDSS'].map(path=>({path,row:byPath.get(path)}));
+    const configured=Array.isArray(options.anchorPaths)&&options.anchorPaths.length===3?options.anchorPaths:['SSS','DSSS','DDDSS'];
+    const anchors=configured.map(path=>({path,row:byPath.get(path)}));
     const names=anchors.map(a=>norm(a.row&&a.row.name));
     const anchorSameName=names.every(n=>!!n&&n===names[0]);
     const anchorFactorKinds=[...new Set(anchors.flatMap(a=>Array.isArray(a.row&&a.row.factors)?a.row.factors.filter(x=>FACTORS.has(x)):[]))];

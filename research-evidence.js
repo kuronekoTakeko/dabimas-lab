@@ -8,10 +8,10 @@
  if(root)root.DabimasResearchEvidence37=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(auditApi,crossApi){
  'use strict';
- function inspect(ped,anchorIds){
+ function inspect(ped,anchorIds,anchorPaths){
   if(!auditApi||!crossApi||typeof auditApi.audit!=='function'||typeof crossApi.inspect!=='function')
    return {unavailable:true,reason:'血統・クロスの検証モジュールが未読込です'};
-  const audit=auditApi.audit(ped,{anchorIds:Array.isArray(anchorIds)?anchorIds:[]});
+  const audit=auditApi.audit(ped,{anchorIds:Array.isArray(anchorIds)?anchorIds:[],anchorPaths});
   const cross=crossApi.inspect(ped);
   const sameName=!!audit.anchors.sameName;
   const distinctIds=audit.anchors.distinctRegisteredIds===true;

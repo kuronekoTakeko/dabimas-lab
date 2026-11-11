@@ -3,7 +3,7 @@
 const norm=s=>String(s||'').normalize('NFKC').trim().toLowerCase();
 function analyze({plan,inventory={},resolve=null,theory=null}={}){
  const slots=plan?.routeDraft?.slots||{},ch=plan?.chain09||{},mares=ch.mares||{},x=ch.xId||plan?.routeDraft?.xSire||'';
- const parents=[slots.g3,'',slots.g4,'',slots.g5,'',x,'',''];
+ const parents=plan?.routeDraft?.layout==='maternal-g3'?[slots.g3,'',slots.g4,'',slots.g5,'','','','']: [slots.g3,'',slots.g4,'',slots.g5,'',x,'',''];
  const steps=[];let missing=0,zero=0,unknown=0;
  for(let n=1;n<=9;n++){
   const sire=parents[n-1],mare=mares[n]||'';

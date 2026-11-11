@@ -2717,7 +2717,8 @@ function auto21Create(){
     const mares=mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝');
     const sires=opt10XPool(draft).all;
     const evaluate=(choices,xId)=>opt10Trial(draft,choices,xId);
-    const polished=api.optimize({initial:base,mares:fast?mares.slice(0,12):mares,sires:fast?sires.slice(0,12):sires,evaluate,goal,budget:fast?90:900});
+    const polished=await api.optimizeAsync({initial:base,mares:fast?mares.slice(0,12):mares,sires:fast?sires.slice(0,12):sires,evaluate,goal,budget:fast?90:900,
+     yieldEvery:fast?6:8,yieldControl:yieldToBrowser,onProgress:(done,total)=>{out.innerHTML=`<p class="notice">名牝・補助種牡馬の改善探索中：${done}/${total}候補を比較（保存データは変更していません）。</p>`;}});
     if(polished?.winner?.matches===3){base=polished.winner;mild53=polished.audit;}
     if(mild55Api){
      const paired=mild55Api.optimize({initial:base,mares,sires,evaluate,compare:api.compare,

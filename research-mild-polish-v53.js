@@ -97,5 +97,69 @@
     caveat:'研究用の局所探索。ゲーム内ニトロ・能力・至高成立を保証しません。'}
   };
  }
- return Object.freeze({metric,compare,optimize});
+ // v6.1: same sequential coordinate search as optimize(), but return control
+ // to the browser after a bounded number of expensive evaluated candidates.
+ // Every candidate is still evaluated in the same order: no change in scoring.
+ async function optimizeAsync({initial,mares=[],sires=[],evaluate,goal='balance',budget=900,
+  yieldEvery=8,yieldControl=()=>new Promise(resolve=>setTimeout(resolve,0)),onProgress=null}){
+  if(typeof evaluate!=='function'||!metric(initial,goal))return {error:'9工程の完全な初期候補がありません'};
+  const limit=Math.max(0,Math.min(2000,Math.trunc(Number(budget)||0)));
+  const opts=[...new Map((mares||[]).filter(Boolean).map(m=>[norm(m.id||m),m.id||m])).values()];
+  const xs=[...new Map((sires||[]).filter(Boolean).map(m=>[norm(m.id||m),m.id||m])).values()];
+  const chunk=Math.max(1,Math.trunc(Number(yieldEvery)||8));
+  let current=initial,tests=0,invalid=0,xTests=0,mareTests=0;
+  const used=new Set();
+  async function run(choices,xId,kind){
+   if(tests>=limit)return null;
+   const k=[1,2,3,4,5,6].map(n=>norm(choices[n])).join('\u001f')+'\u001e'+norm(xId);
+   if(used.has(k))return null;
+   used.add(k);tests++;
+   const candidate=evaluate({...choices},xId);
+   if(!metric(candidate,goal)){invalid++;}
+   else if(kind==='X')xTests++;else mareTests++;
+   if(tests%chunk===0){
+    if(typeof onProgress==='function')onProgress(tests,limit);
+    await yieldControl();
+   }
+   return metric(candidate,goal)?candidate:null;
+  }
+  async function sweepX(){
+   if(tests>=limit)return;
+   let best=current;
+   for(const xId of xs){
+    if(norm(xId)===norm(current.xId))continue;
+    const candidate=await run(current.choices,xId,'X');
+    if(candidate&&compare(candidate,best,goal)<0)best=candidate;
+    if(tests>=limit)break;
+   }
+   current=best;
+  }
+  async function sweepMares(){
+   for(let n=1;n<=6&&tests<limit;n++){
+    let best=current;
+    for(const mareId of opts){
+     if(norm(mareId)===norm(current.choices[n]))continue;
+     if([1,2,3,4,5,6].some(other=>other!==n&&norm(current.choices[other])===norm(mareId)))continue;
+     const candidate=await run({...current.choices,[n]:mareId},current.xId,'mare');
+     if(candidate&&compare(candidate,best,goal)<0)best=candidate;
+     if(tests>=limit)break;
+    }
+    current=best;
+   }
+  }
+  const before=metric(initial,goal);
+  await sweepX();await sweepMares();await sweepX();
+  const after=metric(current,goal);
+  return {winner:current,improved:compare(current,initial,goal)<0,
+   audit:{schema:53,kind:'mild-nine-step-single-swap',goal,
+    initialX:initial.xId,chosenX:current.xId,
+    startingScore:before.score,chosenScore:after.score,
+    startingKnownCrossFactors:initial.extraFactorCounts||{},chosenKnownCrossFactors:current.extraFactorCounts||{},
+    namedExtraCrosses:(current.extraEffective||[]).map(c=>c.name),
+    searched:tests,xTests,mareTests,invalid,limit,limited:tests>=limit,
+    eligibleMares:opts.length,eligibleSires:xs.length,gameVerified:false,
+    caveat:'研究用の局所探索。ゲーム内ニトロ・能力・至高成立を保証しません。'}
+  };
+ }
+ return Object.freeze({metric,compare,optimize,optimizeAsync});
 });

@@ -1,0 +1,12 @@
+2026-11-11｜ダビマス配合研究所 v6.6a
+
+PASS: Node.jsテスト33ファイル/33ファイル（315頭JSON引数を使用）
+PASS: JavaScript構文検査（全JS）
+PASS: research-maternal-rescue-v66a.js 工程別探索、安全性・上限・非変更テスト
+PASS: app.js + 新ルート + 旧名牝候補リスト + 模擬血統による
+      speed/staminaの不成立→再探索→31枠/3アンカー成功の回帰テスト
+PASS: 配布ZIP中のファイルCRC / 期待ファイル確認
+BLOCKED: Chromiumローカルページ画面操作（環境管理者ポリシー）
+NOT TESTED: 実際の500頭CSV全件、GitHub公開ページ、ゲーム内配合理論、実機保存復元
+
+研究用候補はゲーム内成立確定でもSP/ST能力保証でもない。

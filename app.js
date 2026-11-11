@@ -1297,9 +1297,39 @@ function opt66Find(p,scope){
   }
   if(best){const k=mareSteps.map(n=>key(best.choices[n])).join('|');if(!unique.has(k)){unique.add(k);results.push(best);}}
  }
+ // v6.6a: Local hill-climbing cannot recover when all its initial seeds fail.
+ // Try alternative mothers at the actual rejected generation; keep every
+ // pedigree, conflict, 31-slot, and distinct-factor validation unchanged.
+ let rescueReport=null;
+ if(!results.length&&window.DabimasMaternalRescue66a){
+  // Feasibility must not depend entirely on a goal-biased top-36 shortlist.
+  // Include other explicitly registered/historic meihin (not unranked mares),
+  // while keeping the original candidates first and the search bounded.
+  const allVerified=mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝');
+  const merged=[...ordered,...allVerified];
+  const seenMares=new Set();
+  const rescuePool=merged.filter(r=>{const id=key(r.id);if(seenMares.has(id))return false;seenMares.add(id);return true;}).slice(0,fast?64:96);
+  rescueReport=window.DabimasMaternalRescue66a.rescue({
+   definitions:window.DabimasMaternal66.definitions,slots:p.routeDraft.slots,mares:rescuePool,
+   maxChecks:fast?540:1200,maxAttempts:fast?72:140,
+   getSire:id=>routeSnapshotMember(id,p),
+   breed:(sire,mare)=>{
+    if(horseSex(sire)!=='male'||horseSex(mare)!=='female'||!opt10Self(sire)||!opt10Self(mare))return null;
+    return getFoalPedigree(sire,mare);
+   },
+   createChild:({definition:d,pedigree:ped,sire})=>({
+    id:'__trial'+d.n,name:'計画内仮馬'+d.n,sex:d.sex,
+    ancestry:ped.rows.filter(x=>x.path.length<=5&&x.name).map(x=>({path:x.path,horse:x.name,factors:x.factors,line:x.line,factorVariant:x.factorVariant||''})),
+    factors:[],lineage:sire.lineage||'',distance:d.sex==='male'?'仮馬':'',isHomebred:true
+   }),
+   complete:choices=>evaluate(choices)
+  });
+  if(rescueReport.candidate)results.push(rescueReport.candidate);
+ }
  results.sort(opt66Compare);
- return {scope,results:results.slice(0,3),tests:count,mares:mareData.eligible,x:0,
-  limited:count>=limit,message:results.length?'':'母側3代目の9工程と近親検査を同時に通過する候補が見つかりません。'};
+ return {scope,results:results.slice(0,3),tests:count+(rescueReport?.checks||0),mares:mareData.eligible,x:0,
+  limited:count>=limit||!!rescueReport?.budgetExceeded,rescueChecks:rescueReport?.checks||0,
+  message:results.length?'':`母側3代目の9工程で候補を確定できませんでした（初期探索${count}件・再探索${rescueReport?.checks||0}工程検査）。限定探索であり不可能の判定ではありません。`};
 }
 function opt10Sort(a,b){
  // Full specified positions first, then a research sorting index, then fewer early overlaps.
@@ -2791,7 +2821,7 @@ function auto21Create(){
     if(theoryOrder<0||(theoryOrder===0&&(distanceOrder<0||(distanceOrder===0&&researchOrder<0))))initial=trial;
    }
   }
-  if(!initial){out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組では選んだ9工程ルートに必要な名牝と所持種牡馬の組合せを確定できませんでした。公開マスターや名牝データを確認してください。保存データは変更していません。</div>`;return;}
+  if(!initial){out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組、配置${placementSearches}通りを調べましたが、選択ルートの9工程を最後まで満たす候補を確定できませんでした（工程検査約${candidateAudit.reduce((s,x)=>s+x.foundationTrials,0)}回）。<b>この結果は配合不可能を意味しません。</b>高速限定探索をOFFにするか、祖先配置を「旧／新の両方を比較」に切り替えてください。名牝判定・CSVの祖先データ不足、途中の近親交配回避なども候補数に影響します。保存データは変更していません。</div>`;return;}
   selected=initial.anchor;
   const {draft,researched,ranked}=initial;
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;

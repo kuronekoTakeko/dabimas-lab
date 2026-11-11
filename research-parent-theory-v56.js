@@ -56,16 +56,51 @@
   return {names,sources,conflicts};
  }
  const REGISTRY=buildRegistry();
- function lookup(name,registry=REGISTRY){const k=normalize(name);const parent=registry.names.get(k)||null;return parent?{parent,sources:[...(registry.sources.get(k)||[])],basis:'公式種牡馬詳細の親系統'}:null;}
+ // v6.8: the public master already includes *parent* systems as pa:<ancestor>.
+ // Never derive those from chi:<ancestor>, which denotes CHILD systems.
+ // Keep source provenance and quarantine contradictory names rather than taking
+ // the last observed classification. Published data != verified game outcome.
+ const CSV_SOURCE='https://github.com/takana666/DBMSdata_search';
+ function buildMasterRegistry(records,official=REGISTRY){
+  const names=new Map(official.names),sources=new Map([...official.sources].map(([k,v])=>[k,new Set(v)]));
+  const conflicts=[],quarantined=new Set((official.conflicts||[]).map(c=>normalize(c.name)));
+  let observed=0,invalidSystems=0;
+  for(const horse of records||[]){
+   for(const a of horse?.ancestry||[]){
+    const name=String(a?.horse||a?.name||''),k=normalize(name),parent=canonical(a?.parentSystem);
+    if(!k||!String(a?.parentSystem||'').trim())continue;
+    if(!parent){invalidSystems++;continue;}
+    observed++;
+    if(!sources.has(k))sources.set(k,new Set());sources.get(k).add(CSV_SOURCE);
+    if(quarantined.has(k))continue;
+    if(names.has(k)&&names.get(k)!==parent){
+     conflicts.push({name,previous:names.get(k),newValue:parent,source:CSV_SOURCE});
+     quarantined.add(k);names.set(k,null);
+    }else if(!names.has(k))names.set(k,parent);
+   }
+  }
+  return {names,sources,conflicts,observed,invalidSystems,quarantined,
+   known:[...names.values()].filter(Boolean).length,source:'公開CSVのpa列＋公式限定資料',gameVerified:false};
+ }
+ function lookup(name,registry=REGISTRY){const k=normalize(name);const parent=registry.names.get(k)||null;return parent?{parent,sources:[...(registry.sources.get(k)||[])],basis:registry===REGISTRY?'公式種牡馬詳細の親系統':'親系統公開CSVまたは公式限定資料（出典URLで要確認）'}:null;}
  function countMap(arr){const m=new Map();for(const x of arr)if(x)m.set(x,(m.get(x)||0)+1);return m;}
  function interesting(lines,limit=7){const found=lines.filter(Boolean),unique=new Set(found).size,missing=lines.length-found.length;
   const status=unique>=limit?OK:unique+missing<limit?NO:missing?UNKNOWN:NO;
   return {status,distinctKnown:unique,missing,known:found.length};}
- function matching(left,right){const l=left.filter(Boolean),r=right.filter(Boolean),lu=left.length-l.length,ru=right.length-r.length;
-  const lc=countMap(l),rc=countMap(r),needRight=[...lc].reduce((s,[v,n])=>s+Math.max(0,n-(rc.get(v)||0)),0),needLeft=[...rc].reduce((s,[v,n])=>s+Math.max(0,n-(lc.get(v)||0)),0);
-  const impossible=needRight>ru||needLeft>lu;
-  return {status:impossible?NO:lu||ru?UNKNOWN:OK,missing:lu+ru,requiredLeft:needLeft,requiredRight:needRight};
+ // The official guide explicitly allows different duplicate counts when the
+ // participating lineage TYPES match. Compare sets, not frequency multisets.
+ // With missing data, reject only when even all unknown slots cannot supply
+ // the types already known on the other side.
+ function matching(left,right){
+  const l=left.filter(Boolean),r=right.filter(Boolean),lu=left.length-l.length,ru=right.length-r.length;
+  const ls=new Set(l),rs=new Set(r);
+  const missingRight=[...ls].filter(x=>!rs.has(x)),missingLeft=[...rs].filter(x=>!ls.has(x));
+  const impossible=missingRight.length>ru||missingLeft.length>lu;
+  return {status:impossible?NO:lu||ru?UNKNOWN:OK,missing:lu+ru,
+   requiredLeft:missingLeft.length,requiredRight:missingRight.length,
+   sireDistinct:ls.size,mareDistinct:rs.size,matchMode:'系統種類の一致（重複回数不問）'};
  }
+
  function joint(...states){return states.includes(NO)?NO:states.every(s=>s===OK)?OK:UNKNOWN;}
  function baseName(name){return String(name||'').replace(/-(?:[^-]+)-$/,'').replace(/(?:19|20)\d{2}$/,'');}
  function crossName(a,b){if(!a?.name||!b?.name)return UNKNOWN;return normalize(baseName(a.name))===normalize(baseName(b.name))?OK:NO;}
@@ -105,5 +140,5 @@
    gameVerified:false,verifiedAt:'2026-11-09',ruleSources:[OFFICIAL_RULES,OFFICIAL_ADVANCED],
    reasons:possible.length?['4×3の同名候補は条件上の照合です。ゲーム内の成立表示は未確認です']:[]};
  }
- return Object.freeze({PARENTS,PROFILES,REGISTRY,FAMILIES,OK,NO,UNKNOWN,canonical,buildRegistry,lookup,interesting,matching,inspect});
+ return Object.freeze({PARENTS,PROFILES,REGISTRY,FAMILIES,OK,NO,UNKNOWN,canonical,buildRegistry,buildMasterRegistry,CSV_SOURCE,lookup,interesting,matching,inspect});
 });

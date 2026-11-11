@@ -63,8 +63,8 @@ test('unchanged scores preserve original horse choice',()=>{
 });
 test('source is unchanged; application only wires mild path',()=>{
  const src=fs.readFileSync(path.join(root,'app.js'),'utf8');
- assert(src.includes("if(mode==='mild'){\n   const api=window.DabimasMildPolish53"));
- assert(src.includes('const polished=api.optimize'));
+ assert(src.includes("const api=window.DabimasMildPolish53"));
+ assert(src.includes('const polished=await api.optimizeAsync')); 
  assert(src.includes('if(mild53)draft.mild53=mild53'));
  assert(src.includes("if(mode==='hard'){"));
  assert.equal(src.includes('localStorage.removeItem('),false);
@@ -72,9 +72,9 @@ test('source is unchanged; application only wires mild path',()=>{
 test('v5.3 SW and html both load and cache module',()=>{
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
- assert(html.includes('research-mild-polish-v53.js?v=53'));
- assert(html.indexOf('research-mild-polish-v53.js?v=53')<html.indexOf('app.js?v=55'));
- assert(sw.includes('dbms-v55-1'));
+ assert(html.includes('research-mild-polish-v53.js?v=61'));
+ assert(html.indexOf('research-mild-polish-v53.js?v=61')<html.indexOf('app.js?v=69'));
+ assert(sw.includes('dbms-v69-1'));
  assert(sw.includes("'./research-mild-polish-v53.js'"));
 });
 console.log(`${n} v5.3 mild-polish tests passed`);

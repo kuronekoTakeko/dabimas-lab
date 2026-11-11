@@ -16,7 +16,7 @@ test('auto selection option retained alongside family selection',()=>{
 });
 test('auto selection compares foundations not just the sire factor total',()=>{
  assert(js.includes('function foundationFor(anchor)'));
- assert(js.includes("opt10Find(draft,'meihin')"));
+ assert(js.includes("opt10Find(draft,fast?'meihin_fast':'meihin')"));
  assert(js.includes('auto35CompareQuality(a.quality,b.quality)'));
  assert(js.includes('auto37Compare(a.evidence,b.evidence)'));
  assert(js.includes('opt10Sort(a.candidate,b.candidate)'));
@@ -41,9 +41,9 @@ test('original owner state and zero rights remain preserved',()=>{
  assert.equal(owned.plans.length,0);
 });
 test('cache, UI and script revision consistent',()=>{
- assert(html.includes('app.js?v=55'));
+ assert(html.includes('app.js?v=69'));
  assert(html.includes('馬名を選択')); 
- assert(sw.includes("dbms-v55-1"));
+ assert(sw.includes("dbms-v69-1"));
 });
 test('javascript parses without execution or storage mutations',()=>{
  const {execFileSync}=require('node:child_process');

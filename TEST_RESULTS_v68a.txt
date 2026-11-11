@@ -1,0 +1,9 @@
+ダビマス配合研究所 v6.8a｜2026-11-11
+PASS: Node.jsテスト 37/37 ファイル
+PASS: JavaScript 構文チェック 74/74 ファイル
+PASS: ロードカナロアの公開CSV親系統で見事・面白の両条件未達を検出（面白最大6系統）
+PASS: 面白7種/8種の区別、見事4枠の系統種類集合と重複許容、未知系統の三値判定
+PASS: DDS候補のUNKNOWN不採用、部分保存なし、9工程の父母・性別と31枠の合成テスト
+PASS: 所持315頭のJSON構造と保存キーの維持（既存テストで検証）
+未実施: 実ブラウザ操作、実データ全探索、ゲーム内配合理論、複数PC保存検査
+参照: https://dabimas.jp/kouryaku/guide/introduction-to-breeding-theories.html ; https://dabimas.jp/kouryaku/guide/advisor-05.html

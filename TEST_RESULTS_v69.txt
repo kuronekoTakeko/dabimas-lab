@@ -1,0 +1,30 @@
+ダビマス配合研究所 v6.9 研究・テスト記録（2026-11-11）
+
+Node.js既存・新規テスト：38本中38本 PASS。
+JavaScript構文検査：全.jsファイル PASS。
+PWAキャッシュ：dbms-v69-1、indexで新規research-inverse-mild-v69.jsをapp.jsより先に読み込み。
+所持データ形式：既存保存キーとJSONデータ構造は未変更。
+
+実CSVの検査（手元で実行、ZIPにはCSV自体を同梱しない）：
+  mydata.csv 3,021行（種牡馬等含む）、104列、15枠のpa:親系統あり。
+  315頭の所持JSONから該当する公開マスターの登録名を照合。
+  DDSルートは実際のCSVテキストをapp.jsのprocessCSVで読込み、
+  純粋JSモジュールで8枠逆算してから本体の31枠生成・保存前の検査を実行。
+  speed: 超完璧資料判定成立、31/31、9基幹工程+父1代準備、
+    FlowGuard41 PASS、MildGate51 PASS。
+  stamina: 同上。
+  特別な検証モードで「基礎牝馬の追加1代仕込み」を強制比較した場合も、
+    speed/stamina共、31/31、9基幹工程+父1代+牝1代、
+    親子・性別・FlowGuard41・MildGate51 PASS。
+  実際のCSVと所持JSONでの「最上位最強配合」または「最少工程の数学的証明」ではない。
+
+実ブラウザUI／PWA再インストール／サービスワーカー制御の実機検証：未実施。
+実際のダビマスゲーム内の完璧・超完璧・至高成立：未確認。
+ゲームの本人因子・能力/レース成績：未計測。
+
+事前の入力資料の出典：
+ - ユーザー提供 2026-10-31更新とされる たかなさんの mydata.csv
+ - 取得済み種牡馬の315頭JSON
+ - 公式配合理論：https://dabimas.jp/kouryaku/guide/introduction-to-breeding-theories.html
+ - 公式応用：https://dabimas.jp/kouryaku/guide/advisor-05.html
+公開CSVは第三者資料であり、ゲーム内実測確定データとは区別。

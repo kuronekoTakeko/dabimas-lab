@@ -68,14 +68,14 @@ test('hard mode search remains separate and persistence schema is not reset',()=
  const src=fs.readFileSync(path.join(root,'app.js'),'utf8');
  assert(src.includes('const mild55Api=window.DabimasMildPairs55'));
  assert(src.includes("const mild53ReusePriority=mode==='mild'&&mild55ReusableRoots>0"));
- assert(src.includes('const paired=mild55Api.optimize'));
+ assert(src.includes('const paired=await mild55Api.optimizeAsync'));
  assert(src.includes("if(mode==='hard'){"));
  assert(!src.includes('localStorage.removeItem('));
 });
 test('scripts and offline cache include the v5.5 module',()=>{
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
- assert(html.includes('research-mild-pairs-v55.js?v=55'));
- assert(html.indexOf('research-mild-pairs-v55.js?v=55')<html.indexOf('app.js?v=55'));
- assert(sw.includes("'./research-mild-pairs-v55.js'"));assert(sw.includes('dbms-v55-1'));
+ assert(html.includes('research-mild-pairs-v55.js?v=62'));
+ assert(html.indexOf('research-mild-pairs-v55.js?v=62')<html.indexOf('app.js?v=69'));
+ assert(sw.includes("'./research-mild-pairs-v55.js'"));assert(sw.includes('dbms-v69-1'));
 });
 console.log(`${passed} v5.5 mild two-slot tests passed`);

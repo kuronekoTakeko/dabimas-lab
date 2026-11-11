@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const gate=require('../research-close-cross-v65.js');const h=ancestry=>({ancestry});
+const s=h([{path:'S',horse:'サンデーサイレンス'},{path:'SS',horse:'ディープインパクト'}]);
+assert.equal(gate.inspect(s,h([{path:'S',horse:'サンデーサイレンス1989'}])).hits[0].degree,'2×2');
+assert.equal(gate.inspect(s,h([{path:'SS',horse:'サンデーサイレンス-覇煌-'}])).hits[0].degree,'2×3');
+assert.equal(gate.inspect(s,h([{path:'S',horse:'ディープインパクト-翔燕-'}])).hits[0].degree,'3×2');
+assert.equal(gate.inspect(s,h([{path:'SSS',horse:'ディープインパクト-翔燕-'}])).blocked,false);
+assert.equal(gate.inspect(s,h([{path:'S',horse:'ノーザンテースト'}])).blocked,false);
+assert.equal(gate.inspect(s,h([])).unknown,true);
+const app=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');
+assert(app.includes('if(close65.blocked)conflicts.push('));
+assert(app.includes('if(ped.conflicts.length||ped.known!==31)return null;'));
+assert(app.includes('if(ped.closeCross65?.blocked)problems.push('));
+const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');const sw=fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8');
+assert(html.indexOf('research-close-cross-v65.js?v=65')<html.indexOf('app.js?v=69'));
+assert(sw.includes('research-close-cross-v65.js'));
+console.log('PASS v65 close crosses');

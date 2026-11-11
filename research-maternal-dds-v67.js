@@ -43,21 +43,39 @@
  }
  // Parent-theory matching: inspect the sire's four paternal 4th-gen source
  // positions (these become SSSDS/SSDDS/SDSDS/SDDDS in the final closing foal).
- function sirePrecheck(sire,theory){const matching=['SSDS','SDDS','DSDS','DDDS'],interesting=['S','SDS','DS','DDS'];
-  if(!sire?.ancestry?.length||!theory?.lookup)return {possible:true,status:'未確認',matchingRoNe:0,interestingRoNe:0,known:0};
+ // For a Deep daughter the mare's two fixed interesting / matching slots
+ // are Ro and Ne. The other two can be selected through the base mare.
+ // Upper bounds MUST include both parents' interesting slots. If even the
+ // best unknown base mare cannot reach 7, never waste time constructing a foal.
+ function sirePrecheck(sire,theory,{fixedMare=['Royal Charger','Nearctic']}={}){
+  const matching=['SSDS','SDDS','DSDS','DDDS'],interesting=['S','SDS','DS','DDS'];
+  const unknown={possible:true,status:'未確認',matchingRoNe:0,interestingRoNe:0,known:0,
+   maxInterestingDistinct:8,superPerfectPossible:true,interestingPossible:true,
+   reasons:['親系統資料不足']};
+  if(!sire?.ancestry?.length||!theory?.lookup)return unknown;
   const by=new Map(sire.ancestry.map(r=>[String(r.path||'').replace(/父/g,'S').replace(/母/g,'D'),r]));
   const at=p=>{let code=p,r=by.get(code);for(let i=0;i<5&&r&&code.length<5&&!theory.lookup(r.horse||r.name)?.parent;i++){
     code+='S';r=by.get(code);
    }return theory.lookup(r?.horse||r?.name)?.parent||null;};
-  const match=matching.map(at),interest=interesting.map(at),known=match.filter(Boolean),required=['Royal Charger','Nearctic'];
-  const missing=match.length-known.length,needed=required.filter(v=>!known.includes(v));
-  // If the observed 4 systems cannot contain Ro+Ne, no choice of mare can fix it.
-  const possible=missing>=needed.length;
-  const notInteresting=interest.every(v=>v&&!required.includes(v));
-  return {possible,status:!possible?'不成立':known.length===4?'確認済':'未確認',matchingRoNe:required.length-needed.length,
-   interestingRoNe:interest.filter(v=>required.includes(v)).length,known:known.length,notInteresting,
-   matching:match,interesting:interest};
+  const match=matching.map(at),interest=interesting.map(at),known=match.filter(Boolean);
+  const required=[...new Set(fixedMare.filter(Boolean))],missingMatching=match.length-known.length;
+  const needed=required.filter(v=>!known.includes(v)),matchingPossible=missingMatching>=needed.length;
+  const fixedKnown=fixedMare.filter(Boolean),interestKnown=interest.filter(Boolean);
+  const already=new Set([...interestKnown,...fixedKnown]);
+  const unknownInteresting=interest.length-interestKnown.length+fixedMare.length-fixedKnown.length+2;
+  const maxInterestingDistinct=Math.min(8,already.size+unknownInteresting);
+  const interestingPossible=maxInterestingDistinct>=7;
+  const possible=matchingPossible&&interestingPossible;
+  const reasons=[];
+  if(!matchingPossible)reasons.push('見事系統に必要な固定系統が不足');
+  if(!interestingPossible)reasons.push(`面白系統の上限${maxInterestingDistinct}種類（7種類に未達）`);
+  return {possible,status:!possible?'不成立':known.length===4&&interestKnown.length===4?'事前条件通過':'未確認',
+   matchingRoNe:required.length-needed.length,interestingRoNe:interestKnown.filter(v=>required.includes(v)).length,
+   known:known.length,notInteresting:interestKnown.length===4&&interestKnown.every(v=>!required.includes(v)),
+   matching:match,interesting:interest,requiredFixed:fixedMare,maxInterestingDistinct,
+   superPerfectPossible:maxInterestingDistinct===8,interestingPossible,matchingPossible,reasons};
  }
+
  // Bounded ranking. Game figures are never predicted from number of factors.
  function routePriority(type){return type==='dds'?3:type==='maternal'?2:type==='paternal'?1:0;}
  function compare(a,b){const theoryRank=v=>v?.superPerfect==='成立'?3:v?.perfect==='成立'?2:

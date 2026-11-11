@@ -47,6 +47,25 @@ const v25UserReportedKey=key(v25UserReportedId);
 const v25OwnershipAdded=!Object.prototype.hasOwnProperty.call(state.owned,v25UserReportedKey);
 if(v25OwnershipAdded)state.owned[v25UserReportedKey]={owned:true,rights:0,verified:'user_report_2026-11-06'};
 let master=[], map=new Map(),visible=40, currentTab='auto21', loading=false;
+// v6.8: separate parent-system index from child lines and from user saves.
+// Rebuild only when a public master is imported/restored; old records stay valid.
+let parentRegistry68=null;
+function rebuildParentRegistry68(){
+ const api=window.DabimasParentTheory56;
+ parentRegistry68=api?.buildMasterRegistry?.(master)||null;
+}
+function currentParentTheory68(){
+ const api=window.DabimasParentTheory56;
+ if(!api)return null;
+ if(!parentRegistry68?.observed)return api;
+ return {...api,lookup:name=>api.lookup(name,parentRegistry68),inspect:ped=>api.inspect(ped,{registry:parentRegistry68})};
+}
+function parentRegistryNotice68(){
+ const n=parentRegistry68;
+ if(!n?.observed)return 'この端末の公開マスターには親系統pa列がありません。データ管理から「公開CSVから読み込む」を1回実行すると、途中配合理論の根拠を増やせます（所持・プランは維持）。';
+ return `公開CSVの親系統：${n.known}祖先名・${n.observed}件の記録を照合。相互に矛盾した馬名${n.conflicts.length}件は未確認扱い。子系統からの推測は行いません。`;
+}
+
 let stagingAuto21=false;
 function persist(){if(stagingAuto21)return true;try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));return true;}catch(e){$('importStatus').textContent='端末に保存できません。空き容量・ブラウザの設定を確認してください。';return false;}}
 if(v25OwnershipAdded||!localStorage.getItem(SAVE_KEY))persist();
@@ -92,14 +111,14 @@ const score=goal==='speed'?cnt['短']*5+cnt['速']*3+cnt['走']*2+cnt['中']*1:g
 out.push({base,set,kinds,score,count:cnt});}}}return out.sort((a,b)=>b.score-a.score||b.kinds.length-a.kinds.length||a.set.length-b.set.length).slice(0,maxResults>0?maxResults:undefined);}
 function renderCandidates(){if(!$('candidateSummary')||!$('candidates'))return;const v=getCandidates();$('candidateSummary').textContent=`因子6種類以上の一次候補：${v.length}組（最多40組表示）。取得済みなら権利数0でも含みます。`; $('candidates').innerHTML=v.length?v.map((c,i)=>`<div class="card"><div class="results-head"><h3>${i+1}. ${esc(c.set[0].name)}</h3><span class="score">${c.kinds.length}種類の因子</span></div><div class="metrics">${c.kinds.map(f=>chip(f)).join('')}</div>${c.set.map((r,j)=>`<div class="slot"><strong>構成候補 ${j+1}</strong><span>${esc(r.id)}　${r.factors.map(f=>chip(f)).join('')}　${chip('取得済み','owned')}</span></div>`).join('')}<div class="plan-actions"><button class="btn small" data-save-candidate="${i}">この候補を計画に保存</button></div><p class="muted">目的別に因子を重み付けして並び替えています。血統の配合プラン保存後に3×4×5の仮ルートを生成できます。成立の保証、完成産駒のニトロ・子系統補正、SP/ST予想は未実装です。</p></div>`).join(''):'<div class="empty">所持馬の中に、因子6種類が揃う同名種牡馬の組合せはありません。公開CSVを読み込み、所持馬にチェックを追加してください。</div>';}
 function genomeRows(){return (state.genomes||[]).map((v,i)=>`<div class="card"><div class="results-head"><b>${esc(v.name||'名称未設定')}</b><span class="muted">${esc(v.at||'')}</span></div><div class="muted">SP ${esc([v.spMin??v.sp0,v.spMid??v.sp1,v.spMax??v.sp2].join(' / '))}　ST ${esc([v.stMin??v.st0,v.stMid??v.st1,v.stMax??v.st2].join(' / '))}</div></div>`).join('')||'<div class="empty">まだ記録がありません。</div>';}
-function renderAll(){auto21RefreshCandidates();updateHeader();if(currentTab==='mares')renderMares();if(currentTab==='homebreds')renderHomebreds();if(currentTab==='catalog')renderCatalog();renderSavedPlans();$('genomeHistory').innerHTML=genomeRows();updateCleanStatus();}
+function renderAll(){auto21RefreshCandidates();updateHeader();const parentInfo68=$('parentRegistry68Info');if(parentInfo68)parentInfo68.textContent=parentRegistryNotice68();if(currentTab==='mares')renderMares();if(currentTab==='homebreds')renderHomebreds();if(currentTab==='catalog')renderCatalog();renderSavedPlans();$('genomeHistory').innerHTML=genomeRows();updateCleanStatus();}
 function switchTab(id){currentTab=id;document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active',el.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===id?'true':'false'));if(id==='catalog')renderCatalog();if(id==='mares')renderMares();if(id==='homebreds')renderHomebreds();if(id==='plans')renderCandidates();if(id==='library'){renderSavedPlans();if(openPlanId)showPlanEditor(openPlanId);}if(id==='pedigree')renderPedigree();if(id==='bc14')renderBCExplorer14();window.scrollTo(0,0);}
 function parseCSV(txt){if(txt.charCodeAt(0)===0xFEFF)txt=txt.slice(1);let rows=[],row=[],field='',quoted=false;for(let i=0;i<txt.length;i++){const ch=txt[i];if(ch==='"'){if(quoted&&txt[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}else if(ch===','&&!quoted){row.push(field);field='';}else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(field);if(row.some(x=>x!==''))rows.push(row);row=[];field='';}else field+=ch;}if(field!==''||row.length){row.push(field);rows.push(row);}return rows;}
-function processCSV(txt){const parsed=parseCSV(txt);const hdr=parsed.shift()||[];const ind=s=>hdr.indexOf(s);if(ind('馬名')<0||ind('因子1')<0||ind('chi:父')<0)throw Error('たかな牧場データのCSV形式を確認してください（必要な列がありません）');let rows=[];for(const cols of parsed){const get=s=>String(cols[ind(s)]||'').trim(),id=get('馬名');if(!id)continue;const a=splitName(id),f=['因子1','因子2','因子3'].map(get).filter(Boolean);const ancestry=PED_FIELDS.map(path=>({path,horse:get(path),factors:[1,2,3].filter(n=>ind(path+'_因子'+n)>=0).map(n=>get(path+'_因子'+n)).filter(Boolean),line:get('chi:'+path)})).filter(x=>x.horse);rows.push({id,name:a.name,variant:a.variant,display:id,factors:f,lineage:get('子系統'),ancestry,talent:get('非凡'),distance:get('距離'),sex:get('距離')?'male':'female',start:get('成長'),rating:get('実績')});}if(rows.length<100)throw Error('データ件数が少なすぎます。別のCSVを選んでいませんか？');return rows;}
+function processCSV(txt){const parsed=parseCSV(txt);const hdr=parsed.shift()||[];const ind=s=>hdr.indexOf(s);if(ind('馬名')<0||ind('因子1')<0||ind('chi:父')<0)throw Error('たかな牧場データのCSV形式を確認してください（必要な列がありません）');let rows=[];for(const cols of parsed){const get=s=>String(cols[ind(s)]||'').trim(),id=get('馬名');if(!id)continue;const a=splitName(id),f=['因子1','因子2','因子3'].map(get).filter(Boolean);const ancestry=PED_FIELDS.map(path=>({path,horse:get(path),factors:[1,2,3].filter(n=>ind(path+'_因子'+n)>=0).map(n=>get(path+'_因子'+n)).filter(Boolean),line:get('chi:'+path),parentSystem:get('pa:'+path)})).filter(x=>x.horse);rows.push({id,name:a.name,variant:a.variant,display:id,factors:f,lineage:get('子系統'),parentSystem:get('pa:父'),ancestry,talent:get('非凡'),distance:get('距離'),sex:get('距離')?'male':'female',start:get('成長'),rating:get('実績')});}if(rows.length<100)throw Error('データ件数が少なすぎます。別のCSVを選んでいませんか？');return rows;}
 function idb(){return new Promise((res,rej)=>{try{const req=indexedDB.open('dabimas_lab_v02',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('db'))req.result.createObjectStore('db');};req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);}catch(e){rej(e);}});}
 async function saveMaster(data){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('db','readwrite');t.objectStore('db').put(data,'master');t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});db.close();return true;}catch(e){return false;}}
 async function readMaster(){try{const db=await idb();const v=await new Promise((res,rej)=>{const t=db.transaction('db');const q=t.objectStore('db').get('master');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});db.close();return Array.isArray(v)?v:null;}catch(e){return null;}}
-async function setMaster(csv){let data=processCSV(csv);master=data;buildMap();const saved=await saveMaster(data);$('importStatus').textContent=`マスター ${data.length}頭を読み込みました。${saved?'この端末に保存済みです。':'端末への自動保存に失敗したため、再読込が必要です。'}`;renderAll();}
+async function setMaster(csv){let data=processCSV(csv);master=data;buildMap();rebuildParentRegistry68();const saved=await saveMaster(data);$('importStatus').textContent=`マスター ${data.length}頭を読み込みました。${saved?'この端末に保存済みです。':'端末への自動保存に失敗したため、再読込が必要です。'} ${parentRegistryNotice68()}`;renderAll();}
 async function loadWeb(){if(loading)return;loading=true;$('loadWebMaster').disabled=true;$('importStatus').textContent='公開CSVを読み込んでいます…';try{const r=await fetch(RAW_URL,{cache:'no-store'});if(!r.ok)throw Error(`HTTP ${r.status}`);await setMaster(await r.text());}catch(e){$('importStatus').textContent='Web取り込みに失敗しました（通信制限/CORSなど）：'+e.message+'。CSVを保存してファイル選択から読み込む方法も使えます。';}finally{loading=false;$('loadWebMaster').disabled=false;}}
 function dl(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function productionDataBackup(){return {version:13,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,mareGrades:state.mareGrades,homebreds:state.homebreds};}
@@ -662,7 +681,7 @@ function v28PlanPedigree(p){
    factorsVerified:verified,factors:verified?[...rec.factors]:[],
    isHomebred:true,lineage:rec.lineage||'',lineageAssumed:!!rec.lineageAssumed,
    fatherId:rec.fatherId,motherId:rec.motherId,
-   ancestry:pedigree.rows.filter(a=>a.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}))};
+   ancestry:pedigree.rows.filter(a=>a.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||'',parentSystem:a.parentSystem||''}))};
   cache.set(k,horse);return horse;
  };
  // Check every core stage against its original parental link, even if the final
@@ -759,13 +778,13 @@ function getFoalPedigree(sire,mare){
  const at=new Map(),conflicts=[];
  if(ancestor64.blocked)conflicts.push(`直接祖先種付け禁止：${sire.name||sire.id} は母側の祖先（${ancestor64.paths.join('・')}）に存在`);
  if(close65.blocked)conflicts.push(`近親交配回避：2×2・2×3・3×2の共通祖先（${close65.hits.map(h=>h.name+' '+h.degree).join('・')}）`);
- function add(path,name,factors=[],line='',source='',factorVariant=''){
+ function add(path,name,factors=[],line='',source='',factorVariant='',parentSystem=''){
   if(!path||path.length>5||!name)return;
   if(at.has(path)&&key(at.get(path).name)!==key(name)){conflicts.push(`${path}: ${at.get(path).name} と ${name}`);return;}
-  at.set(path,{path,name,factors:(factors||[]).filter(Boolean),line:line||'',source,factorVariant:factorVariant||''});
+  at.set(path,{path,name,factors:(factors||[]).filter(Boolean),line:line||'',source,factorVariant:factorVariant||'',parentSystem:parentSystem||''});
  }
- if(sire){add('S',sire.name||splitName(sire.id).name,sire.factors,sire.lineage,sire.id,sire.isHomebred?(sire.mode==='real'&&sire.factorsVerified?'実測ID:'+sire.id:''):sire.variant||splitName(sire.id).variant);for(const a of sire.ancestry||[])add('S'+kanaPath(a.path),a.horse,a.factors,a.line,sire.id,a.factorVariant||a.variant||'');}
- if(mare){for(const a of mare.ancestry||[])add('D'+kanaPath(a.path),a.horse,a.factors,a.line,mare.id,a.factorVariant||a.variant||'');}
+ if(sire){add('S',sire.name||splitName(sire.id).name,sire.factors,sire.lineage,sire.id,sire.isHomebred?(sire.mode==='real'&&sire.factorsVerified?'実測ID:'+sire.id:''):sire.variant||splitName(sire.id).variant,sire.parentSystem||sire.ancestry?.find(a=>kanaPath(a.path)==='S')?.parentSystem||'');for(const a of sire.ancestry||[])add('S'+kanaPath(a.path),a.horse,a.factors,a.line,sire.id,a.factorVariant||a.variant||'',a.parentSystem||'');}
+ if(mare){for(const a of mare.ancestry||[])add('D'+kanaPath(a.path),a.horse,a.factors,a.line,mare.id,a.factorVariant||a.variant||'',a.parentSystem||'');}
  const all=[];for(let d=1;d<=5;d++){const n=2**(d-1);for(let j=0;j<n;j++){let p='';for(let k=d-2;k>=0;k--)p+=j>>k&1?'D':'S';all.push(p+'S');}}
  const rows=all.map(path=>at.get(path)||{path,name:'',factors:[],line:''}),known=rows.filter(x=>x.name);
  const transmission=window.DabimasResearchTransmission39?.verify({rows},sire,mare)||null;
@@ -818,7 +837,7 @@ function setupPairEditor(el,p){let report=el.querySelector('#pairMateEditor');if
 // Unknown sire's own factors and in-game performance are NEVER invented.
 const homeId = name => `自家製:${String(name||'').trim()}`;
 let homeDraftPair=null;
-function homeHorseObj(rec){return {id:rec.id,name:rec.name,variant:'',factors:rec.mode==='real'&&rec.factorsVerified?(rec.factors||[]):[],factorsVerified:rec.mode==='real'&&rec.factorsVerified===true,lineage:rec.lineage||'',sex:rec.sex,ancestry:(rec.ancestry||[]),isHomebred:true,mode:rec.mode,sp:rec.sp,st:rec.st,fatherId:rec.fatherId,motherId:rec.motherId};}
+function homeHorseObj(rec){return {id:rec.id,name:rec.name,variant:'',factors:rec.mode==='real'&&rec.factorsVerified?(rec.factors||[]):[],factorsVerified:rec.mode==='real'&&rec.factorsVerified===true,lineage:rec.lineage||'',parentSystem:rec.parentSystem||rec.ancestry?.find(a=>a.path==='S')?.parentSystem||'',sex:rec.sex,ancestry:(rec.ancestry||[]),isHomebred:true,mode:rec.mode,sp:rec.sp,st:rec.st,fatherId:rec.fatherId,motherId:rec.motherId};}
 function getHomeParents(sex){return state.homebreds.filter(h=>h.sex===sex).map(homeHorseObj);}
 function findParentHorse(id){if(!id)return null;return getHomeParents('male').concat(getHomeParents('female')).find(x=>key(x.id)===key(id))||map.get(key(id))||null;}
 function mergeHomebreds(items){const byId=new Map(state.homebreds.map(h=>[key(h.id),h]));for(const h of items){if(!h||typeof h.name!=='string'||!['male','female'].includes(h.sex)||!Array.isArray(h.ancestry))continue;const id=String(h.id||homeId(h.name));const clean={...h,id,ancestry:h.ancestry.slice(0,31),factors:Array.isArray(h.factors)?h.factors.slice(0,3):[]};const existing=byId.get(key(id));if(!existing||String(clean.updatedAt||'')>String(existing.updatedAt||''))byId.set(key(id),clean);}state.homebreds=[...byId.values()];}
@@ -858,7 +877,7 @@ function registerHomebred(){const pair=getHomePair();if(pair.error){$('homeSaveS
  if(name.startsWith('自家製:')){ $('homeSaveStatus').textContent='馬名に「自家製:」という接頭辞は使えません。';return; }
  const id=homeId(name);if(state.homebreds.some(h=>key(h.id)===key(id))){$('homeSaveStatus').textContent='同じ名前の自家製馬が登録済みです。別の名前を付けてください。';return;}
  if(key(pair.sire.id)===key(id)||key(pair.mare.id)===key(id)){ $('homeSaveStatus').textContent='自分自身を親にすることはできません。';return;}
- const ped=getFoalPedigree(pair.sire,pair.mare),anc=ped.rows.filter(x=>x.path.length<=5&&x.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}));
+ const ped=getFoalPedigree(pair.sire,pair.mare),anc=ped.rows.filter(x=>x.path.length<=5&&x.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||'',parentSystem:a.parentSystem||''}));
  const now=nowISO();const r={id,name,sex,mode,sp:$('homeSP').value.trim(),st:$('homeST').value.trim(),note:$('homeNote').value.trim(),fatherId:pair.sire.id,motherId:pair.mare.id,ancestry:anc,factors:[],lineage:pair.sire.lineage||'',lineageAssumed:!!pair.sire.lineage,planId:$('homePlan').value||'',stepNo:Number($('homeStep').value)||null,createdAt:now,updatedAt:now};
  state.homebreds.push(r);if(!persist()){state.homebreds.pop();$('homeSaveStatus').textContent='端末に保存できませんでした。空き容量を確認してください。';return;}
  $('homeSaveStatus').textContent=`${r.name}を${mode==='real'?'実際の生産記録':'仮配合の記録'}として保存しました。祖先 ${anc.length}/31枠（5代の判明分）。次の交配で親に選べます。`;
@@ -914,7 +933,7 @@ function chain09ClosureStep(p){return isMaternal66(p)?2:8;}
 function buildMaternal66Steps(slots,route='maternal-g3'){const api=route==='maternal-dds-g3'?window.DabimasMaternalDDS67:window.DabimasMaternal66;return api.steps(slots).map((d,i)=>makeStep(
   `${String(i+1).padStart(2,'0')} ${i===1?'締め肌M':i===7?'最終種牡馬':i===8?'公式BC本番':'血統の仕込み'}・${d.sex==='female'?'牝':'牡'}`,
   d.cross,d.n===9?'不問':d.sex==='female'?'牝':'牡',
-  route==='maternal-dds-g3'?'v6.7：母側DDS／父側SSSS・SDSSS。工程2は既存種牡馬（不足時1代仕込み）×ディープ直仔牝馬。ゲーム内成立未確認。':'v6.6：母側DSS／父側SSSS・SDSSSを9工程の仮交配で構築。至高・途中理論・本人因子・SP/STはゲーム内未確認。'
+  route==='maternal-dds-g3'?'v6.9：母側DDS／父側SSSS・SDSSS。工程2は既存種牡馬（不足時1代仕込み）×ディープ直仔牝馬。ゲーム内成立未確認。':'v6.6：母側DSS／父側SSSS・SDSSSを9工程の仮交配で構築。至高・途中理論・本人因子・SP/STはゲーム内未確認。'
  ));}
 function chain09Data(p){if(!p.chain09||typeof p.chain09!=='object')p.chain09={};
  const ch=p.chain09;if(!ch.mares||typeof ch.mares!=='object')ch.mares={};
@@ -1008,7 +1027,7 @@ function chain09MoveTo(root,n,notice=''){
 // not the stage-9 Shiko mating, and never changes a saved plan.
 function mild56TheoryHtml(plan){
  if(plan.hard23||!plan.routeDraft?.slots||!plan.steps?.length)return '';
- const api=window.DabimasParentTheory56;
+ const api=currentParentTheory68();
  if(!api)return '<div class="notice warn">v5.6 親系統診断モジュールが未読込です。</div>';
  const closingStep=chain09ClosureStep(plan),pair=chain09Parents(plan,closingStep);
  if(!pair.ready||!pair.ped)return `<div class="notice warn"><b>v5.6 工程${closingStep}（締め肌M）の途中配合理論：</b>未確認。${esc(pair.problems.join('・')||'親子血統の再連結が必要です')}。締め肌を生産する前の工程を連結後に再判定します。</div>`;
@@ -1018,13 +1037,18 @@ function mild56TheoryHtml(plan){
  const status=x=>`<b>${esc(x)}</b>`;
  const issue=r.blocked?`<p class="notice warn">${esc((r.reasons||[]).join('・'))}</p>`:'';
  return `<details class="a21-flow" open><summary>v5.6｜工程${closingStep}：締め肌を作る途中配合理論（三値診断）</summary>
- <p class="muted">${esc(pair.sire?.name||pair.sireId)} × ${esc(pair.mare?.name||pair.mareId)} → 最終繁殖牝馬M。<b>子系統とは別の親系統で判定</b>。現時点の根拠：公式種牡馬詳細4件・親系統49頭（公開の一部のみ）。</p>
+ <p class="muted">${esc(pair.sire?.name||pair.sireId)} × ${esc(pair.mare?.name||pair.mareId)} → 最終繁殖牝馬M。<b>子系統とは別の親系統で判定</b>。${esc(parentRegistryNotice68())} 公式資料は限定4件で、公開CSVは第三者収録データです。</p>
  <div class="metrics">${chip('完璧：'+r.perfect)} ${chip('超完璧：'+r.superPerfect)} ${chip('奇跡：'+r.miracle+'（参考・マイルド探索対象外）')}</div>
  <p class="muted">面白7系統以上：${status(r.interesting)}（判明${esc(r.interestingDistinct??0)}種類）／見事4枠一致：${status(r.matching)}／面白8系統：${status(r.interestingEight||'未確認')}／奇跡用4×3：${status(r.miracleCross||'未確認')}。</p>
  ${r.miraclePaths?.length?`<p class="muted">4×3の同名候補位置：${esc(r.miraclePaths.join('・'))} × DDS（クロス条件の照合のみ）。</p>`:''}
+ ${!r.blocked?`<details class="details"><summary>面白8枠・見事4対4枠の親系統を確認（根拠つき）</summary>
+ <div class="audit-table-wrap"><table><thead><tr><th>条件</th><th>位置</th><th>祖先馬</th><th>親系統</th></tr></thead><tbody>
+ ${[...api.FAMILIES.interestingSire.map(x=>['面白・種',x]),...api.FAMILIES.interestingMare.map(x=>['面白・肌',x]),...api.FAMILIES.matchingSire.map(x=>['見事・種',x]),...api.FAMILIES.matchingMare.map(x=>['見事・肌',x])].map(([grp,path])=>{const a=pair.ped.rows.find(x=>x.path===path);return `<tr><td>${esc(grp)}</td><td>${esc(path)}</td><td>${esc(a?.name||'未収録')}</td><td>${esc(r.lineages[path]||'未確認')}</td></tr>`;}).join('')}
+ </tbody></table></div><p class="muted">親系統は公開CSVのpa列・公式限定資料・判明した父系継承で照合。子系統chi列とは別です。ゲーム内成立の証明ではありません。</p></details>`:''}
+
  ${unknown.length?`<details><summary>親系統が未照合の重要位置：${esc(unknown.length)}枠</summary><p class="muted">${esc(unknown.map(x=>x.path+' '+x.name).join('／'))}</p></details>`:'<p class="muted">対象の親系統枠は資料上すべて照合できました。</p>'}
  ${issue}<p class="r12-foot"><b>研究上の三値判定であり、ゲーム内成立を確認したものではありません。</b> 成立と出ても生産前にゲーム画面で確認してください。全兄弟姉妹・特殊なクロス排除条件は未検証です。未収録を「不成立」に置き換えません。至高の最終工程9の判定・生産ルートは変更していません。</p>
- <p class="r12-foot">出典（2026-11-09確認）：<a href="https://dabimas.jp/kouryaku/guide/introduction-to-breeding-theories.html" target="_blank" rel="noopener">公式配合理論</a>、<a href="https://dabimas.jp/kouryaku/guide/advisor-05.html" target="_blank" rel="noopener">公式応用解説</a>、${refs.map((src,i)=>`<a href="${src}" target="_blank" rel="noopener">公式血統${i+1}</a>`).join('・')}。公開情報と現行ゲーム仕様が一致する保証はありません。</p></details>`;
+ <p class="r12-foot">出典（2026-11-09確認）：<a href="https://dabimas.jp/kouryaku/guide/introduction-to-breeding-theories.html" target="_blank" rel="noopener">公式配合理論</a>、<a href="https://dabimas.jp/kouryaku/guide/advisor-05.html" target="_blank" rel="noopener">公式応用解説</a>、${refs.map((src,i)=>`<a href="${src}" target="_blank" rel="noopener">公式血統${i+1}</a>`).join('・')}、<a href="https://github.com/takana666/DBMSdata_search" target="_blank" rel="noopener">公開CSV親系統pa列（2026-11-11照合）</a>。公開情報と現行ゲーム仕様が一致する保証はありません。</p></details>`;
 }
 function chain09FinalAudit(p){
  const last=chain09Output(p,9);
@@ -1053,6 +1077,10 @@ function renderChain09(p){
   const prep=p.mild67.prep,prepared=state.homebreds.find(h=>key(h.id)===key(prep.foalId));
   body+=`<div class="chain-tile ${prepared?'ok':'stale'}" data-chain-tile="prep"><div class="chain-title">追加準備｜締め肌の父Aを1代生産（工程1より前）</div><div class="chain-parents"><label>父（取得済み種牡馬）<div class="chain-parent-static">${esc(prep.fatherId)}</div></label><label>母（公開名牝）<div class="chain-parent-static">${esc(prep.motherId)}</div></label></div><div class="chain-state">牡馬を生産・選別。G1実績や実測値が必要かはゲーム内で確認。</div><div class="chain-output">産駒：${esc(prepared?.name||'未登録・要確認')} ${chip(prepared?.mode==='real'?'実馬':'未生産の仮馬',prepared?.mode==='real'?'owned':'warn')}</div></div>`;
  }
+ if(isMaternalDDS67(p)&&p.mild67?.marePrep){
+  const prep=p.mild67.marePrep,prepared=state.homebreds.find(h=>key(h.id)===key(prep.foalId));
+  body+=`<div class="chain-tile ${prepared?'ok':'stale'}" data-chain-tile="prep-mare"><div class="chain-title">追加準備｜ディープに付ける基礎繁殖牝馬を1代生産（工程1より前）</div><div class="chain-parents"><label>父（取得済み種牡馬）<div class="chain-parent-static">${esc(prep.fatherId)}</div></label><label>母（公開名牝）<div class="chain-parent-static">${esc(prep.motherId)}</div></label></div><div class="chain-state">牝馬を生産してディープに種付けします。ゲーム内理論・能力は未確認。</div><div class="chain-output">産駒：${esc(prepared?.name||'未登録・要確認')} ${chip(prepared?.mode==='real'?'実馬':'未生産の仮馬',prepared?.mode==='real'?'owned':'warn')}</div></div>`;
+ }
  for(const d of chain09Definitions(p)){
   const pair=chain09Parents(p,d.n),out=chain09Output(p,d.n),status=out.horse?'次工程へ連結済み':pair.ready?'親が揃いました。仮馬を作成できます':pair.problems.join(' ／ ');
   const cls=out.horse?'ok':out.reason&&out.reason!=='産駒未登録'?'stale':'';
@@ -1075,7 +1103,7 @@ function makeChain09Foal(p,n){
  if(!ped||ped.known!==31)return {error:'血統が31枠に満たないため生成しません。'};
  const short=String(p.title||'計画').replace(/[^\p{L}\p{N}ー]/gu,'').slice(0,12)||'配合';
  let idx=1,name;do{name=`${short}・工程${n}・仮${idx++}`;}while(state.homebreds.some(h=>key(h.id)===key(homeId(name))));
- const now=nowISO();const ancestors=ped.rows.filter(r=>r.path.length<=5&&r.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}));
+ const now=nowISO();const ancestors=ped.rows.filter(r=>r.path.length<=5&&r.name).map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||'',parentSystem:a.parentSystem||''}));
  const rec={id:homeId(name),name,sex,mode:'draft',sp:'',st:'',fatherId:pair.sireId,motherId:pair.mareId,ancestry:ancestors,factors:[],lineage:pair.sire.lineage||'',lineageAssumed:!!pair.sire.lineage,planId:p.id,stepNo:n,note:'v0.9 連結プランで生成した未生産の仮馬。ゲーム内で未確認。',createdAt:now,updatedAt:now};
  state.homebreds.push(rec);const ch=chain09Data(p),old=ch.outputs[n],oldReuse=ch.reused50?.[n];
  if(ch.reused50)delete ch.reused50[n]; // stale reused source must never poison a regenerated draft.
@@ -1200,18 +1228,18 @@ function opt10XPool(p){
  if(chosen&&isOwned(chosen)&&horseSex(chosen)==='male'&&opt10Self(chosen)&&!out.some(x=>key(x.id)===key(current)))out.unshift(chosen);
  return {pool:out,all:pool.map(v=>v.r),eligible:pool.length};
 }
-function opt10Trial(p,choices,xId,xCandidate=null){
+function opt10Trial(p,choices,xId,xCandidate=null,mareCandidates=null){
  const slots=p.routeDraft?.slots||{},outputs={};
  const selected=[];
  for(let n=1;n<=9;n++){
   const d=chain09Definitions(p)[n-1];
   const sire=d.sireSlot?routeSnapshotMember(slots[d.sireSlot],p):d.sireStep?outputs[d.sireStep]:(xCandidate||findParentHorse(xId));
-  const mare=d.mareStep?outputs[d.mareStep]:map.get(key(choices[n]||''));
+  const mare=d.mareStep?outputs[d.mareStep]:(mareCandidates?.[n]||map.get(key(choices[n]||'')));
   if(!sire||!mare||horseSex(sire)!=='male'||horseSex(mare)!=='female'||!opt10Self(sire)||!opt10Self(mare))return null;
   const ped=getFoalPedigree(sire,mare);
   if(ped.conflicts.length||ped.known!==31)return null;
   const childName='計画内仮馬'+n;
-  outputs[n]={id:'__trial'+n,name:childName,sex:d.sex,ancestry:ped.rows.filter(x=>x.path.length<=5&&x.name).map(x=>({path:x.path,horse:x.name,factors:x.factors,line:x.line,factorVariant:x.factorVariant||''})),factors:[],lineage:sire.lineage||'',distance:d.sex==='male'?'仮馬':'',isHomebred:true};
+  outputs[n]={id:'__trial'+n,name:childName,sex:d.sex,ancestry:ped.rows.filter(x=>x.path.length<=5&&x.name).map(x=>({path:x.path,horse:x.name,factors:x.factors,line:x.line,factorVariant:x.factorVariant||'',parentSystem:x.parentSystem||''})),factors:[],lineage:sire.lineage||'',distance:d.sex==='male'?'仮馬':'',isHomebred:true};
   selected.push(ped);
  }
  const final=selected[8];
@@ -1241,7 +1269,7 @@ function opt10Trial(p,choices,xId,xCandidate=null){
  const lineScore=p.goal==='speed'?spL*2+stL:p.goal==='stamina'?stL*2+spL:spL+stL;
  const risk=extra.filter(x=>x.paths.some(path=>path.length<=3)).length;
  const idx=lineScore+crossScore-risk*2-effective.uncertain.length;
- return {diversity60:window.DabimasMildDiversity60?.summarize(final,window.DabimasParentTheory56,{anchors:Object.values(anchorPaths66(p))})||null,choices:{...choices},xId,full:final,closingPed:selected[chain09ClosureStep(p)-1],finalSire:outputs[isMaternal66(p)?8:2],finalMare:outputs[isMaternal66(p)?2:8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
+ return {diversity60:window.DabimasMildDiversity60?.summarize(final,currentParentTheory68(),{anchors:Object.values(anchorPaths66(p))})||null,choices:{...choices},xId,full:final,closingPed:selected[chain09ClosureStep(p)-1],finalSire:outputs[isMaternal66(p)?8:2],finalMare:outputs[isMaternal66(p)?2:8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
    xLineage:(map.get(key(xId))||{}).lineage||'',xResearchFactors:[...(map.get(key(xId))?.factors||[])],xSearchCount:0};
 }
 // v6.6: Seven public meihin dams + three owned Deep variants, nine REAL mating steps.
@@ -1260,7 +1288,7 @@ function opt66Compare(a,b){
 }
 function opt66Find(p,scope){
  const fast=scope==='meihin_fast',mareData=opt10MarePool(p,'meihin');
- const ordered=window.DabimasMildDiversity60?.orderCandidates(mareData.pool,window.DabimasParentTheory56,{mare:true,
+ const ordered=window.DabimasMildDiversity60?.orderCandidates(mareData.pool,currentParentTheory68(),{mare:true,
   favorites:Object.fromEntries(mareData.pool.map(r=>[r.id,!!state.mareFavorites[key(r.id)]]))})||mareData.pool;
  const pool=ordered.slice(0,fast?12:24),mareSteps=window.DabimasMaternal66.mareSteps;
  if(pool.length<7)return {results:[],tests:0,mares:mareData.eligible,x:0,message:'母側3代目ルートには7枠の名牝候補が必要です。'};
@@ -1271,7 +1299,7 @@ function opt66Find(p,scope){
   count++;
   let c=opt10Trial(p,choices,'');
   if(c?.matches===3){
-   const verdict=window.DabimasParentTheory56?.inspect?.(c.closingPed)||null;
+   const verdict=currentParentTheory68()?.inspect?.(c.closingPed)||null;
    c.theory66=verdict;c.maternal66={closingStep:2,gameVerified:false};
    const members=Object.fromEntries(['g3','g4','g5'].map(k=>[k,routeSnapshotMember(p.routeDraft.slots[k],p)]));
    const v=window.DabimasMaternal66.validateFinal(c.full,p.routeDraft.slots,members);
@@ -1326,7 +1354,7 @@ function opt66Find(p,scope){
    },
    createChild:({definition:d,pedigree:ped,sire})=>({
     id:'__trial'+d.n,name:'計画内仮馬'+d.n,sex:d.sex,
-    ancestry:ped.rows.filter(x=>x.path.length<=5&&x.name).map(x=>({path:x.path,horse:x.name,factors:x.factors,line:x.line,factorVariant:x.factorVariant||''})),
+    ancestry:ped.rows.filter(x=>x.path.length<=5&&x.name).map(x=>({path:x.path,horse:x.name,factors:x.factors,line:x.line,factorVariant:x.factorVariant||'',parentSystem:x.parentSystem||''})),
     factors:[],lineage:sire.lineage||'',distance:d.sex==='male'?'仮馬':'',isHomebred:true
    }),
    complete:choices=>evaluate(choices)
@@ -1343,37 +1371,49 @@ function opt66Find(p,scope){
 // parent systems are not treated as mismatches, and simulated theory is not
 // a game-proven success. No mutation until all nine stages pass validation.
 function opt67Find(p,scope){
- const api=window.DabimasMaternalDDS67,theory=window.DabimasParentTheory56;
+ const api=window.DabimasMaternalDDS67,theory=currentParentTheory68();
  if(!api?.validateGraph?.().ok||!theory)return {results:[],tests:0,message:'DDS新ルートまたは親系統モジュールが利用できません'};
  const fast=scope==='meihin_fast',poolData=opt10MarePool(p,'meihin');
  const sourceMares=window.DabimasMildDiversity60?.orderCandidates(poolData.pool,theory,{mare:true})||poolData.pool;
- const mares=sourceMares.slice(0,fast?20:36),otherMares=mareRows().filter(m=>opt10Self(m)&&mareRank12(m).value==='名牝');
+ const otherMares=mareRows().filter(m=>opt10Self(m)&&mareRank12(m).value==='名牝');
+ const candidateMares=[...sourceMares,...otherMares].filter((r,i,a)=>a.findIndex(x=>key(x.id)===key(r.id))===i);
+ const mares=candidateMares.slice(0,parentRegistry68?.observed?(fast?60:96):(fast?20:36));
  const deep=routeSnapshotMember(p.routeDraft?.slots?.g3,p);
  if(!deep||mares.length<6)return {results:[],tests:0,mares:poolData.eligible,message:'DDSルートには6頭以上の名牝とディープの実血統が必要です'};
  const anchorNames=new Set(Object.values(p.routeDraft.slots).map(v=>key(splitName(v).name)));
  const wanted=p.goal==='speed'?['短','速','走']:p.goal==='stamina'?['長','中','底']:['短','速','走','長','中'];
  const factorScore=r=>(r?.ancestry||[]).flatMap(x=>x.factors||[]).reduce((v,f)=>v+(wanted.includes(f)?2:0.4),0);
- const sires=maleRows().filter(r=>isOwned(r)&&opt10Self(r)&&!anchorNames.has(key(r.name))).map(r=>({r,pre:api.sirePrecheck(r,theory)}))
-  .filter(x=>x.pre.possible)
-  .sort((a,b)=>b.pre.matchingRoNe-a.pre.matchingRoNe||Number(!!b.pre.notInteresting)-Number(!!a.pre.notInteresting)||b.pre.known-a.pre.known||factorScore(b.r)-factorScore(a.r)||a.r.id.localeCompare(b.r.id,'ja'))
+ const allSires68=maleRows().filter(r=>isOwned(r)&&opt10Self(r)&&!anchorNames.has(key(r.name))).map(r=>({r,pre:api.sirePrecheck(r,theory)}));
+ const sires=allSires68.filter(x=>x.pre.possible)
+  .sort((a,b)=>b.pre.maxInterestingDistinct-a.pre.maxInterestingDistinct||b.pre.matchingRoNe-a.pre.matchingRoNe||Number(!!b.pre.notInteresting)-Number(!!a.pre.notInteresting)||b.pre.known-a.pre.known||factorScore(b.r)-factorScore(a.r)||a.r.id.localeCompare(b.r.id,'ja'))
   .slice(0,fast?28:72);
  let tests=0,invalid=0,checkedOwned=0,checkedPrepared=0;
- const foal=(n,pedigree,sire)=>({id:'__trial67_'+n,name:'逆算仮馬'+n,sex:api.definitions[n-1]?.sex||'male',ancestry:pedigree.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,line:r.line,factors:[...(r.factors||[])],factorVariant:r.factorVariant||''})),factors:[],lineage:sire.lineage||'',distance:(api.definitions[n-1]?.sex||'male')==='male'?'仮馬':'',isHomebred:true});
+ const foal=(n,pedigree,sire)=>({id:'__trial67_'+n,name:'逆算仮馬'+n,sex:api.definitions[n-1]?.sex||'male',ancestry:pedigree.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,line:r.line,factors:[...(r.factors||[])],factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),factors:[],lineage:sire.lineage||'',distance:(api.definitions[n-1]?.sex||'male')==='male'?'仮馬':'',isHomebred:true});
  const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length;
  const first=[];
+ // v6.8: before a costly 31-slot mating, reject only PROVEN impossibility
+ // of matching four paternal systems to Ro/Ne + base-mare S/DS.
+ const fixedMareMatching68=one=>{
+  const find=k=>(one.mare.ancestry||[]).find(a=>a.path===k)?.horse||'';
+  return ['Royal Charger','Nearctic',theory.lookup(find('父'))?.parent||null,theory.lookup(find('母父'))?.parent||null];
+ };
+ let prunedMatching68=0,prunedInteresting68=allSires68.filter(x=>!x.pre.interestingPossible).length;
  for(const mare of mares){tests++;const ped=getFoalPedigree(deep,mare);if(!valid(ped)){invalid++;continue;}first.push({mare,child:foal(1,ped,deep),ped});}
  const rankVerdict=v=>v?.blocked?0:v?.superPerfect==='成立'?3:v?.perfect==='成立'?2:v?.superPerfect==='未確認'||v?.perfect==='未確認'?1:0;
  const bestPairs=[];
  function pairProbe(sire,prepared=null){
   if(horseSex(sire)!=='male'||!opt10Self(sire))return;
-  const pre=api.sirePrecheck(sire,theory);if(!pre.possible)return;
-  for(const one of first){tests++;const closing=getFoalPedigree(sire,one.child);
+  const pre=api.sirePrecheck(sire,theory);if(!pre.possible){if(!pre.interestingPossible)prunedInteresting68++;return;}
+  for(const one of first){
+   const early=theory.matching(pre.matching||[null,null,null,null],fixedMareMatching68(one));
+   if(early.status==='不成立'){prunedMatching68++;continue;}
+   tests++;const closing=getFoalPedigree(sire,one.child);
    if(!valid(closing)){invalid++;continue;}
    const v=theory.inspect(closing),rank=rankVerdict(v);
    if(prepared)checkedPrepared++;else checkedOwned++;
    // A documented failure of perfect and super-perfect must not be
    // disguised as a usable DDS closing mare. UNKNOWN remains provisional.
-   if(rank===0)continue;
+   if(rank<2)continue; // no provisional UNKNOWN is a completed perfect closing-mare plan
    bestPairs.push({sire,one,closing,theory:v,rank,prepared,evidence:factorScore(sire)+factorScore(one.mare)+Math.max(0,v.evidenceCount||0),pre});
   }
  }
@@ -1393,8 +1433,10 @@ function opt67Find(p,scope){
    for(const m of marePool){tests++;const ped=getFoalPedigree(father,m);
     if(!valid(ped)){invalid++;continue;}
     const candidate={...foal(0,ped,father),id:'__prepared67_'+father.id+'_'+m.id,name:'自家製締め肌父A・仮',sex:'male',distance:'仮馬'};
-    const pre=api.sirePrecheck(candidate,theory);if(!pre.possible)continue;
-    for(const one of firstForPrepared){tests++;const closing=getFoalPedigree(candidate,one.child);
+    const pre=api.sirePrecheck(candidate,theory);if(!pre.possible){if(!pre.interestingPossible)prunedInteresting68++;continue;}
+    for(const one of firstForPrepared){
+     if(theory.matching(pre.matching||[null,null,null,null],fixedMareMatching68(one)).status==='不成立'){prunedMatching68++;continue;}
+     tests++;const closing=getFoalPedigree(candidate,one.child);
      if(!valid(closing)){invalid++;continue;}
      const v=theory.inspect(closing),rank=rankVerdict(v);
      if(rank<2)continue; // no extra birth for UNKNOWN or unsupported theory.
@@ -1441,22 +1483,107 @@ function opt67Find(p,scope){
  }
  results.sort((a,b)=>opt66Compare(a,b)||Number(!!a.xPrep)-Number(!!b.xPrep));
  return {scope,results:results.slice(0,3),tests,mares:poolData.eligible,x:sires.length,limited:true,
-  checkedOwned,checkedPrepared,invalid,message:results.length?'':`DDS配置は候補を特定できませんでした。既存種牡馬${sires.length}頭、締め肌父×ディープ直仔牝馬${checkedOwned+checkedPrepared}組を部分探索。DSS旧ルートを自動試行します。`};
+  checkedOwned,checkedPrepared,invalid,prunedMatching68,prunedInteresting68,parentEvidence68:parentRegistry68?.observed||0,message:results.length?'':`DDS配置は候補を特定できませんでした。既存種牡馬${sires.length}頭、締め肌父×ディープ直仔牝馬${checkedOwned+checkedPrepared}組を部分探索。DSS旧ルートを自動試行します。`};
 }
+// v6.9: sire-first eight-system reverse search (with optional ONE-birth sire
+// and ONE-birth foundation mare). Unlike the legacy search, no top-12 mare
+// truncation occurs before inverse parent-line matching. The final pedigree,
+// early-cross guard, sex graph, and saved 31-slot structure remain mandatory.
+function opt69Find(p,scope){
+ const api=window.DabimasMaternalDDS67,inv=window.DabimasInverseMild69,theory=currentParentTheory68();
+ if(!api?.validateGraph?.().ok||!inv||!theory||!parentRegistry68?.observed)
+  return {results:[],tests:0,message:'v6.9逆算探索にはpa親系統付き公開CSVが必要です。データ管理で添付mydata.csvを読み込んでください。'};
+ const deep=routeSnapshotMember(p.routeDraft?.slots?.g3,p);
+ const mares=mareRows().filter(m=>opt10Self(m)&&mareRank12(m).value==='名牝');
+ const anchorNames=new Set(Object.values(p.routeDraft.slots).map(v=>key(splitName(v).name)));
+ const owned=maleRows().filter(r=>isOwned(r)&&opt10Self(r)&&!anchorNames.has(key(r.name)));
+ if(!deep||!mares.length||!owned.length)return {results:[],tests:0,message:'ディープ3因名・所持種牡馬・名牝のいずれかが不足しています'};
+ const wanted=p.goal==='speed'?['短','速','走']:p.goal==='stamina'?['長','中','底']:['短','速','走','長','中','底'];
+ const factorScore=r=>(r?.ancestry||[]).flatMap(a=>a.factors||[]).reduce((n,f)=>n+(wanted.includes(f)?2:0.4),0);
+ const inverse=inv.search({ownedSires:owned,mares,theory,score:factorScore,excludeNames:Object.values(p.routeDraft.slots).map(id=>splitName(id).name),limit:scope==='meihin_fast'?100:260});
+ let tests=inverse.stats?.precheckedPrepared||0,invalid=0,theoryRejected=0;
+ const foal=(n,pedigree,sire,sex=api.definitions[n-1]?.sex||'male')=>({id:'__trial69_'+n,name:'逆算仮馬'+n,sex,ancestry:pedigree.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,line:r.line,factors:[...(r.factors||[])],factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),factors:[],lineage:sire.lineage||'',distance:sex==='male'?'仮馬':'',isHomebred:true});
+ const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length;
+ const results=[],seen=new Set();
+ for(const recipe of inverse.candidates){
+  if(results.length>=(scope==='meihin_fast'?10:20))break;
+  const father=recipe.sirePrep?findParentHorse(recipe.sirePrep.fatherId):findParentHorse(recipe.sireId);
+  const mother=recipe.sirePrep?findParentHorse(recipe.sirePrep.motherId):null;
+  let xPrep=null,sire=father;
+  if(recipe.sirePrep){tests++;const ped=getFoalPedigree(father,mother);if(!valid(ped)){invalid++;continue;}
+   sire={...foal(0,ped,father,'male'),id:'__prep_sire69_'+recipe.sirePrep.fatherId+'_'+recipe.sirePrep.motherId,name:'自家製締め肌父・仮'};
+   xPrep={...recipe.sirePrep,pedigree:ped,horse:sire};
+  }
+  const baseFather=recipe.basePrep?findParentHorse(recipe.basePrep.fatherId):null;
+  const baseMother=recipe.basePrep?findParentHorse(recipe.basePrep.motherId):null;
+  let marePrep=null,base=recipe.baseMareId?findParentHorse(recipe.baseMareId):null;
+  if(recipe.basePrep){tests++;const ped=getFoalPedigree(baseFather,baseMother);if(!valid(ped)){invalid++;continue;}
+   base={...foal(0,ped,baseFather,'female'),id:'__prep_mare69_'+recipe.basePrep.fatherId+'_'+recipe.basePrep.motherId,name:'自家製ディープ基礎牝・仮',distance:''};
+   marePrep={...recipe.basePrep,pedigree:ped,horse:base};
+  }
+  if(!sire||!base)continue;
+  tests++;const ped1=getFoalPedigree(deep,base);if(!valid(ped1)){invalid++;continue;}
+  const direct=foal(1,ped1,deep,'female');
+  tests++;const closing=getFoalPedigree(sire,direct);if(!valid(closing)){invalid++;continue;}
+  const closingTheory=theory.inspect(closing);
+  const theoryGrade=closingTheory?.superPerfect==='成立'?8:closingTheory?.perfect==='成立'?7:0;
+  // Never use the eight-lineage shortcut alone as game/theory confirmation.
+  if(theoryGrade<7||theoryGrade!==recipe.distinct){theoryRejected++;continue;}
+  const sireKey=recipe.sireId||recipe.sireName;
+  // Diversity across candidate sire recipes: preserve alternatives for factor/cross assessment.
+  const signature=[sireKey,base.id].join('|');if(seen.has(signature))continue;seen.add(signature);
+  const makeMore=(seed,salt)=>{
+   const outputs={1:direct,2:foal(2,closing,sire,'female')},choices={1:base.id};
+   const used=new Set([key(recipe.baseMareId||recipe.baseName)]);
+   for(const def of api.definitions.slice(2,7)){
+    const dad=def.sireSlot?routeSnapshotMember(p.routeDraft.slots[def.sireSlot],p):outputs[def.sireStep];
+    if(!dad)return null;
+    // At this point select only 4/5-generation supporting mares; exact rank
+    // can be improved later, but never substitute an unverified pedigree.
+    const start=(seed*13+salt*17+def.n*7)%mares.length;let match=null;
+    for(let j=0;j<mares.length;j++){
+     const m=mares[(start+j)%mares.length];if(used.has(key(m.id)))continue;
+     tests++;const ped=getFoalPedigree(dad,m);
+     if(valid(ped)){match={m,ped};break;}invalid++;
+    }
+    if(!match)return null;
+    used.add(key(match.m.id));choices[def.n]=match.m.id;outputs[def.n]=foal(def.n,match.ped,dad);
+   }
+   tests++;const ped8=getFoalPedigree(outputs[4],outputs[7]);if(!valid(ped8))return null;
+   outputs[8]=foal(8,ped8,outputs[4]);tests++;const full=getFoalPedigree(outputs[8],outputs[2]);if(!valid(full))return null;
+   // Re-evaluate via the same route/lineage validation as saved production.
+   const trial=opt10Trial(p,choices,sire.id,xPrep?sire:null,marePrep?{1:base}:null);
+   if(!trial||trial.matches!==3||!api.validateFinal(trial.full,p.routeDraft.slots,Object.fromEntries(['g3','g4','g5'].map(k=>[k,routeSnapshotMember(p.routeDraft.slots[k],p)]))).ok)return null;
+   trial.theory66=closingTheory;trial.xPrep=xPrep;trial.marePrep=marePrep;
+   trial.maternal67={closingStep:2,gameVerified:false,ownedSire:!xPrep,preparedMare:!!marePrep,sourceEight:recipe.distinct};
+   trial.xSearchCount=inverse.stats.ownedEightEligible+inverse.stats.preparedEightEligible;
+   trial.additionalBirths=recipe.additionalBirths;
+   return trial;
+  };
+  for(let salt=0;salt<2;salt++){
+   const trial=makeMore(results.length,salt);if(trial){results.push(trial);break;}
+  }
+ }
+ results.sort((a,b)=>opt66TheoryRank(b)-opt66TheoryRank(a)||a.additionalBirths-b.additionalBirths||opt66Compare(a,b));
+ return {scope,results:results.slice(0,4),tests,mares:mares.length,x:inverse.stats.ownedEightEligible,limited:true,
+  inverse69:{...inverse.stats,invalid,theoryRejected},parentEvidence68:parentRegistry68.observed,
+  message:results.length?'':`8枠逆算では超完璧・完璧の確定可能な9工程を組めませんでした。種牡馬1代仕込み候補${inverse.stats.preparedEightEligible}組・比較${tests}回。母の追加1代も調査しました。対象外の配合はありませんとは断定できません。`};
+}
+
 // Persist the optional one-birth father as a separate draft horse BEFORE the
 // normal nine-step DAG. Its parents and all 31 sire ancestors stay attached.
 // Called only inside the existing atomic stagingAuto21 transaction.
-function mild67StagePreparation(plan,prep){
+function mild67StagePreparation(plan,prep,sex='male'){
  const sire=findParentHorse(prep.fatherId),mare=findParentHorse(prep.motherId);
  if(!sire||!mare||!isOwned(sire)||horseSex(sire)!=='male'||horseSex(mare)!=='female'||!opt10Self(sire)||!opt10Self(mare))
   return {error:'1代仕込みの父母または所持状態に不整合があります'};
  const ped=getFoalPedigree(sire,mare);
- if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts?.length)return {error:'1代仕込み種牡馬の31枠が矛盾'};
- const name=`${String(plan.title||'DDS').replace(/[^\p{L}\p{N}ー]/gu,'').slice(0,12)}・締め肌父仕込み・仮1`;
+ if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts?.length)return {error:'1代仕込み馬の31枠が矛盾'};
+ const name=`${String(plan.title||'DDS').replace(/[^\p{L}\p{N}ー]/gu,'').slice(0,12)}・${sex==='female'?'ディープ基礎牝':'締め肌父'}仕込み・仮1`;
  const id=homeId(name);if(state.homebreds.some(h=>key(h.id)===key(id)))return {error:'仕込み馬IDが重複'};
- const rec={id,name,sex:'male',mode:'draft',sp:'',st:'',factors:[],lineage:sire.lineage||'',lineageAssumed:!!sire.lineage,
-  fatherId:sire.id,motherId:mare.id,ancestry:ped.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,factors:[...(r.factors||[])],line:r.line||'',factorVariant:r.factorVariant||''})),
-  planId:plan.id,stepNo:null,mild67Prep:true,createdAt:nowISO(),updatedAt:nowISO(),note:'v6.7：締め肌の父Aを所持種牡馬×名牝で1代仕込む未生産の仮馬。実本人因子／ゲーム内理論は未確認。'};
+ const rec={id,name,sex,mode:'draft',sp:'',st:'',factors:[],lineage:sire.lineage||'',lineageAssumed:!!sire.lineage,
+  fatherId:sire.id,motherId:mare.id,ancestry:ped.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,factors:[...(r.factors||[])],line:r.line||'',factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),
+  planId:plan.id,stepNo:null,mild67Prep:true,createdAt:nowISO(),updatedAt:nowISO(),note:sex==='female'?'v6.9：ディープ直仔牝馬の基礎牝を所持種牡馬×名牝で1代仕込む未生産の仮馬。':'v6.9：締め肌の父を所持種牡馬×名牝で1代仕込む未生産の仮馬。'};
  state.homebreds.push(rec);return {horse:rec};
 }
 
@@ -1470,9 +1597,9 @@ function opt10Find(p,scope){
  const mares=opt10MarePool(p,fast?'meihin':scope),x=opt10XPool(p),ch=chain09Data(p);
  if(fast){
   // Small, deterministic shortlist; favorites are preferred, but never overwrite saved flags.
-  mares.pool=window.DabimasMildDiversity60?.orderCandidates(mares.pool,window.DabimasParentTheory56,{mare:true,favorites:Object.fromEntries(mares.pool.map(r=>[r.id,!!state.mareFavorites[key(r.id)]]))})||mares.pool;
+  mares.pool=window.DabimasMildDiversity60?.orderCandidates(mares.pool,currentParentTheory68(),{mare:true,favorites:Object.fromEntries(mares.pool.map(r=>[r.id,!!state.mareFavorites[key(r.id)]]))})||mares.pool;
   mares.pool=mares.pool.slice(0,12);
-  x.pool=(window.DabimasMildDiversity60?.orderCandidates(x.pool,window.DabimasParentTheory56)||x.pool).slice(0,8);
+  x.pool=(window.DabimasMildDiversity60?.orderCandidates(x.pool,currentParentTheory68())||x.pool).slice(0,8);
  }
  const obstacles=[];
  if(!mares.pool.length)obstacles.push('対象ランクで血統15枠の揃った繁殖牝馬が見つかりません。名牝の区分を繁殖牝馬タブで確認・登録するか、探索範囲を変更してください。');
@@ -1701,7 +1828,7 @@ function prep17Mare(sire,baseMare,tag){
  const ped=getFoalPedigree(sire,baseMare);
  if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`${tag}：基礎牝馬または種牡馬の血統が不足・矛盾しています（${ped.known}/31）`};
  const id='__prep17_'+tag;
- const mare={id,name:'準備'+tag+'牝',sex:'female',isHomebred:true,mode:'draft',fatherId:sire.id,motherId:baseMare.id,factors:[],lineage:sire.lineage||'',ancestry:ped.rows.filter(x=>x.name&&x.path.length<=5).map(x=>({path:x.path,horse:x.name,factors:[...x.factors],line:x.line,factorVariant:x.factorVariant||''}))};
+ const mare={id,name:'準備'+tag+'牝',sex:'female',isHomebred:true,mode:'draft',fatherId:sire.id,motherId:baseMare.id,factors:[],lineage:sire.lineage||'',ancestry:ped.rows.filter(x=>x.name&&x.path.length<=5).map(x=>({path:x.path,horse:x.name,factors:[...x.factors],line:x.line,factorVariant:x.factorVariant||'',parentSystem:x.parentSystem||''}))};
  return {mare,ped};
 }
 function prep17Trial(p,selectedA,selectedB,choicePool=null,extra22=null){
@@ -1746,7 +1873,7 @@ function prep17Trial(p,selectedA,selectedB,choicePool=null,extra22=null){
   if(!sire||!mare||horseSex(sire)!=='male'||horseSex(mare)!=='female')return {error:`通常工程${n}の親馬が見つからないか、牡牝の条件が合いません。`};
   const ped=getFoalPedigree(sire,mare);
   if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`通常工程${n}の血統が不完全です（${ped.known}/31）。祖先情報のある公開CSVが必要です。`};
-  outputs[n]={id:'__prep17_foal_'+n,name:'追加クロス計画の仮馬'+n,sex:d.sex,isHomebred:true,factors:[],lineage:sire.lineage||'',ancestry:ped.rows.filter(x=>x.name&&x.path.length<=5).map(x=>({path:x.path,horse:x.name,factors:[...x.factors],line:x.line,factorVariant:x.factorVariant||''}))};
+  outputs[n]={id:'__prep17_foal_'+n,name:'追加クロス計画の仮馬'+n,sex:d.sex,isHomebred:true,factors:[],lineage:sire.lineage||'',ancestry:ped.rows.filter(x=>x.name&&x.path.length<=5).map(x=>({path:x.path,horse:x.name,factors:[...x.factors],line:x.line,factorVariant:x.factorVariant||'',parentSystem:x.parentSystem||''}))};
   final=ped;if(n===9){finalSire=sire;finalMare=mare;}
  }
  const byPath=new Map(final.rows.map(r=>[r.path,r]));
@@ -2389,7 +2516,7 @@ function auto21SetResearch(p,base){
   xSelection31:{candidateCount:base.xSearchCount||0,selected:base.xId,lineage:base.xLineage,
     tiedCount:base.xTieCount||1, tiedIds:base.xTieIds||[base.xId],
     extraIndependentCrosses:(base.extraEffective||[]).map(c=>c.name),crossFactorCounts:base.extraFactorCounts||{},
-    method:isMaternalDDS67(p)?'名牝6枠＋締め肌父逆算・所持優先（成立未確認）':isMaternal66(p)?'名牝7枠の上限付き探索・補助X不要（成立未確認）':'取得済みXを全件比較・6牝馬は候補数制限付き・研究用順位',verified:false}};
+    method:isMaternalDDS67(p)?'見事4＋面白8枠から締め肌父を先行逆算（超完璧・工程数優先）':isMaternal66(p)?'名牝7枠の上限付き探索・補助X不要（成立未確認）':'取得済みXを全件比較・6牝馬は候補数制限付き・研究用順位',verified:false}};
 }
 // v2.3 — Dependency-aware, variable-length preparation graph.
 // Only visible sire positions in the final five-generation pedigree can justify a
@@ -2414,7 +2541,7 @@ function hard23Trial(p,grafts={},goal=p.goal||'balance',xPlan=null){
    const ped=getFoalPedigree(sire,mare);
    if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`仕込み工程${n}-${j+1}の血統が未完成です`};
    const child={id:`__h23_${n}_${j}`,name:`仕込み${n}-${j+1}`,sex:'female',isHomebred:true,factors:[],lineage:sire.lineage||'',fatherId:sire.id,motherId:mare.id,
-    ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}))};
+    ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||'',parentSystem:a.parentSystem||''}))};
    prepared[n].push({sire,mother:mare,child,path:def.prefix+'D'.repeat(stack.length-1-j)+'S',baseStep:n});
    mare=child;
   }
@@ -2434,7 +2561,7 @@ function hard23Trial(p,grafts={},goal=p.goal||'balance',xPlan=null){
    const ped=getFoalPedigree(sire,mare);
    if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:'補助X用の血統が不完全です'};
    const child={id:`__h24_x${j}`,name:`補助種牡馬X${j+1}`,sex:'male',isHomebred:true,factors:[],lineage:sire.lineage||'',fatherId:sire.id,motherId:mare.id,
-    ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}))};
+    ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||'',parentSystem:a.parentSystem||''}))};
    preparedX.push({sire,mother:mare,child,path:'DDS'+'S'.repeat(xPlan.mareIds.length-j)});
    sire=child;xOutput=child;
   }
@@ -2448,7 +2575,7 @@ function hard23Trial(p,grafts={},goal=p.goal||'balance',xPlan=null){
   const ped=getFoalPedigree(sire,mare);
   if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts.length)return {error:`通常工程${n}の血統が不完全（${ped.known}/31）です`};
   outputs[n]={id:`__h23_foal_${n}`,name:`通常工程${n}の仮馬`,sex:d.sex,isHomebred:true,factors:[],lineage:sire.lineage||'',fatherId:sire.id,motherId:mare.id,
-   ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||''}))};
+   ancestry:ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||'',parentSystem:a.parentSystem||''}))};
   if(n===9){final=ped;finalSire=sire;finalMare=mare;}
  }
  const at=new Map(final.rows.map(x=>[x.path,x]));
@@ -2621,7 +2748,7 @@ function hard23Save(p,t,goal,summary={},options={}){
  }
  for(const [j,r] of (t.preparedX||[]).entries()){
   const name=`v24補助X-${j+1}_${copy.id.slice(0,8)}`,id=homeId(name);
-  const rec={id,name,sex:'male',mode:'draft',sp:'',st:'',factors:[],lineage:r.child.lineage||'',lineageAssumed:!!r.child.lineage,
+  const rec={id,name,sex,mode:'draft',sp:'',st:'',factors:[],lineage:r.child.lineage||'',lineageAssumed:!!r.child.lineage,
    fatherId:recordIds[r.sire.id]||r.sire.id,motherId:r.mother.id,
    ancestry:r.child.ancestry.map(a=>({...a,factors:[...a.factors]})),planId:copy.id,stepNo:null,createdAt:now,updatedAt:now,
    note:'v2.4補助X父系の仕込み。牡馬として残す。本人因子、SP/ST、ゲーム内成立は未確認。'};
@@ -2771,7 +2898,7 @@ function external48Download(plan){
 function production63Html(plan){
  const api=window.DabimasProductionReady63;if(!api||plan?.autoDesign21?.mode!=='mild')return '';
  const closing=chain09Parents(plan,chain09ClosureStep(plan));
- const theory=closing?.ready&&closing?.ped?window.DabimasParentTheory56?.inspect(closing.ped):null;
+ const theory=closing?.ready&&closing?.ped?currentParentTheory68()?.inspect(closing.ped):null;
  const data=api.analyze({plan,inventory:state.owned,resolve:id=>findParentHorse(id),theory});
  const entry=data.first;
  const list=data.steps.map(x=>`<li>工程${x.step}の起点種牡馬：${esc(x.sire)} ／ ${esc(x.status)}${x.rights!==null?`（現在${x.rights}回）`:''}</li>`).join('');
@@ -2793,7 +2920,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  const goalName=GOAL_LABELS[goal]||'バランス';
  const counts=Object.entries(c.frequency).map(([f,n])=>chip(f+' ×'+n)).join('');
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
- <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
+ <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計・追加仕込み含む）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜${isMaternalDDS67(plan)?'ディープ直仔牝馬×取得済み締め肌父Aを逆算（必要なら1代仕込み）':isMaternal66(plan)?'公開名牝7頭と所持ディープ3頭を配置しました（補助X不要）':'名牝6頭と所持種牡馬を自動配置しました'}。</p>
  ${plan.mild50?.reusedCount?`<p class="notice"><b>v5.0 実馬再利用：${plan.mild50.reusedCount}工程短縮</b>。基本9工程のうち新規生産は${plan.mild50.productionStages}工程です。既存実馬の父母・性別・31枠を一致検証しました。実馬記録の編集時はリンクを再確認します。</p>`:''}
  ${!isMaternal66(plan)&&!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
@@ -2807,8 +2934,8 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${cross36Html(ped)}
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
- ${plan.mild66?`<div class="notice"><b>${isMaternalDDS67(plan)?'v6.7｜DDS逆算ルート':'v6.6｜母側3代目の別ルート'}：</b>最終祖先 ${isMaternalDDS67(plan)?'DDS':'DSS'}／SSSS／SDSSS。実際の9工程を全て再連結し、近親回避・31枠・異因名と因子を照合。締め肌は工程2で、超完璧${esc(plan.mild66.evaluation?.superPerfect||'未確認')}／完璧${esc(plan.mild66.evaluation?.perfect||'未確認')}（部分的親系統）。<b>成立確定ではありません。</b>${isMaternalDDS67(plan)?'名牝6枠・締め肌父候補の上限付き逆算探索です。':'名牝7枠の上限付き探索です。'}</div>`:''}
- ${plan.mild67?`<div class="notice"><b>v6.7｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭。親系統資料は部分収録でありゲーム内成立確定ではありません。</div>`:''}
+ ${plan.mild66?`<div class="notice"><b>${isMaternalDDS67(plan)?'v6.9｜DDS8枠逆算ルート':'v6.6｜母側3代目の別ルート'}：</b>最終祖先 ${isMaternalDDS67(plan)?'DDS':'DSS'}／SSSS／SDSSS。実際の9工程を全て再連結し、近親回避・31枠・異因名と因子を照合。締め肌は工程2で、超完璧${esc(plan.mild66.evaluation?.superPerfect||'未確認')}／完璧${esc(plan.mild66.evaluation?.perfect||'未確認')}（部分的親系統）。<b>成立確定ではありません。</b>${isMaternalDDS67(plan)?'取得済み種牡馬→必要時1代仕込み→母系を逆算。9基本工程＋必要な追加準備のみです。':'名牝7枠の上限付き探索です。'}</div>`:''}
+ ${plan.mild67?`<div class="notice"><b>v6.9｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
  ${plan.mild58?`<div class="notice"><b>v5.8 マイルド・母系1代仕込み：</b>所持種牡馬${esc(plan.mild58.tested)}候補を工程6の前に追加する形で比較。${plan.mild58.chosenSireId?`採用：${esc(plan.mild58.chosenSireId)}（全${esc(plan.mild58.resultStages)}工程）。`:'途中配合理論の確実な改善と研究評価の維持を同時に満たす候補はなく、9工程のままです。'}超完璧・完璧のみ評価し、奇跡は除外。<b>ゲーム内成立・締め肌能力は未確認。</b>探索は上限付きです。</div>`:''}
  ${plan.mild55?`<div class="notice"><b>v5.5 マイルド型・複数枠の同時改善：</b>2枠変更${esc(plan.mild55.checked)}候補を照合（名牝ペア${esc(plan.mild55.marePairTrials)}／補助X＋名牝${esc(plan.mild55.xMareTrials)}）。${plan.mild55.improved?'研究上の評価が改善':'上位候補は従来案を維持'}。網羅探索・ゲーム内成立保証ではありません。</div>`:''}
@@ -2908,22 +3035,23 @@ function auto21Create(){
     (routeChoice==='paternal'?['paternal']:routeChoice==='maternal'?['maternal']:
      routeChoice==='both'?['dds','maternal','paternal']:['dds','maternal','paternal']):['paternal'];
    for(const routeType of routeTypes){
-    if(deepMild&&routeChoice==='maternal-auto'&&trials.length&&routeType!=='dds')break;
+    if(deepMild&&routeChoice==='maternal-auto'&&routeType!=='dds'&&
+     trials.some(t=>t.routeType==='dds'&&opt66TheoryRank(t.ranked[0]?.candidate)>=2))break;
     for(const layout of selectedLayouts){
     const draft=newPlan(anchor);draft.goal=goal;draft.target=`公式BC想定：${race}`;
     const slots={...layout.slots};
     const routeLayout=routeType==='dds'?'maternal-dds-g3':routeType==='maternal'?'maternal-g3':'paternal-g3';
     draft.routeDraft={slots,paths:routeType==='dds'?{...window.DabimasMaternalDDS67.anchorPaths}:routeType==='maternal'?{...window.DabimasMaternal66.anchorPaths}:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},layout:routeLayout,validated:false};
     draft.steps=routeType==='dds'?buildMaternal66Steps(slots,routeLayout):routeType==='maternal'?buildMaternal66Steps(slots):buildDraftSteps(slots);
-    const researched=routeType==='dds'?opt67Find(draft,fast?'meihin_fast':'meihin'):routeType==='maternal'?opt66Find(draft,fast?'meihin_fast':'meihin'):opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
+    const researched=routeType==='dds'?opt69Find(draft,fast?'meihin_fast':'meihin'):routeType==='maternal'?opt66Find(draft,fast?'meihin_fast':'meihin'):opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
     if(fast)await yieldToBrowser();
     const eligible=researched.results.filter(x=>x.matches===3);
     // Closing mare theory is the first mild-mode ranking rule. Unknown is
     // never promoted to established, and actual game confirmation is separate.
     if(mode==='mild')for(const candidate of eligible)if(!candidate.theory66)
-     candidate.theory66=window.DabimasParentTheory56?.inspect?.(candidate.closingPed)||null;
+     candidate.theory66=currentParentTheory68()?.inspect?.(candidate.closingPed)||null;
     const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
-     .sort((a,b)=>(mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0)||auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
+     .sort((a,b)=>(mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0)||(mode==='mild'?(a.candidate.additionalBirths||0)-(b.candidate.additionalBirths||0):0)||auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
     if(ranked.length)trials.push({anchor,draft,researched,eligible,ranked,placementKey:layout.signature,placementScore:layout.score,routeType});
     }
    }
@@ -2949,10 +3077,15 @@ function auto21Create(){
     if(!initial){initial=trial;continue;}
     const a=trial.ranked[0],b=initial.ranked[0];
     if(mode==='mild'&&routeChoice==='maternal-auto'&&trial.anchor.base==='ディープインパクト'&&initial.anchor.base==='ディープインパクト'&&trial.routeType!==initial.routeType){
-     // Cross-anchor comparison must never silently replace a valid DDS trial
-     // with the old DSS layout. Exact route priority: DDS > DSS > paternal.
-     if((window.DabimasMaternalDDS67?.routePriority(trial.routeType)||0)>
-        (window.DabimasMaternalDDS67?.routePriority(initial.routeType)||0))initial=trial;
+     // v6.8: Never sacrifice a demonstrated perfect/super-perfect closing
+     // mating for an UNCONFIRMED DDS. If equal certainty, prioritize DDS.
+     const currentRank=opt66TheoryRank(initial.ranked[0]?.candidate);
+     const newRank=opt66TheoryRank(trial.ranked[0]?.candidate);
+     if(newRank>currentRank||(newRank===currentRank&&
+      (a.candidate.additionalBirths||0)<(b.candidate.additionalBirths||0))||(newRank===currentRank&&
+      (a.candidate.additionalBirths||0)===(b.candidate.additionalBirths||0)&&
+      (window.DabimasMaternalDDS67?.routePriority(trial.routeType)||0)>
+      (window.DabimasMaternalDDS67?.routePriority(initial.routeType)||0)))initial=trial;
      continue;
     }
     // v5.4: distance priority is a MILD-only ranking, never a Shiko gate.
@@ -2964,15 +3097,24 @@ function auto21Create(){
     const quality=auto35CompareQuality(a.quality,b.quality);
     const evidence=auto37Compare(a.evidence,b.evidence);
     const theoryOrder=mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0;
+    const additionalBirthOrder=mode==='mild'?(a.candidate.additionalBirths||0)-(b.candidate.additionalBirths||0):0;
     const researchOrder=quality||evidence||opt10Sort(a.candidate,b.candidate);
-    if(theoryOrder<0||(theoryOrder===0&&(distanceOrder<0||(distanceOrder===0&&researchOrder<0))))initial=trial;
+    if(theoryOrder<0||(theoryOrder===0&&(additionalBirthOrder<0||(additionalBirthOrder===0&&(distanceOrder<0||(distanceOrder===0&&researchOrder<0))))))initial=trial;
    }
   }
   if(!initial){out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組、配置${placementSearches}通りを調べましたが、選択ルートの9工程を最後まで満たす候補を確定できませんでした（工程検査約${candidateAudit.reduce((s,x)=>s+x.foundationTrials,0)}回）。<b>この結果は配合不可能を意味しません。</b>高速限定探索をOFFにするか、祖先配置を「旧／新の両方を比較」に切り替えてください。名牝判定・CSVの祖先データ不足、途中の近親交配回避なども候補数に影響します。保存データは変更していません。</div>`;return;}
+  // v6.8a: For the Deep mild design, confirmed theory is mandatory for a
+  // successful automatic plan. Other legacy routes may be examined, but an
+  // UNKNOWN closing mating may not be silently saved as if completed.
+  if(mode==='mild'&&initial.anchor?.base==='ディープインパクト'&&
+     opt66TheoryRank(initial.ranked[0]?.candidate)<2){
+   out.innerHTML='<div class="notice warn"><b>締め肌の完璧・超完璧が確認できる候補は今回の探索範囲で見つかりませんでした。</b> 未確認候補や不成立候補を完成プランとして保存しません。親系統CSVを再読み込みし、「高速限定探索」をOFFにして再探索できます。この結果は配合不可能の証明ではありません。既存の保存データは変更していません。</div>';
+   return;
+  }
   selected=initial.anchor;
   const {draft,researched,ranked}=initial;
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
-  if(fast)draft.fastSearch59={enabled:true,shortlistMares:12,shortlistXSires:8,version:60,complete:false,parentSystemBias:'非Ro優先・未確認保持・必須至高祖先は除外せず'};
+  if(fast)draft.fastSearch59={enabled:true,shortlistMares:isMaternalDDS67(draft)?null:12,shortlistXSires:isMaternalDDS67(draft)?null:8,version:69,complete:false,parentSystemBias:'非Ro優先・未確認保持・必須至高祖先は除外せず'};
   let base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">9工程に必要な繁殖牝馬の組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}
   // v5.5: Also consider bounded, mutually beneficial TWO-slot replacements.
@@ -3024,12 +3166,17 @@ function auto21Create(){
    const result=await api.optimizeAsync({initial:base,
     mares:mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝'),
     sires:opt10XPool(draft).all,evaluate:(choices,xId)=>opt10Trial(draft,choices,xId),
-    goal,budget:fast?70:360,theory:window.DabimasParentTheory56,
+    goal,budget:fast?70:360,theory:currentParentTheory68(),
     compareResearch:window.DabimasMildPolish53?.compare||opt10Sort,
     yieldEvery:fast?6:8,yieldControl:yieldToBrowser,onProgress:(done,total)=>{out.innerHTML=`<p class="notice">締め肌の超完璧・完璧を探索中：${done}/${total}候補を比較（成立未確認は区別します）。</p>`;}});
    if(result?.winner?.matches===3){base=result.winner;mild57=result.audit;}
   }
   if(mode==='mild')draft.mildDiversity60={schema:60,...(base.diversity60||{}),selection:'同じ研究スコアの場合のみ、必須至高枠以外の判明Ro重複を抑制。親系統未確認は非Ro扱いしない。',gameVerified:false};
+  if(mode==='mild'&&selected.base==='ディープインパクト'&&
+     opt66TheoryRank(base)<2){
+   out.innerHTML='<div class="notice warn">締め肌の見事・面白を両方満たす証拠が不足しています。未確認候補は完成プランとして保存せず、検索条件・CSVを見直してください。既存データは変更していません。</div>';
+   return;
+  }
   auto21SetResearch(draft,base);
   // v5.8: Optional SINGLE maternal preparation at stage 6. Run only
   // when there are no protected reusable real-horse roots. A confirmed
@@ -3043,7 +3190,7 @@ function auto21Create(){
     const pool58=maleRows().filter(r=>isOwned(r)&&r.ancestry?.length&&r.factors?.length>=2);
     // Bounded deterministic pool, includes all three-factor choices before two-factor.
     pool58.sort((a,b)=>(b.factors.length-a.factors.length)||a.id.localeCompare(b.id,'ja'));
-    const checked58=await api58.optimizeAsync({baseline:baseline58,theory:window.DabimasParentTheory56,
+    const checked58=await api58.optimizeAsync({baseline:baseline58,theory:currentParentTheory68(),
      sires:pool58,evaluate:id=>hard23Trial(draft,{6:[id]},goal),budget:fast?30:180,maxStages:10,
      yieldEvery:fast?6:8,yieldControl:yieldToBrowser,onProgress:(done,total)=>{out.innerHTML=`<p class="notice">母系1代仕込みを探索中：${done}/${total}候補を比較（工程追加は改善が確認できた場合のみ）。</p>`;}});
     if(checked58?.audit){mild58=checked58.audit;if(checked58.improved)mild58Trial=checked58.winner;}
@@ -3117,14 +3264,19 @@ function auto21Create(){
    mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
    let reusedCount=0;
-   draft.note=`【${isMaternalDDS67(draft)?'v6.7 DDS逆算ルート':isMaternal66(draft)?'v6.6 母側3代目ルート':'v5.9マイルド型'}${fast?'・高速限定探索':''}】${isMaternalDDS67(draft)?'名牝6頭＋既存締め肌父Aを逆算。工程1でディープ牝馬、工程2で締め肌。':isMaternal66(draft)?'公開名牝7頭を母側3代目＋父側4・5代目の9工程で探索。補助種牡馬Xなし。締め肌は工程2。':'名牝6頭・補助種牡馬Xを研究用評価で自動選択。'}${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
+   draft.note=`【${isMaternalDDS67(draft)?'v6.9 DDS8枠逆算ルート':isMaternal66(draft)?'v6.6 母側3代目ルート':'v5.9マイルド型'}${fast?'・高速限定探索':''}】${isMaternalDDS67(draft)?'取得済み種牡馬の8枠→必要時1代の種牡馬→基礎名牝を逆算。超完璧優先、追加仕込み最小化。':isMaternal66(draft)?'公開名牝7頭を母側3代目＋父側4・5代目の9工程で探索。補助種牡馬Xなし。締め肌は工程2。':'名牝6頭・補助種牡馬Xを研究用評価で自動選択。'}${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);
     if(isMaternalDDS67(draft)&&base.xPrep){
-     const prepResult=mild67StagePreparation(draft,base.xPrep);
+     const prepResult=mild67StagePreparation(draft,base.xPrep,'male');
      if(prepResult.error)problems.push('締め肌父の準備：'+prepResult.error);
      else {chain09Data(draft).xId=prepResult.horse.id;draft.routeDraft.xSire=prepResult.horse.id;}
+    }
+    if(isMaternalDDS67(draft)&&base.marePrep&&!problems.length){
+     const prepResult=mild67StagePreparation(draft,base.marePrep,'female');
+     if(prepResult.error)problems.push('ディープ基礎牝の準備：'+prepResult.error);
+     else chain09Data(draft).mares[1]=prepResult.horse.id;
     }
     for(let n=1;n<=9&&!problems.length;n++){
      const reuse=mild50ReuseStep(draft,n);
@@ -3161,16 +3313,18 @@ function auto21Create(){
    const finalPair=chain09Parents(draft,9);
    if(finalPair.ready&&finalPair.ped?.known===31){
     pedigree=finalPair.ped;
-    parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount+(base.xPrep?1:0),limited:false};
+    parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount+(base.xPrep?1:0)+(base.marePrep?1:0),limited:false};
    }
-   draft.mild50={version:50,reusedCount,productionStages:9-reusedCount,gameVerified:false};
+   draft.mild50={version:50,reusedCount,productionStages:9-reusedCount+(base.xPrep?1:0)+(base.marePrep?1:0),gameVerified:false};
    if(isMaternal66(draft))draft.mild66={version:isMaternalDDS67(draft)?67:66,layout:draft.routeDraft.layout,anchorPaths:{...anchorPaths66(draft)},closingStep:2,
     evaluation:base.theory66?{perfect:base.theory66.perfect,superPerfect:base.theory66.superPerfect,blocked:!!base.theory66.blocked}:null,
     searchCount:researched.tests,limited:!!researched.limited,gameVerified:false};
-   if(isMaternalDDS67(draft))draft.mild67={version:67,method:'締め肌父の親系統逆算・DDS配置',selectedSireId:chain09Data(draft).xId,extraSireBirths:base.xPrep?1:0,
+   if(isMaternalDDS67(draft))draft.mild67={version:69,method:'見事4＋面白8枠先行判定・最小仕込み優先（公開CSV）',selectedSireId:chain09Data(draft).xId,extraSireBirths:base.xPrep?1:0,extraMareBirths:base.marePrep?1:0,
       prep:base.xPrep?{fatherId:base.xPrep.fatherId,motherId:base.xPrep.motherId,foalId:chain09Data(draft).xId}:null,
-      scope:researched.scope,tests:researched.tests,limited:!!researched.limited,
-      closingTheory:{perfect:base.theory66?.perfect||'未確認',superPerfect:base.theory66?.superPerfect||'未確認'},gameVerified:false};
+      marePrep:base.marePrep?{fatherId:base.marePrep.fatherId,motherId:base.marePrep.motherId,foalId:chain09Data(draft).mares[1]}:null,
+      inverse69:researched.inverse69||null,
+      scope:researched.scope,tests:researched.tests,limited:!!researched.limited,parentDataObserved:researched.parentEvidence68||0,prunedMatching:researched.prunedMatching68||0,prunedInteresting:researched.prunedInteresting68||0,
+      closingTheory:{perfect:base.theory66?.perfect||'未確認',superPerfect:base.theory66?.superPerfect||'未確認',interestingDistinct:base.theory66?.interestingDistinct??null,interestingEight:base.theory66?.interestingEight||'未確認',matching:base.theory66?.matching||'未確認'},gameVerified:false};
    draft.mildAcceptance51={version:52,status:"全9工程の親子血統と一次条件検査通過（ゲーム内未確認）",gameVerified:false};
    }
   }
@@ -3256,7 +3410,7 @@ $('importInventory').onchange=async e=>{const file=e.target.files[0];if(!file)re
 $('clearProductionData').onclick=requestProductionReset;
 $('saveGenome').onclick=()=>{const vals=['sp0','sp1','sp2','st0','st1','st2'].map(k=>$(k).value.trim());if(vals.some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)){alert('SP/STの最小・中央・最大を入力してください。');return;}const a=vals.map(Number);if(a[0]>a[1]||a[1]>a[2]||a[3]>a[4]||a[4]>a[5]){alert('最小 ≦ 中央 ≦ 最大の順序で入力してください。');return;}state.genomes.unshift({name:$('predName').value.trim(),sp0:a[0],sp1:a[1],sp2:a[2],st0:a[3],st1:a[4],st2:a[5],at:new Date().toLocaleDateString('ja-JP')});persist();$('genomeHistory').innerHTML=genomeRows();alert('ゲーム内解析値を保存しました。');};
 $('clearGenome').onclick=()=>['sp0','sp1','sp2','st0','st1','st2'].forEach(k=>$(k).value='');
-async function init(){buildMap();setupAuto21();renderAll();updateCleanStatus();const loaded=await readMaster();if(loaded){master=loaded;buildMap();renderAll();$('importStatus').textContent=`保存済みの公開マスター ${loaded.length}頭を復元しました。`;}if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+async function init(){buildMap();setupAuto21();renderAll();updateCleanStatus();const loaded=await readMaster();if(loaded){master=loaded;buildMap();rebuildParentRegistry68();renderAll();$('importStatus').textContent=`保存済みの公開マスター ${loaded.length}頭を復元しました。${parentRegistryNotice68()}`;}if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 init();
 // v2.9: Always reachable, accessible back-to-top control for long plans.
 const backToTop=document.getElementById('backToTop');

@@ -25,7 +25,7 @@ test('unready sire/mare blocks success',()=>{const x=setup();x.pairs[5].ready=fa
 test('parents transmission disagreements block',()=>{const x=setup();x.pairs[2].ped.transmission.conflicts=[{path:'SS'}];assert.equal(api.inspect(x.plan,x.records,x.resolve).ok,false);});
 test('duplicated path blocks',()=>{const x=setup();x.records[6].ancestry[3].path=x.records[6].ancestry[4].path;assert.equal(api.inspect(x.plan,x.records,x.resolve).ok,false);});
 test('source includes read-only nine-stage lineage audit before save',()=>{
- const s=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8'),m=s.indexOf('const inspection=window.DabimasMildGate51?.inspect('),l=s.indexOf('lineage:window.DabimasMildLineage52',m),persist=s.indexOf("if(mode==='mild'&&!persist()){",m);
+ const s=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8'),m=s.indexOf('const inspection=!problems.length?window.DabimasMildGate51?.inspect('),l=s.indexOf('lineage:window.DabimasMildLineage52',m),persist=s.indexOf("if(mode==='mild'&&!persist()){",m);
  assert(m>0&&l>m&&persist>l);assert(s.includes('mildRollback={plans:oldPlans,homebreds:oldHomebreds}'));
 });
 test('saved plan version and ownership-compatible storage unchanged',()=>{
@@ -35,6 +35,6 @@ test('saved plan version and ownership-compatible storage unchanged',()=>{
 });
 test('browser loads module before app and cache is isolated',()=>{
  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),sw=fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8');
- assert(html.indexOf('research-mild-lineage-v52.js?v=52')<html.indexOf('app.js?v=55'));assert(sw.includes('research-mild-lineage-v52.js'));assert(sw.includes('dbms-v55-1'));
+ assert(html.indexOf('research-mild-lineage-v52.js?v=52')<html.indexOf('app.js?v=69'));assert(sw.includes('research-mild-lineage-v52.js'));assert(sw.includes('dbms-v69-1'));
 });
 console.log(n+' v5.2 tests passed');

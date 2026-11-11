@@ -73,5 +73,52 @@
     source:'https://dabimas.jp/kouryaku/guide/advisor-05.html',checkedAt:'2026-11-10',
     scope:'既存9工程内の名牝6枠・補助Xの局所差し替え。工程の追加なし。自家製起点の追加世代探索は未実装。',gameVerified:false}};
  }
- return Object.freeze({rank,assess,compare,optimize});
+ async function optimizeAsync({initial,mares=[],sires=[],evaluate,goal='balanced',theory,compareResearch,budget=360,yieldEvery=8,yieldControl=null,onProgress=null}={}){
+  if(typeof evaluate!=='function'||!assess(initial,theory))return {error:'工程8を含む9工程の有効な初期候補がありません'};
+  const limit=Math.max(0,Math.min(1000,Math.trunc(Number(budget)||0)));
+  const opts=[...new Map(mares.filter(x=>x?.id).map(x=>[norm(x.id),x.id])).values()];
+  const xs=[...new Map(sires.filter(x=>x?.id).map(x=>[norm(x.id),x.id])).values()];
+  const used=new Set(),stats={tested:0,valid:0,invalid:0,stepsAdded:0};
+  let current=initial;
+  const sig=(choices,x)=>[1,2,3,4,5,6].map(n=>norm(choices[n])).join('\u001f')+'\u001e'+norm(x);
+  used.add(sig(initial.choices,initial.xId));
+  function tryCandidate(choices,xId){
+   if(stats.tested>=limit)return null;
+   const k=sig(choices,xId);if(used.has(k))return null;used.add(k);stats.tested++;
+   let candidate;try{candidate=evaluate(choices,xId);}catch(_){stats.invalid++;return null;}
+   if(!assess(candidate,theory)){stats.invalid++;return null;}
+   stats.valid++;return candidate;
+  }
+  for(let round=0;round<2&&stats.tested<limit;round++){
+   // At each stage compare real 31-slot offspring and pedigree rules.
+   for(let n=1;n<=6&&stats.tested<limit;n++){
+    let best=current;
+    for(const id of opts){
+     if(norm(id)===norm(current.choices[n]))continue;
+     if([1,2,3,4,5,6].some(k=>k!==n&&norm(current.choices[k])===norm(id)))continue;
+     const candidate=tryCandidate({...current.choices,[n]:id},current.xId);
+     if(stats.tested>0&&stats.tested%Math.max(1,Math.trunc(Number(yieldEvery)||8))===0){if(typeof onProgress==='function')onProgress(stats.tested,limit);if(typeof yieldControl==='function')await yieldControl();}
+     if(candidate&&compare(candidate,best,goal,{theory,compareResearch})<0)best=candidate;
+     if(stats.tested>=limit)break;
+    }
+    current=best;
+   }
+   let best=current;
+   for(const x of xs){
+    if(norm(x)===norm(current.xId))continue;
+    const candidate=tryCandidate({...current.choices},x);
+    if(stats.tested>0&&stats.tested%Math.max(1,Math.trunc(Number(yieldEvery)||8))===0){if(typeof onProgress==='function')onProgress(stats.tested,limit);if(typeof yieldControl==='function')await yieldControl();}
+    if(candidate&&compare(candidate,best,goal,{theory,compareResearch})<0)best=candidate;
+    if(stats.tested>=limit)break;
+   }
+   current=best;
+  }
+  const before=assess(initial,theory),after=assess(current,theory);
+  return {winner:current,improved:compare(current,initial,goal,{theory,compareResearch})<0,
+   audit:{schema:57,kind:'nine-stage-mare-theory-priority',...stats,limit,limited:stats.tested>=limit,
+    start:before,end:after,priority:['超完璧','完璧','未確認','不成立'],miracleIncluded:false,
+    source:'https://dabimas.jp/kouryaku/guide/advisor-05.html',checkedAt:'2026-11-10',
+    scope:'既存9工程内の名牝6枠・補助Xの局所差し替え。工程の追加なし。自家製起点の追加世代探索は未実装。',gameVerified:false}};
+ }
+ return Object.freeze({rank,assess,compare,optimize,optimizeAsync});
 });

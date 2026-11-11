@@ -100,5 +100,54 @@
    sampledMares:pool.length,sampledSires:xs.length,improved:changed,
    gameVerified:false,scope:'2枠同時変更の部分探索（全数・能力保証なし）'}};
  }
- return Object.freeze({diversityShortlist,rootReuseCount,optimize});
+ async function optimizeAsync({initial,mares=[],sires=[],evaluate,compare,goal='balance',budget=420,perSlot=10,yieldEvery=8,yieldControl=null,onProgress=null}={}){
+  if(!initial||initial.matches!==3||initial.full?.known!==31||!initial.choices||typeof evaluate!=='function'||typeof compare!=='function')
+   return {error:'完全な9工程の初期配合または研究評価関数がありません'};
+  const limit=Math.max(0,Math.min(1400,Math.trunc(Number(budget)||0)));
+  const pool=diversityShortlist(mares,initial,goal,perSlot);
+  const xs=diversityShortlist(sires,initial,goal,Math.min(6,perSlot),false);
+  let tests=0,valid=0,invalid=0,duplicate=0,stagePairs=0,xPairs=0;
+  let best=initial;const keys=new Set();
+  const sig=(c,x)=>[1,2,3,4,5,6].map(n=>norm(c[n])).join('\u001f')+'\u001e'+norm(x);
+  keys.add(sig(initial.choices,initial.xId));
+  const jobs=[];
+  for(let a=1;a<=6;a++)for(let b=a+1;b<=6;b++)jobs.push({kind:'mare',a,b});
+  if(xs.length)for(let a=1;a<=6;a++)jobs.push({kind:'x',a});
+  let incumbent=best;
+  // Rotate through all 15 distinct mare pairs (+6 X/mare pairs), preventing
+  // an early-step bias when a user's device hits the bounded search limit.
+  const maxi=Math.max(pool.length*pool.length,pool.length*xs.length);
+  for(let i=0;i<maxi&&tests<limit;i++){
+   for(const job of jobs){if(tests>=limit)break;
+    const choices={...initial.choices};let xId=initial.xId;
+    if(job.kind==='mare'){
+     if(!pool.length)continue;
+     choices[job.a]=pool[(i+job.a*7+job.b*3)%pool.length];
+     choices[job.b]=pool[(i*5+Math.floor(i/pool.length)+job.b)%pool.length];
+     if(norm(choices[job.a])===norm(initial.choices[job.a])||norm(choices[job.b])===norm(initial.choices[job.b]))continue;
+    }else{
+     if(!xs.length||!pool.length)continue;
+     choices[job.a]=pool[(i*3+job.a)%pool.length];xId=xs[(Math.floor(i/pool.length)+job.a)%xs.length];
+     if(norm(choices[job.a])===norm(initial.choices[job.a])||norm(xId)===norm(initial.xId))continue;
+    }
+    const chosen=[1,2,3,4,5,6].map(n=>norm(choices[n]));
+    if(new Set(chosen).size!==6){duplicate++;continue;}
+    const token=sig(choices,xId);if(keys.has(token))continue;keys.add(token);
+    tests++;if(job.kind==='mare')stagePairs++;else xPairs++;
+    if(tests%Math.max(1,Math.trunc(Number(yieldEvery)||8))===0){if(typeof onProgress==='function')onProgress(tests,limit);if(typeof yieldControl==='function')await yieldControl();}
+    let candidate=null;try{candidate=evaluate(choices,xId);}catch(_){candidate=null;}
+    if(!candidate||candidate.matches!==3||candidate.full?.known!==31){invalid++;continue;}
+    valid++;
+    if(compare(candidate,incumbent,goal)<0)incumbent=candidate;
+   }
+  }
+  if(compare(incumbent,best,goal)<0)best=incumbent;
+  const changed=compare(best,initial,goal)<0;
+  return {winner:best,improved:changed,audit:{schema:55,kind:'mild-bounded-two-position',goal,
+   checked:tests,valid,invalid,duplicatesSkipped:duplicate,marePairTrials:stagePairs,xMareTrials:xPairs,
+   limit,limited:tests>=limit,availableMares:(mares||[]).length,availableSires:(sires||[]).length,
+   sampledMares:pool.length,sampledSires:xs.length,improved:changed,
+   gameVerified:false,scope:'2枠同時変更の部分探索（全数・能力保証なし）'}};
+ }
+ return Object.freeze({diversityShortlist,rootReuseCount,optimize,optimizeAsync});
 });

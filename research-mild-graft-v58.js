@@ -50,5 +50,36 @@
    source:'https://dabimas.jp/kouryaku/guide/advisor-05.html',checkedAt:'2026-11-10',
    scope:'工程6の基礎名牝に所持種牡馬を一度交配する母系仕込み。最大1工程追加。能力未測定・局所探索。'}};
  }
- return Object.freeze({rank,pedigree,assess,optimize});
+ async function optimizeAsync({baseline,evaluate,sires=[],theory,budget=180,maxStages=10,scoreOf=t=>t?.metrics?.score,yieldEvery=8,yieldControl=null,onProgress=null}={}){
+  const initial=assess(baseline,theory);
+  if(!initial||typeof evaluate!=='function')return {error:'9工程基準血統または工程8の判定情報が不足'};
+  const limit=Math.max(0,Math.min(400,Math.trunc(Number(budget)||0)));
+  const currentScore=Number(scoreOf(baseline));
+  const stats={tested:0,valid:0,stageOverflow:0,unknown:0,noTheoryGain:0,researchDecline:0};
+  let winner=baseline,winInfo=initial,winScore=currentScore,chosenId=null;
+  const ids=new Set();
+  for(const sire of sires){
+   if(stats.tested>=limit)break;
+   const id=sire?.id;
+   if(!id||ids.has(id))continue;ids.add(id);stats.tested++;
+   let trial;try{trial=evaluate(id);}catch(_){continue;}
+   if(stats.tested%Math.max(1,Math.trunc(Number(yieldEvery)||8))===0){if(typeof onProgress==='function')onProgress(stats.tested,limit);if(typeof yieldControl==='function')await yieldControl();}
+   const info=assess(trial,theory);if(!info)continue;
+   stats.valid++;
+   if(trial.stages>maxStages||trial.stages<10){stats.stageOverflow++;continue;}
+   if(info.rank===0){stats.unknown++;continue;}
+   if(info.rank<=winInfo.rank){stats.noTheoryGain++;continue;}
+   const score=Number(scoreOf(trial));
+   if(!Number.isFinite(score)||!Number.isFinite(currentScore)||score<currentScore){stats.researchDecline++;continue;}
+   if(info.rank>winInfo.rank||(info.rank===winInfo.rank&&score>winScore)){
+    winner=trial;winInfo=info;winScore=score;chosenId=id;
+   }
+  }
+  return {winner,improved:!!chosenId,audit:{schema:58,kind:'one-extra-maternal-generation',...stats,budget:limit,limited:stats.tested>=limit,
+   start:initial,end:winInfo,chosenSireId:chosenId,baseStages:baseline.stages,resultStages:winner.stages,
+   priority:['超完璧','完璧'],miracleIncluded:false,gameVerified:false,
+   source:'https://dabimas.jp/kouryaku/guide/advisor-05.html',checkedAt:'2026-11-10',
+   scope:'工程6の基礎名牝に所持種牡馬を一度交配する母系仕込み。最大1工程追加。能力未測定・局所探索。'}};
+ }
+ return Object.freeze({rank,pedigree,assess,optimize,optimizeAsync});
 });

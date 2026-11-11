@@ -2721,8 +2721,9 @@ function auto21Create(){
      yieldEvery:fast?6:8,yieldControl:yieldToBrowser,onProgress:(done,total)=>{out.innerHTML=`<p class="notice">名牝・補助種牡馬の改善探索中：${done}/${total}候補を比較（保存データは変更していません）。</p>`;}});
     if(polished?.winner?.matches===3){base=polished.winner;mild53=polished.audit;}
     if(mild55Api){
-     const paired=mild55Api.optimize({initial:base,mares,sires,evaluate,compare:api.compare,
-      goal,budget:fast?50:420,perSlot:fast?4:10});
+     const paired=await mild55Api.optimizeAsync({initial:base,mares,sires,evaluate,compare:api.compare,
+      goal,budget:fast?50:420,perSlot:fast?4:10,yieldEvery:fast?6:8,yieldControl:yieldToBrowser,
+      onProgress:(done,total)=>{out.innerHTML=`<p class="notice">2枠同時改善の探索中：${done}/${total}候補を比較（保存データは変更していません）。</p>`;}});
      if(paired?.winner?.matches===3){base=paired.winner;mild55=paired.audit;}
     }
    }
@@ -2733,11 +2734,12 @@ function auto21Create(){
   if(mode==='mild')await yieldToBrowser();
   if(mode==='mild'&&!mild53ReusePriority&&window.DabimasMildMare57&&window.DabimasParentTheory56){
    const api=window.DabimasMildMare57;
-   const result=api.optimize({initial:base,
+   const result=await api.optimizeAsync({initial:base,
     mares:mareRows().filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝'),
     sires:opt10XPool(draft).all,evaluate:(choices,xId)=>opt10Trial(draft,choices,xId),
     goal,budget:fast?70:360,theory:window.DabimasParentTheory56,
-    compareResearch:window.DabimasMildPolish53?.compare||opt10Sort});
+    compareResearch:window.DabimasMildPolish53?.compare||opt10Sort,
+    yieldEvery:fast?6:8,yieldControl:yieldToBrowser,onProgress:(done,total)=>{out.innerHTML=`<p class="notice">締め肌の超完璧・完璧を探索中：${done}/${total}候補を比較（成立未確認は区別します）。</p>`;}});
    if(result?.winner?.matches===3){base=result.winner;mild57=result.audit;}
   }
   if(mode==='mild')draft.mildDiversity60={schema:60,...(base.diversity60||{}),selection:'同じ研究スコアの場合のみ、必須至高枠以外の判明Ro重複を抑制。親系統未確認は非Ro扱いしない。',gameVerified:false};
@@ -2754,8 +2756,9 @@ function auto21Create(){
     const pool58=maleRows().filter(r=>isOwned(r)&&r.ancestry?.length&&r.factors?.length>=2);
     // Bounded deterministic pool, includes all three-factor choices before two-factor.
     pool58.sort((a,b)=>(b.factors.length-a.factors.length)||a.id.localeCompare(b.id,'ja'));
-    const checked58=api58.optimize({baseline:baseline58,theory:window.DabimasParentTheory56,
-     sires:pool58,evaluate:id=>hard23Trial(draft,{6:[id]},goal),budget:fast?30:180,maxStages:10});
+    const checked58=await api58.optimizeAsync({baseline:baseline58,theory:window.DabimasParentTheory56,
+     sires:pool58,evaluate:id=>hard23Trial(draft,{6:[id]},goal),budget:fast?30:180,maxStages:10,
+     yieldEvery:fast?6:8,yieldControl:yieldToBrowser,onProgress:(done,total)=>{out.innerHTML=`<p class="notice">母系1代仕込みを探索中：${done}/${total}候補を比較（工程追加は改善が確認できた場合のみ）。</p>`;}});
     if(checked58?.audit){mild58=checked58.audit;if(checked58.improved)mild58Trial=checked58.winner;}
    }
   }

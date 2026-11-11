@@ -2741,7 +2741,7 @@ function auto21Create(){
  if(!selectionInfo?.pool?.length){out.innerHTML='<div class="notice warn">取得済みの至高候補を先に確認してください。</div>';return;}
  if(!master.length){out.innerHTML='<div class="notice warn">血統の自動生成には公開マスターが必要です。「データ管理」からCSVを読み込んでください。</div>';return;}
  const goal=$('auto21Goal').value,mode=$('auto21Mode').value;
- const routeChoice=$('auto21Route')?.value||'both';
+ const routeChoice=$('auto21Route')?.value||'maternal-auto';
  const race=$('auto21Race').value;
  const fast=mode==='mild'&&($('auto21Fast')?.checked!==false);
  run.disabled=true;out.innerHTML='<p class="notice">名牝と取得済み種牡馬から血統を試算しています…</p>';
@@ -2769,9 +2769,16 @@ function auto21Create(){
     distanceApi.rankPlacements(permutations,race,id=>map.get(key(id))||null):permutations;
    const selectedLayouts=positioning?.pick(distanceSorted,layoutLimit,defaults)||[];
    const trials=[];let tests=0;
-   const routeTypes=mode==='mild'&&anchor.base==='ディープインパクト'?
-    (routeChoice==='both'?['paternal','maternal']:routeChoice==='maternal'?['maternal']:['paternal']):['paternal'];
-   for(const routeType of routeTypes)for(const layout of selectedLayouts){
+   const deepMild=mode==='mild'&&anchor.base==='ディープインパクト';
+   // One-click default: maternal 3rd generation FIRST. Test the old route only
+   // when no usable maternal 9-stage foundation exists for this anchor.
+   // Explicit legacy or comparison modes remain for research/debugging.
+   const routeTypes=deepMild?
+    (routeChoice==='paternal'?['paternal']:routeChoice==='maternal'?['maternal']:
+     routeChoice==='both'?['maternal','paternal']:['maternal','paternal']):['paternal'];
+   for(const routeType of routeTypes){
+    if(deepMild&&routeChoice==='maternal-auto'&&routeType==='paternal'&&trials.some(t=>t.routeType==='maternal'))break;
+    for(const layout of selectedLayouts){
     const draft=newPlan(anchor);draft.goal=goal;draft.target=`公式BC想定：${race}`;
     const slots={...layout.slots};
     draft.routeDraft={slots,paths:routeType==='maternal'?{...window.DabimasMaternal66.anchorPaths}:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},layout:routeType==='maternal'?'maternal-g3':'paternal-g3',validated:false};
@@ -2786,6 +2793,7 @@ function auto21Create(){
     const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
      .sort((a,b)=>(mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0)||auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
     if(ranked.length)trials.push({anchor,draft,researched,eligible,ranked,placementKey:layout.signature,placementScore:layout.score,routeType});
+    }
    }
    return {trials,tests,permutations:permutations.length,selectedLayouts:selectedLayouts.length};
   }
@@ -2808,6 +2816,10 @@ function auto21Create(){
     viableAnchorTrials.push(trial);
     if(!initial){initial=trial;continue;}
     const a=trial.ranked[0],b=initial.ranked[0];
+    if(mode==='mild'&&routeChoice==='maternal-auto'&&trial.anchor.base==='ディープインパクト'&&initial.anchor.base==='ディープインパクト'&&trial.routeType!==initial.routeType){
+     if(trial.routeType==='maternal')initial=trial;
+     continue;
+    }
     // v5.4: distance priority is a MILD-only ranking, never a Shiko gate.
     // Unknown distance does not mean incompatible. Hard-mode selection unchanged.
     const distanceApi=window.DabimasDistance54;
@@ -2983,14 +2995,18 @@ function auto21Create(){
     }
     if(!problems.length){
      const finalPair=chain09Parents(draft,9);
-     const inspection=window.DabimasMildGate51?.inspect(draft,finalPair?.ped,state.homebreds,{
+     const routeAudit=window.DabimasFlowGuard41?.verify?.(draft,state.homebreds,window.DabimasReuse50);
+     if(!routeAudit||routeAudit.route!==(draft.routeDraft?.layout||'paternal-g3')){
+      problems.push('工程検査の旧版キャッシュまたは祖先配置の不一致：v6.6bへの更新状態を確認してください');
+     }
+     const inspection=!problems.length?window.DabimasMildGate51?.inspect(draft,finalPair?.ped,state.homebreds,{
       flowGuard:window.DabimasFlowGuard41,
       reuseApi:window.DabimasReuse50,
       validation:window.DabimasResearchValidation38,
       lineage:window.DabimasMildLineage52,
       stageResolver:n=>chain09Parents(draft,n)
-     });
-     if(!inspection?.ok)problems.push(...(inspection?.errors||['マイルド型の最終検査モジュールが利用できません']));
+     }):null;
+     if(!problems.length&&!inspection?.ok)problems.push(...(inspection?.errors||['マイルド型の最終検査モジュールが利用できません']));
     }
    }catch(error){problems.push(error.message||'仮連結処理に失敗');}
    finally{stagingAuto21=false;}

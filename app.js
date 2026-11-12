@@ -286,7 +286,7 @@ function mild71BirthReview(p){
   `既存の実馬を血統・親子関係で照合して再利用した工程 ${reused}件${steps.length?`（基幹${steps.join('・')}）`:''}。`+
   `新たに生産する必要がある工程の目安 <b>${remaining}工程</b>。`+
   `${unverified?`再利用根拠が不一致の工程${unverified}件は省略不可。`:''}`+
-  `新しい血統ルートへの置換による9工程自体の短縮は未検証です。工程数の表示は省略せず、依存関係・進捗を保持します。</div>`;
+  `別配置の9工程未満への短縮はv7.7の保守的構造監査では条件を通過していません。工程数の表示は省略せず、依存関係・進捗を保持します。</div>`;
 }
 
 // v7.2: show independent breeding prerequisites and certified real reuse,
@@ -303,8 +303,23 @@ function mild72ScheduleHtml(p){
  <p class="muted">親子の依存関係だけを使って、並行準備できる工程を整理しています。実際の生産日数・牧場枠・種付け権利を保証するものではありません。</p>
  <ol>${waves}</ol>
  ${audit.errors.length?`<p class="notice warn"><b>工程・実馬記録の再確認が必要：</b>${audit.errors.map(esc).join('／')}</p>`:''}
- <p class="muted">9工程を別の血統構成で短縮できるかは未確認です。最終血統の因子・至高成立・産駒能力を保証するものではありません。</p>
+ <p class="muted">v7.7の構造監査では、現行PWAの近親回避を守る限り基幹9工程が最少という条件付き結果です。実馬再利用による新規生産回数の削減とは別です。最終血統の因子・至高成立・産駒能力を保証するものではありません。</p>
  </details>`;
+}
+// v7.7: show a reproducible pedigree-topology bound rather than promising
+// a fictitious 8-stage mating. Read-only and compatible with old saved plans.
+function mild77TopologyHtml(plan){
+ const api=window.DabimasMildCompact77;
+ if(!api||plan?.autoDesign21?.mode!=='mild'||!isMaternalDDS67(plan))return '';
+ const report=api.enumerate(),bad=report.compactExample;
+ const alternatives=report.alternatives.filter(x=>x.g4!=='SSSS'||x.g5!=='SDSSS').slice(0,4);
+ return `<details class="a21-flow"><summary>v7.7｜至高の配置経路・9基幹工程の短縮可否（保守的な構造監査）</summary>
+ <p class="muted">5代内の種牡馬祖先位置として、3代目4候補 × 4代目8候補 × 5代目16候補＝<b>${report.total}通り</b>を親子の分岐構造から計算しました。PWAの近親回避と異因名の親子矛盾を除外すると、構造上の最低配合回数は <b>${report.minimumBaseline}基幹工程</b>です。</p>
+ <p class="muted">9工程未満の骨格${report.belowNineCandidates}通りは全て、既成の異因名種牡馬を直系親子として扱うか、合流時に1代祖先または2×2・2×3・3×2の近親クロスを生じるため安全側の条件で除外されました。<b>この結果はゲーム公式が「8工程は不可能」と証明したものではありません。</b></p>
+ <p class="muted">例：DDS（3代）＋SDDS（4代）＋SDSSS（5代）は理論上${bad.births}工程で組めますが、4代目と5代目のディープを途中で合流すると <b>3×2（2×3）の近親クロス</b>になり、本PWAでは採用しません。公開CSVの候補も実際にこの条件で棄却されました。</p>
+ <p class="muted">現在のDDS・SSSS・SDSSSは9工程で近親回避の一次条件を満たします。3代目DDSを維持する構造上の候補は${report.sameThirdSafe}通り。ただし名牝・所持種牡馬・因子・締め肌の完璧／超完璧までは個別に検証が必要です。</p>
+ ${alternatives.length?`<p class="muted">今後検証する別配置の例：${alternatives.map(x=>esc(`${x.g3}・${x.g4}・${x.g5}`)).join('／')}（<b>まだ生産可能と認定した候補ではありません</b>）。</p>`:''}
+ <p class="muted">追加の締め肌父・基礎牝馬の仕込みや、記録済み実馬の再利用は別に計上します。本人因子・SP/ST・ゲーム内の至高成立・近親の公式裁定は未確認です。これは保存済み血統を改変しない読み取り専用監査です。</p></details>`;
 }
 function mild75ReuseHtml(plan){
  const info=plan?.mild75||{},api=window.DabimasMildPrepReuse75;
@@ -743,7 +758,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}
+${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3173,6 +3188,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${isMaternalDDS67(plan)&&plan.chain09?.outputs?.[9]?mild71BirthReview(plan):''}
  ${plan.mild75?.savedBirths?mild75ReuseHtml(plan):''}${mild76CoreReuseHtml(plan)}
  ${mild72ScheduleHtml(plan)}
+ ${mild77TopologyHtml(plan)}
  ${plan.mild67?`<div class="notice"><b>v6.9｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
  ${plan.mild58?`<div class="notice"><b>v5.8 マイルド・母系1代仕込み：</b>所持種牡馬${esc(plan.mild58.tested)}候補を工程6の前に追加する形で比較。${plan.mild58.chosenSireId?`採用：${esc(plan.mild58.chosenSireId)}（全${esc(plan.mild58.resultStages)}工程）。`:'途中配合理論の確実な改善と研究評価の維持を同時に満たす候補はなく、9工程のままです。'}超完璧・完璧のみ評価し、奇跡は除外。<b>ゲーム内成立・締め肌能力は未確認。</b>探索は上限付きです。</div>`:''}

@@ -315,6 +315,19 @@ function mild75ReuseHtml(plan){
   `以前の実馬再利用${esc(info.savedBirths)}件について、現在の記録との一致を確認できません。新規生産回数の短縮は再確認が必要です。`}
   ${info.reusedSireId?`種牡馬：${esc(info.reusedSireId)}。`:''}${info.reusedMareId?`繁殖牝馬：${esc(info.reusedMareId)}。`:''}実馬記録は自動変更しません。ゲーム内の配合理論成立・産駒能力は未確認です。</div>`;
 }
+function mild76CoreReuseHtml(plan){
+ const marks=Object.entries(plan?.chain09?.reused50||{}).filter(([n,m])=>m?.version===76&&m.observedNonzeroFactors>0);
+ if(!marks.length)return '';
+ const api=window.DabimasCoreReuse76||window.DabimasReuse50;
+ const stale=marks.filter(([n,m])=>{
+  const h=state.homebreds.find(x=>key(x.id)===key(m.id)),pair=chain09Parents(plan,Number(n));
+  return !h||!pair.ready||!api?.verifyLink?.(h,m,{step:Number(n),sex:chain09ExpectedSex(plan,Number(n)),sireId:pair.sireId,mareId:pair.mareId,lineage:pair.sire?.lineage||'',rows:pair.ped?.rows});
+ });
+ return `<details class="a21-flow"><summary>v7.6｜本人因子確認済みの途中種牡馬再利用（${marks.length}工程）${stale.length?'・要再確認':''}</summary>
+ <p class="${stale.length?'notice warn':'muted'}">${stale.length?'実馬記録の変更などで再利用根拠が失われた工程があります。新規生産の削減数は再確認してください。':'各実馬の父母・性別・31枠・本人因子を照合済みです。'} 仮馬や本人因子未確認の牡馬を再利用したことにはしません。</p>
+ ${marks.map(([n,m])=>`<p class="muted">工程${esc(n)}：${esc(m.id)} ／ 確認済み本人因子${esc(m.observedNonzeroFactors)}個 ／ ${stale.some(x=>x[0]===n)?'現在の照合不一致':'現在の記録と一致'}</p>`).join('')}
+ <p class="muted">これらの本人因子を子孫の血統へ継承して再計算しました。配合理論・至高・能力のゲーム内成立は未確認です。既存の実馬データは変更しません。</p></details>`;
+}
 function mild69PrepDone(p){return mild69PrepStages(p).filter(x=>x.progress.done===true).length;}
 function mild69PrepEditor(p){
  const items=mild69PrepStages(p);if(!items.length)return '';
@@ -730,7 +743,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild72ScheduleHtml(p)}
+${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -1077,7 +1090,7 @@ function chain09Output(p,n){
  if(!pair.ready||!pair.sireId||!pair.mareId)return {horse:null,reason:'前工程または親馬の指定が変更されています'};
  if(key(horse.fatherId)!==key(pair.sireId)||key(horse.motherId)!==key(pair.mareId))return {horse:null,reason:'親馬が変更されています。別の仮馬を作成してください'};
  if(reuse){
-  const api=window.DabimasReuse50;
+  const api=window.DabimasCoreReuse76||window.DabimasReuse50;
   if(!api?.verifyLink(horse,reuse,{step:n,sex:chain09ExpectedSex(p,n),sireId:pair.sireId,mareId:pair.mareId,lineage:pair.sire?.lineage||'',rows:pair.ped?.rows}))
    return {horse:null,reason:'再利用実馬の血統・因子・親馬が変更されました。再検証が必要です'};
   return {horse,reason:'',reused:true};
@@ -1233,7 +1246,7 @@ function makeChain09Foal(p,n){
 // verified real horse only when parents, sex and all 31 known sire slots match.
 // The original real-horse record is never modified or copied into this plan.
 function mild50ReuseStep(p,n){
- const api=window.DabimasReuse50;if(!api)return {error:'実馬再利用検査モジュール未読込'};
+ const api=window.DabimasCoreReuse76||window.DabimasReuse50;if(!api)return {error:'実馬再利用検査モジュール未読込'};
  const pair=chain09Parents(p,n);
  if(!pair.ready)return {error:'工程'+n+'の親馬・血統が未完成'};
  const ch=chain09Data(p);
@@ -3158,7 +3171,7 @@ function auto21Result(plan,ped,goal,mode,meta){
   <p class="muted">超完璧→完璧を優先し、同じ理論なら新規生産回数が少ない案を優先。工程増だけの研究スコア上昇は採用しません。${plan.mild71.limited?'比較上限に到達。':'上限付き部分探索。'} 強さやゲーム内理論の確定ではありません。</p>
  </details>`:''}
  ${isMaternalDDS67(plan)&&plan.chain09?.outputs?.[9]?mild71BirthReview(plan):''}
- ${plan.mild75?.savedBirths?mild75ReuseHtml(plan):''}
+ ${plan.mild75?.savedBirths?mild75ReuseHtml(plan):''}${mild76CoreReuseHtml(plan)}
  ${mild72ScheduleHtml(plan)}
  ${plan.mild67?`<div class="notice"><b>v6.9｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
@@ -3397,7 +3410,7 @@ function auto21Create(){
     if(!sire||!mare)return {ready:false};
     return {step:n,ready:true,sireId,mareId,lineage:sire.lineage||'',ped:getFoalPedigree(sire,mare)};
    });
-   mild55ReusableRoots=mild55Api.rootReuseCount({records:state.homebreds,roots,reuseApi:window.DabimasReuse50});
+   mild55ReusableRoots=mild55Api.rootReuseCount({records:state.homebreds,roots,reuseApi:window.DabimasCoreReuse76||window.DabimasReuse50});
   }
   const mild53ReusePriority=mode==='mild'&&mild55ReusableRoots>0;
   if(mode==='mild'&&!isMaternal66(draft)){
@@ -3550,13 +3563,13 @@ function auto21Create(){
     }
     if(!problems.length){
      const finalPair=chain09Parents(draft,9);
-     const routeAudit=window.DabimasFlowGuard41?.verify?.(draft,state.homebreds,window.DabimasReuse50);
+     const routeAudit=window.DabimasFlowGuard41?.verify?.(draft,state.homebreds,window.DabimasCoreReuse76||window.DabimasReuse50);
      if(!routeAudit||routeAudit.route!==(draft.routeDraft?.layout||'paternal-g3')){
       problems.push('工程検査の旧版キャッシュまたは祖先配置の不一致：v6.7への更新状態を確認してください');
      }
      const inspection=!problems.length?window.DabimasMildGate51?.inspect(draft,finalPair?.ped,state.homebreds,{
       flowGuard:window.DabimasFlowGuard41,
-      reuseApi:window.DabimasReuse50,
+      reuseApi:window.DabimasCoreReuse76||window.DabimasReuse50,
       validation:window.DabimasResearchValidation38,
       lineage:window.DabimasMildLineage52,
       stageResolver:n=>chain09Parents(draft,n)

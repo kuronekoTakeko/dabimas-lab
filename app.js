@@ -289,6 +289,23 @@ function mild71BirthReview(p){
   `新しい血統ルートへの置換による9工程自体の短縮は未検証です。工程数の表示は省略せず、依存関係・進捗を保持します。</div>`;
 }
 
+// v7.2: show independent breeding prerequisites and certified real reuse,
+// without presenting the fixed 9-stage pedigree graph as an 8-stage route.
+function mild72ScheduleHtml(p){
+ const api=window.DabimasMildSchedule72;
+ if(!api||!isMaternalDDS67(p))return '';
+ const audit=api.analyze(p,{definitions:chain09Definitions(p),records:state.homebreds,
+  resolveStep:n=>chain09Output(p,n)});
+ if(!audit.applicable)return '';
+ const waves=audit.waves.map((group,i)=>`<li><b>第${i+1}群：</b>${group.map(n=>esc(n.label)).join('・')}<span class="muted">（前群の必要工程が完了してから進行）</span></li>`).join('');
+ return `<details class="a21-flow" open><summary>v7.2｜マイルド生産順・依存関係の自動整理（${audit.stages}工程）</summary>
+ <p class="muted">基幹${audit.core}工程＋準備${audit.preparations}工程。最終産駒までつながる工程 ${audit.connectedCount}/${audit.stages}。過去の既存実馬を厳密照合して再利用 ${audit.recordedReuses}件。<b>計画内で必要な生産 ${audit.newBirths}回</b>（既に実馬として記録 ${audit.recordedReal}件、実馬未確認 ${audit.remainingUnconfirmed}件）。</p>
+ <p class="muted">親子の依存関係だけを使って、並行準備できる工程を整理しています。実際の生産日数・牧場枠・種付け権利を保証するものではありません。</p>
+ <ol>${waves}</ol>
+ ${audit.errors.length?`<p class="notice warn"><b>工程・実馬記録の再確認が必要：</b>${audit.errors.map(esc).join('／')}</p>`:''}
+ <p class="muted">9工程を別の血統構成で短縮できるかは未確認です。最終血統の因子・至高成立・産駒能力を保証するものではありません。</p>
+ </details>`;
+}
 function mild69PrepDone(p){return mild69PrepStages(p).filter(x=>x.progress.done===true).length;}
 function mild69PrepEditor(p){
  const items=mild69PrepStages(p);if(!items.length)return '';
@@ -670,6 +687,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
+${mild72ScheduleHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3076,6 +3094,7 @@ function auto21Result(plan,ped,goal,mode,meta){
   <p class="muted">超完璧→完璧を優先し、同じ理論なら新規生産回数が少ない案を優先。工程増だけの研究スコア上昇は採用しません。${plan.mild71.limited?'比較上限に到達。':'上限付き部分探索。'} 強さやゲーム内理論の確定ではありません。</p>
  </details>`:''}
  ${isMaternalDDS67(plan)&&plan.chain09?.outputs?.[9]?mild71BirthReview(plan):''}
+ ${mild72ScheduleHtml(plan)}
  ${plan.mild67?`<div class="notice"><b>v6.9｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
  ${plan.mild58?`<div class="notice"><b>v5.8 マイルド・母系1代仕込み：</b>所持種牡馬${esc(plan.mild58.tested)}候補を工程6の前に追加する形で比較。${plan.mild58.chosenSireId?`採用：${esc(plan.mild58.chosenSireId)}（全${esc(plan.mild58.resultStages)}工程）。`:'途中配合理論の確実な改善と研究評価の維持を同時に満たす候補はなく、9工程のままです。'}超完璧・完璧のみ評価し、奇跡は除外。<b>ゲーム内成立・締め肌能力は未確認。</b>探索は上限付きです。</div>`:''}

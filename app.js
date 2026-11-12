@@ -3124,6 +3124,11 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
  ${plan.mild66?`<div class="notice"><b>${isMaternalDDS67(plan)?'v6.9｜DDS8枠逆算ルート':'v6.6｜母側3代目の別ルート'}：</b>最終祖先 ${isMaternalDDS67(plan)?'DDS':'DSS'}／SSSS／SDSSS。実際の9工程を全て再連結し、近親回避・31枠・異因名と因子を照合。締め肌は工程2で、超完璧${esc(plan.mild66.evaluation?.superPerfect||'未確認')}／完璧${esc(plan.mild66.evaluation?.perfect||'未確認')}（部分的親系統）。<b>成立確定ではありません。</b>${isMaternalDDS67(plan)?'取得済み種牡馬→必要時1代仕込み→母系を逆算。9基本工程＋必要な追加準備のみです。':'名牝7枠の上限付き探索です。'}</div>`:''}
+ ${plan.mild74?`<details class="a21-flow"><summary>v7.4｜至高4代目・5代目の配置比較（${esc(plan.mild74.compared||0)}候補）</summary>
+  <p class="muted">3代目のディープを固定し、4代目（SSSS）と5代目（SDSSS）の異因名を入れ替えて9基幹工程・31枠・締め肌理論を再検査しました。採用配置：4代目 ${esc(splitName(plan.mild74.selected?.g4||'').variant||'未確認')} ／ 5代目 ${esc(splitName(plan.mild74.selected?.g5||'').variant||'未確認')}。</p>
+  ${(plan.mild74.variants||[]).map(v=>`<p class="muted"><b>${esc(splitName(v.slots?.g4||'').variant||'不明')}（4代目）→${esc(splitName(v.slots?.g5||'').variant||'不明')}（5代目）</b>：${v.qualified?'9工程の一次検査通過':'限定探索で成立案なし'} ／ 締め肌${esc(v.theory)} ／ 追加準備${v.additionalBirths==null?'未確認':esc(v.additionalBirths)}工程 ／ 因子位置の研究用順位${v.factor?.valid?esc(v.factor.score):'未確認'}。${v.reason?esc(v.reason):''}</p>`).join('')}
+  <p class="muted"><b>比較順：</b>締め肌の超完璧→完璧、必要な新規準備工程の少なさを優先。同一3頭・同一3代目の4/5代交換で条件が同じ場合、記録済み因子の4代目優先を研究上の仮順位として利用します。4代目の実際の効果倍率は未検証です。ゲーム内の強さ・至高成立を保証しません。</p>
+ </details>`:''}
  ${plan.mild610?`<details class="a21-flow"><summary>v6.10｜マイルド型・最終31枠の比較（${plan.mild610.tests||0}候補）</summary>
   <p class="muted">同じ締め肌と至高祖先のまま、工程3〜7に使う名牝を変更して全9工程・最終31枠を再検査しました。比較は${esc(plan.mild610.limited?'上限到達の部分探索':'上限付きの部分探索')}です。</p>
   <p class="muted">研究用相対評価：${esc(plan.mild610.before?.score??'未計算')} → ${esc(plan.mild610.after?.score??'未計算')} ／ 改善${plan.mild610.improved?'あり':'なし（元の構成を維持）'} ／ 入れ替えた基幹工程：${esc((plan.mild610.changedSteps||[]).join('・')||'なし')}。</p>
@@ -3227,7 +3232,7 @@ function auto21Create(){
    const distanceSorted=mode==='mild'&&distanceApi?
     distanceApi.rankPlacements(permutations,race,id=>map.get(key(id))||null):permutations;
    const selectedLayouts=positioning?.pick(distanceSorted,layoutLimit,defaults)||[];
-   const trials=[];let tests=0;
+   const trials=[],layoutRecords=[];let tests=0,layoutsChecked=0;
    const deepMild=mode==='mild'&&anchor.base==='ディープインパクト';
    // One-click default: maternal 3rd generation FIRST. Test the old route only
    // when no usable maternal 9-stage foundation exists for this anchor.
@@ -3238,7 +3243,13 @@ function auto21Create(){
    for(const routeType of routeTypes){
     if(deepMild&&routeChoice==='maternal-auto'&&routeType!=='dds'&&
      trials.some(t=>t.routeType==='dds'&&opt66TheoryRank(t.ranked[0]?.candidate)>=2))break;
-    for(const layout of selectedLayouts){
+    // v7.4: DDS must compare BOTH fourth/fifth permutations sharing the
+    // same third-generation Deep, even when the preflight top-two cutoff
+    // would discard one. Legacy routes keep their original shortlist.
+    const layouts=routeType==='dds'&&window.DabimasMildAnchor74?
+     window.DabimasMildAnchor74.selectDDS(distanceSorted,selectedLayouts,anchor.set):selectedLayouts;
+    for(const layout of layouts){
+    layoutsChecked++;
     const draft=newPlan(anchor);draft.goal=goal;draft.target=`公式BC想定：${race}`;
     const slots={...layout.slots};
     const routeLayout=routeType==='dds'?'maternal-dds-g3':routeType==='maternal'?'maternal-g3':'paternal-g3';
@@ -3253,20 +3264,27 @@ function auto21Create(){
      candidate.theory66=currentParentTheory68()?.inspect?.(candidate.closingPed)||null;
     const ranked=eligible.map((candidate,i)=>({candidate,i,quality:auto35Quality(candidate.full,draft),evidence:auto37Evidence(candidate.full,draft)}))
      .sort((a,b)=>(mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0)||(mode==='mild'?(a.candidate.additionalBirths||0)-(b.candidate.additionalBirths||0):0)||auto35CompareQuality(a.quality,b.quality)||auto37Compare(a.evidence,b.evidence)||opt10Sort(a.candidate,b.candidate)||a.i-b.i);
+    if(routeType==='dds')layoutRecords.push({slots:{...slots},routeType,
+     qualified:!!ranked.length,theory:ranked[0]?.candidate?.theory66?.superPerfect==='成立'?'超完璧':ranked[0]?.candidate?.theory66?.perfect==='成立'?'完璧':'未確認',
+     additionalBirths:ranked[0]?.candidate?.additionalBirths??null,
+     reason:ranked.length?'':'9工程・31枠・締め肌理論の条件を通る案が限定探索で見つからず'});
     if(ranked.length)trials.push({anchor,draft,researched,eligible,ranked,placementKey:layout.signature,placementScore:layout.score,routeType});
     }
    }
-   return {trials,tests,permutations:permutations.length,selectedLayouts:selectedLayouts.length};
+   return {trials,layoutRecords,tests,permutations:permutations.length,selectedLayouts:layoutsChecked};
   }
   let initial, anchorTried=0,anchorQualified=0,placementSearches=0,placementQualified=0;
   const viableAnchorTrials=[];
-  const candidateAudit=[];
+  const candidateAudit=[],layoutAudit74=[];
   // v4.9: pick the *final* 31-sire-slot pedigree after six-mare/X mating
   // instead of treating a single preselected arrangement as immutable.
   for(const anchor of selectionInfo.pool){
    anchorTried++;
    if(fast){out.innerHTML=`<p class="notice">血統を比較しています：中心候補${anchorTried}/${selectionInfo.pool.length}（高速限定探索）。保存データはまだ変更していません。</p>`;await yieldToBrowser();}
    const packet=await foundationFor(anchor);
+   if(mode==='mild'&&anchor.base==='ディープインパクト')
+    layoutAudit74.push(...(packet.layoutRecords||[]).map(x=>({...x,base:anchor.base,
+     memberIds:anchor.set.map(r=>r.id)})));
    placementSearches+=packet.selectedLayouts;placementQualified+=packet.trials.length;
    candidateAudit.push({base:anchor.base,ids:anchor.set.map(r=>r.id),qualified:!!packet.trials.length,
     placementOptions:packet.permutations,placementsEvaluated:packet.selectedLayouts,
@@ -3299,6 +3317,18 @@ function auto21Create(){
     const evidence=auto37Compare(a.evidence,b.evidence);
     const theoryOrder=mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0;
     const additionalBirthOrder=mode==='mild'?(a.candidate.additionalBirths||0)-(b.candidate.additionalBirths||0):0;
+    // The ONLY factor-generation tie break is a DDS fourth/fifth swap
+    // between otherwise identical three Deep variants. Both full nine-stage
+    // routes must already have passed validation, theory and birth-count
+    // ranking. This is an unpublished research preference, not SP/ST maths.
+    const pair74=mode==='mild'&&trial.routeType==='dds'&&initial.routeType==='dds'&&
+     trial.anchor.base==='ディープインパクト'&&initial.anchor.base==='ディープインパクト'&&
+     window.DabimasMildAnchor74?.compareSwap(trial.draft.routeDraft.slots,initial.draft.routeDraft.slots,
+      id=>routeSnapshotMember(id,trial.draft),goal);
+    if(pair74!=null&&pair74!==0){
+     if(theoryOrder<0||(theoryOrder===0&&(additionalBirthOrder<0||(additionalBirthOrder===0&&pair74<0))))initial=trial;
+     continue;
+    }
     const finishOrder=mode==='mild'&&trial.routeType==='dds'&&initial.routeType==='dds'?
      (window.DabimasMildFinish610?.compare(a.candidate,b.candidate,goal)||0):0;
     const researchOrder=quality||evidence||finishOrder||opt10Sort(a.candidate,b.candidate);
@@ -3317,6 +3347,15 @@ function auto21Create(){
   selected=initial.anchor;
   const {draft,researched,ranked}=initial;
   draft.title=`${selected.base}・${mode==='hard'?'本気型':'マイルド型'} 自動設計 ${race}`;
+  // Save the actual tested swap result, including unqualified alternatives.
+  // The saved report is a reading aid, not a game result or a predicted value.
+  if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildAnchor74){
+   const ap=window.DabimasMildAnchor74;
+   const sameSet=x=>x.base===selected.base&&x.memberIds.length===selected.set.length&&
+    x.memberIds.every(id=>selected.set.some(r=>key(r.id)===key(id)));
+   draft.mild74=ap.report(draft.routeDraft.slots,layoutAudit74.filter(sameSet),
+    id=>routeSnapshotMember(id,draft),goal);
+  }
   if(fast)draft.fastSearch59={enabled:true,shortlistMares:isMaternalDDS67(draft)?null:12,shortlistXSires:isMaternalDDS67(draft)?null:8,version:69,complete:false,parentSystemBias:'非Ro優先・未確認保持・必須至高祖先は除外せず'};
   let base=ranked[0]?.candidate;
   if(!base){out.innerHTML=`<div class="notice warn">9工程に必要な繁殖牝馬の組み合わせを確定できませんでした。${esc(researched.message||'公開データの血統・因子を確認してください。')}（試算 ${researched.tests}通り）</div>`;return;}

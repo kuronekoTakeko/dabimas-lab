@@ -11,5 +11,5 @@ const tests=[
  ['fast mode reduces repeated refinements',()=>{for(const p of ['budget:fast?90:900','budget:fast?50:420','budget:fast?70:360','budget:fast?30:180'])assert(app.includes(p));}],
  ['full search remains available when disabled',()=>assert(app.includes("fast?'meihin_fast':'meihin'"))],
  ['saving schema and ownership untouched',()=>{assert(app.includes("const SAVE_KEY='dabimas_lab_v02_state'"));assert(!app.includes('state.owned={}'))}],
- ['version and cache updated',()=>{assert(html.includes('v6.9'));assert(sw.includes('dbms-v69b-1'))}]
+ ['version and cache updated',()=>{assert(html.includes('v6.10'));assert(sw.includes('dbms-v610-1'))}]
 ];for(const [name,fn] of tests){fn();console.log('PASS',name)}console.log(tests.length+' v5.9 tests passed');

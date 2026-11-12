@@ -96,8 +96,8 @@ check('v5.6 only adds a module, UI readout, versioned scripts/cache; Shiko remai
  const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),html=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
  assert(app.includes('function mild56TheoryHtml(plan)'));assert(app.includes('chain09Parents(plan,closingStep)'));
  assert(app.includes('${mild56TheoryHtml(plan)}'));assert(app.includes('mild56TheoryHtml(p)+chain09FinalAudit(p)'));
- assert(html.indexOf('research-parent-theory-v56.js?v=68a')<html.indexOf('app.js?v=69b'));
- assert(sw.includes("'./research-parent-theory-v56.js'"));assert(sw.includes('dbms-v69b-1'));
+ assert(html.indexOf('research-parent-theory-v56.js?v=68a')<html.indexOf('app.js?v=610'));
+ assert(sw.includes("'./research-parent-theory-v56.js'"));assert(sw.includes('dbms-v610-1'));
  assert(app.includes('至高のゲーム内成立を保証する判定ではありません。'));
  assert(app.includes('const SAVE_KEY=\'dabimas_lab_v02_state\''));
 });

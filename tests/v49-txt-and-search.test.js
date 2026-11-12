@@ -82,7 +82,7 @@ test('new assessment is never marked game-proven, preserves main persisted data 
  assert(js.includes('gameVerified:false'));
  assert(js.includes('state.homebreds=oldHomebreds'));
  assert(html.includes('research-placement-v49.js?v=49'));
- assert(sw.includes('dbms-v69b-1'));
+ assert(sw.includes('dbms-v610-1'));
 });
 test('all source modules have valid JavaScript syntax',()=>{
  for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')))cp.execFileSync('node',['--check',path.join(root,f)]);

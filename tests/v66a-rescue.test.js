@@ -34,7 +34,7 @@ assert.equal(JSON.stringify(immutable),original,'rescue must not mutate inventor
 const app=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8'),html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8'),sw=fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8');
 assert(app.includes('DabimasMaternalRescue66a.rescue('));
 assert(html.includes('research-maternal-rescue-v66a.js?v=66a'));
-assert(html.indexOf('research-maternal-rescue-v66a.js?v=66a')<html.indexOf('app.js?v=69b'));
+assert(html.indexOf('research-maternal-rescue-v66a.js?v=66a')<html.indexOf('app.js?v=610'));
 assert(sw.includes("'./research-maternal-rescue-v66a.js'"));
-assert(sw.includes('dbms-v69b-1'));
+assert(sw.includes('dbms-v610-1'));
 console.log('PASS v66a: 9-stage rescue, skip bad mare, broaden search, reject unsafe final, bounded budget, no source-state mutation, assets');

@@ -41,9 +41,9 @@ test('original owner state and zero rights remain preserved',()=>{
  assert.equal(owned.plans.length,0);
 });
 test('cache, UI and script revision consistent',()=>{
- assert(html.includes('app.js?v=69b'));
+ assert(html.includes('app.js?v=610'));
  assert(html.includes('馬名を選択')); 
- assert(sw.includes("dbms-v69b-1"));
+ assert(sw.includes("dbms-v610-1"));
 });
 test('javascript parses without execution or storage mutations',()=>{
  const {execFileSync}=require('node:child_process');

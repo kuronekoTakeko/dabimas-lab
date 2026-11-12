@@ -46,8 +46,8 @@ check('zero budget preserves original and inventory is never written',()=>{
 check('browser wiring includes stage8 pedigree, new module before app, PWA cache, no hard-mode changes',()=>{
  const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),html=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
  assert(app.includes('closingPed:selected[chain09ClosureStep(p)-1]'));assert(app.includes("if(mode==='mild'&&!isMaternal66(draft)&&!mild53ReusePriority&&window.DabimasMildMare57"));
- assert(html.indexOf('research-mild-mare-v57.js?v=62')<html.indexOf('app.js?v=69b'));
- assert(sw.includes("'./research-mild-mare-v57.js'"));assert(sw.includes('dbms-v69b-1'));
+ assert(html.indexOf('research-mild-mare-v57.js?v=62')<html.indexOf('app.js?v=610'));
+ assert(sw.includes("'./research-mild-mare-v57.js'"));assert(sw.includes('dbms-v610-1'));
  assert(app.includes('if(mode===\'hard\'){'));assert(app.includes('const SAVE_KEY=\'dabimas_lab_v02_state\''));
 });
 console.log(`${count} v5.7 tests passed`);

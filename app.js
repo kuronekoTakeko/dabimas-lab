@@ -1720,8 +1720,15 @@ function mild67StagePreparation(plan,prep,sex='male'){
   return {error:'1代仕込みの父母または所持状態に不整合があります'};
  const ped=getFoalPedigree(sire,mare);
  if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts?.length)return {error:'1代仕込み馬の31枠が矛盾'};
- const name=`${String(plan.title||'DDS').replace(/[^\p{L}\p{N}ー]/gu,'').slice(0,12)}・${sex==='female'?'ディープ基礎牝':'締め肌父'}仕込み・仮1`;
- const id=homeId(name);if(state.homebreds.some(h=>key(h.id)===key(id)))return {error:'仕込み馬IDが重複'};
+ // Multiple plans may share the same title and use the same prepared sire.
+ // Keep legacy draft IDs untouched; allocate a new unique provisional name.
+ // The ID must be chosen BEFORE linking it into the nine-step plan.
+ const short=String(plan.title||'DDS').replace(/[^\p{L}\p{N}ー]/gu,'').slice(0,12)||'DDS';
+ const role=sex==='female'?'ディープ基礎牝':'締め肌父';
+ let index=1,name,id;
+ do {name=`${short}・${role}仕込み・仮${index++}`;id=homeId(name);}
+ while(state.homebreds.some(h=>key(h.id)===key(id)));
+
  const rec={id,name,sex,mode:'draft',sp:'',st:'',factors:[],lineage:sire.lineage||'',lineageAssumed:!!sire.lineage,
   fatherId:sire.id,motherId:mare.id,ancestry:ped.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,factors:[...(r.factors||[])],line:r.line||'',factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),
   planId:plan.id,stepNo:null,mild67Prep:true,createdAt:nowISO(),updatedAt:nowISO(),note:sex==='female'?'v6.9：ディープ直仔牝馬の基礎牝を所持種牡馬×名牝で1代仕込む未生産の仮馬。':'v6.9：締め肌の父を所持種牡馬×名牝で1代仕込む未生産の仮馬。'};

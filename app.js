@@ -268,6 +268,27 @@ function mild69PrepStages(p){
  return items;
 }
 function mild69FlowCount(p){return (p.steps||[]).length+mild69PrepStages(p).length;}
+function mild71BirthReview(p){
+ // Always distinguish slots in a saved plan from new births. The nine-stage
+ // DAG is NOT shortened by counting the same planned stage twice. Only
+ // previously produced, explicitly linked REAL horses can save a new birth.
+ const preps=mild69PrepStages(p).length,records=p.chain09?.reused50||{};
+ let reused=0,unverified=0;const steps=[];
+ for(let n=1;n<=9;n++){
+  const mark=records[n];if(!mark)continue;
+  const resolved=chain09Output(p,n);
+  if(resolved?.horse?.mode==='real'&&key(resolved.horse.id)===key(mark.id)){
+   reused++;steps.push(n);
+  }else unverified++;
+ }
+ const planned=9+preps,remaining=planned-reused;
+ return `<div class="notice"><b>v7.1｜生産効率の監査：</b>血統上の配合${planned}工程（基幹9＋準備${preps}）。`+
+  `既存の実馬を血統・親子関係で照合して再利用した工程 ${reused}件${steps.length?`（基幹${steps.join('・')}）`:''}。`+
+  `新たに生産する必要がある工程の目安 <b>${remaining}工程</b>。`+
+  `${unverified?`再利用根拠が不一致の工程${unverified}件は省略不可。`:''}`+
+  `新しい血統ルートへの置換による9工程自体の短縮は未検証です。工程数の表示は省略せず、依存関係・進捗を保持します。</div>`;
+}
+
 function mild69PrepDone(p){return mild69PrepStages(p).filter(x=>x.progress.done===true).length;}
 function mild69PrepEditor(p){
  const items=mild69PrepStages(p);if(!items.length)return '';
@@ -1631,6 +1652,39 @@ function opt69Find(p,scope){
    if(refinement?.audit){results[i]=refinement.winner;
     results[i].finish610=refinement.audit;
     tests+=refinement.audit.tests||0;}
+  }
+ }
+ // v7.1: 1-at-a-time substitutions can miss a valid/stronger pedigree
+ // that needs TWO supporting mares changed together (e.g. a cross conflict
+ // disappears only after replacing both). This is bounded, validated,
+ // and never relaxes the closing-mare grade or the 31 ancestral slots.
+ const efficiency71=window.DabimasMildEfficiency71;
+ if(finish610?.metric&&efficiency71?.improve){
+  results.sort((a,b)=>finish610.compare(a,b,p.goal)||opt66Compare(a,b));
+  for(let i=0;i<Math.min(results.length,scope==='meihin_fast'?1:2);i++){
+   const original=results[i];
+   const two=efficiency71.improve({initial:original,mares,goal:p.goal,
+    maxTests:scope==='meihin_fast'?26:50,refiner:finish610,
+    evaluate:choices=>{
+     const candidate=opt10Trial(p,choices,original.xId,
+      original.xPrep?.horse||null,original.marePrep?{1:original.marePrep.horse}:null);
+     if(!candidate||candidate.matches!==3)return null;
+     const anchors=Object.fromEntries(['g3','g4','g5'].map(k=>[k,routeSnapshotMember(p.routeDraft.slots[k],p)]));
+     if(!api.validateFinal(candidate.full,p.routeDraft.slots,anchors).ok)return null;
+     const inspected=theory.inspect(candidate.closingPed);
+     if(inspected.blocked||inspected.superPerfect!==original.theory66?.superPerfect||
+        inspected.perfect!==original.theory66?.perfect)return null;
+     candidate.theory66=inspected;candidate.xPrep=original.xPrep||null;
+     candidate.marePrep=original.marePrep||null;
+     candidate.additionalBirths=original.additionalBirths;
+     candidate.maternal67=original.maternal67;
+     candidate.xSearchCount=original.xSearchCount;
+     candidate.finish610=original.finish610||null;
+     return candidate;
+    }});
+   results[i]=two.winner;
+   if(two.audit)results[i].efficiency71=two.audit;
+   tests+=two.audit?.tested||0;
   }
  }
  results.sort((a,b)=>finish610?.compare(a,b,p.goal)||opt66TheoryRank(b)-opt66TheoryRank(a)||a.additionalBirths-b.additionalBirths||opt66Compare(a,b));
@@ -3016,6 +3070,12 @@ function auto21Result(plan,ped,goal,mode,meta){
   <p class="muted">研究用相対評価：${esc(plan.mild610.before?.score??'未計算')} → ${esc(plan.mild610.after?.score??'未計算')} ／ 改善${plan.mild610.improved?'あり':'なし（元の構成を維持）'} ／ 入れ替えた基幹工程：${esc((plan.mild610.changedSteps||[]).join('・')||'なし')}。</p>
   <p class="muted">採用案の独立クロス候補 ${esc(plan.mild610.after?.independentCrossCandidates??'未確認')}種類（因子記録まで確認 ${esc(plan.mild610.after?.independentCrossEvidence??'未確認')}種類）、4〜5代目で記録がある因子枠 ${esc(plan.mild610.after?.ancestorFactorsRecorded??'未確認')}枠、子系統 ${esc(plan.mild610.after?.childLineDiversity??'未確認')}種類。<b>因子・クロスのゲーム内効果やSP/ST能力を算出した数値ではありません。</b></p>
  </details>`:''}
+ ${plan.mild71?`<details class="a21-flow"><summary>v7.1｜マイルド型・名牝2工程同時比較（${esc(plan.mild71.tested||0)}組）</summary>
+  <p class="muted">工程3〜7のうち2工程を同時に差し替え、親子関係・31枠・至高指定位置・締め肌の配合理論をすべて再検査しました。${esc(plan.mild71.rejected||0)}組は不成立・根拠不足等で不採用です。</p>
+  <p class="muted">研究用相対評価：${esc(plan.mild71.before?.score??'未計算')} → ${esc(plan.mild71.after?.score??'未計算')} ／ 採用：${plan.mild71.improved?'改善':'変更なし'} ／ 変更した工程：${esc((plan.mild71.changedSteps||[]).join('・')||'なし')}。</p>
+  <p class="muted">超完璧→完璧を優先し、同じ理論なら新規生産回数が少ない案を優先。工程増だけの研究スコア上昇は採用しません。${plan.mild71.limited?'比較上限に到達。':'上限付き部分探索。'} 強さやゲーム内理論の確定ではありません。</p>
+ </details>`:''}
+ ${isMaternalDDS67(plan)&&plan.chain09?.outputs?.[9]?mild71BirthReview(plan):''}
  ${plan.mild67?`<div class="notice"><b>v6.9｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
  ${plan.mild58?`<div class="notice"><b>v5.8 マイルド・母系1代仕込み：</b>所持種牡馬${esc(plan.mild58.tested)}候補を工程6の前に追加する形で比較。${plan.mild58.chosenSireId?`採用：${esc(plan.mild58.chosenSireId)}（全${esc(plan.mild58.resultStages)}工程）。`:'途中配合理論の確実な改善と研究評価の維持を同時に満たす候補はなく、9工程のままです。'}超完璧・完璧のみ評価し、奇跡は除外。<b>ゲーム内成立・締め肌能力は未確認。</b>探索は上限付きです。</div>`:''}
@@ -3403,6 +3463,7 @@ function auto21Create(){
     evaluation:base.theory66?{perfect:base.theory66.perfect,superPerfect:base.theory66.superPerfect,blocked:!!base.theory66.blocked}:null,
     searchCount:researched.tests,limited:!!researched.limited,gameVerified:false};
    if(isMaternalDDS67(draft)&&base.finish610)draft.mild610={...base.finish610,version:610,gameVerified:false};
+   if(isMaternalDDS67(draft)&&base.efficiency71)draft.mild71={...base.efficiency71,gameVerified:false};
    if(isMaternalDDS67(draft))draft.mild67={version:69,method:'見事4＋面白8枠先行判定・最小仕込み優先（公開CSV）',selectedSireId:chain09Data(draft).xId,extraSireBirths:base.xPrep?1:0,extraMareBirths:base.marePrep?1:0,
       prep:base.xPrep?{fatherId:base.xPrep.fatherId,motherId:base.xPrep.motherId,foalId:chain09Data(draft).xId}:null,
       marePrep:base.marePrep?{fatherId:base.marePrep.fatherId,motherId:base.marePrep.motherId,foalId:chain09Data(draft).mares[1]}:null,

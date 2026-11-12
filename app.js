@@ -306,6 +306,15 @@ function mild72ScheduleHtml(p){
  <p class="muted">9工程を別の血統構成で短縮できるかは未確認です。最終血統の因子・至高成立・産駒能力を保証するものではありません。</p>
  </details>`;
 }
+function mild75ReuseHtml(plan){
+ const info=plan?.mild75||{},api=window.DabimasMildPrepReuse75;
+ const checks=[info.sireEvidence,info.mareEvidence].filter(Boolean);
+ const valid=!!api?.stillValid&&checks.length===info.savedBirths&&checks.every(x=>api.stillValid(state.homebreds,x,window.DabimasReuse50?.signature));
+ return `<div class="notice${valid?'':' warn'}"><b>v7.5｜準備馬の実馬再利用：</b>${valid?
+  `保存時に新規準備配合を${esc(info.savedBirths)}回削減。現在も父母・性別・31枠${info.sireEvidence?'・種牡馬本人因子':''}の記録が一致しています。`:
+  `以前の実馬再利用${esc(info.savedBirths)}件について、現在の記録との一致を確認できません。新規生産回数の短縮は再確認が必要です。`}
+  ${info.reusedSireId?`種牡馬：${esc(info.reusedSireId)}。`:''}${info.reusedMareId?`繁殖牝馬：${esc(info.reusedMareId)}。`:''}実馬記録は自動変更しません。ゲーム内の配合理論成立・産駒能力は未確認です。</div>`;
+}
 function mild69PrepDone(p){return mild69PrepStages(p).filter(x=>x.progress.done===true).length;}
 function mild69PrepEditor(p){
  const items=mild69PrepStages(p);if(!items.length)return '';
@@ -1754,6 +1763,15 @@ function mild67StagePreparation(plan,prep,sex='male'){
   return {error:'1代仕込みの父母または所持状態に不整合があります'};
  const ped=getFoalPedigree(sire,mare);
  if(ped.known!==31||ped.conflicts.length||ped.transmission?.conflicts?.length)return {error:'1代仕込み馬の31枠が矛盾'};
+ // v7.5: An already PRODUCED real horse with the exact same parents, sex,
+ // all 31 pedigree rows and (for a sire) observed personal factors can
+ // replace this prerequisite. The real record is NEVER overwritten.
+ const reuse75=window.DabimasMildPrepReuse75?.pick(state.homebreds,{
+  fatherId:sire.id,motherId:mare.id,sex,rows:ped.rows,lineage:sire.lineage||'',
+  excludeIds:Object.values(chain09Data(plan).outputs||{})
+ },window.DabimasReuse50?.signature);
+ if(reuse75){const existing=state.homebreds.find(h=>key(h.id)===key(reuse75.id));
+  if(existing)return {horse:existing,reused:true,reuseAudit:reuse75};}
  // Multiple plans may share the same title and use the same prepared sire.
  // Keep legacy draft IDs untouched; allocate a new unique provisional name.
  // The ID must be chosen BEFORE linking it into the nine-step plan.
@@ -3140,6 +3158,7 @@ function auto21Result(plan,ped,goal,mode,meta){
   <p class="muted">超完璧→完璧を優先し、同じ理論なら新規生産回数が少ない案を優先。工程増だけの研究スコア上昇は採用しません。${plan.mild71.limited?'比較上限に到達。':'上限付き部分探索。'} 強さやゲーム内理論の確定ではありません。</p>
  </details>`:''}
  ${isMaternalDDS67(plan)&&plan.chain09?.outputs?.[9]?mild71BirthReview(plan):''}
+ ${plan.mild75?.savedBirths?mild75ReuseHtml(plan):''}
  ${mild72ScheduleHtml(plan)}
  ${plan.mild67?`<div class="notice"><b>v6.9｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
@@ -3505,7 +3524,7 @@ function auto21Create(){
    const oldPlans=state.plans.slice(),oldHomebreds=state.homebreds.slice();
    mildRollback={plans:oldPlans,homebreds:oldHomebreds};
    const problems=[];
-   let reusedCount=0;
+   let reusedCount=0,preparedSireReused=null,preparedMareReused=null;
    draft.note=`【${isMaternalDDS67(draft)?'v6.9 DDS8枠逆算ルート':isMaternal66(draft)?'v6.6 母側3代目ルート':'v5.9マイルド型'}${fast?'・高速限定探索':''}】${isMaternalDDS67(draft)?'取得済み種牡馬の8枠→必要時1代の種牡馬→基礎名牝を逆算。超完璧優先、追加仕込み最小化。':isMaternal66(draft)?'公開名牝7頭を母側3代目＋父側4・5代目の9工程で探索。補助種牡馬Xなし。締め肌は工程2。':'名牝6頭・補助種牡馬Xを研究用評価で自動選択。'}${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
    stagingAuto21=true;
    try{
@@ -3513,12 +3532,14 @@ function auto21Create(){
     if(isMaternalDDS67(draft)&&base.xPrep){
      const prepResult=mild67StagePreparation(draft,base.xPrep,'male');
      if(prepResult.error)problems.push('締め肌父の準備：'+prepResult.error);
-     else {chain09Data(draft).xId=prepResult.horse.id;draft.routeDraft.xSire=prepResult.horse.id;}
+     else {chain09Data(draft).xId=prepResult.horse.id;draft.routeDraft.xSire=prepResult.horse.id;
+      if(prepResult.reused)preparedSireReused=prepResult.reuseAudit;}
     }
     if(isMaternalDDS67(draft)&&base.marePrep&&!problems.length){
      const prepResult=mild67StagePreparation(draft,base.marePrep,'female');
      if(prepResult.error)problems.push('ディープ基礎牝の準備：'+prepResult.error);
-     else chain09Data(draft).mares[1]=prepResult.horse.id;
+     else {chain09Data(draft).mares[1]=prepResult.horse.id;
+      if(prepResult.reused)preparedMareReused=prepResult.reuseAudit;}
     }
     for(let n=1;n<=9&&!problems.length;n++){
      const reuse=mild50ReuseStep(draft,n);
@@ -3541,6 +3562,15 @@ function auto21Create(){
       stageResolver:n=>chain09Parents(draft,n)
      }):null;
      if(!problems.length&&!inspection?.ok)problems.push(...(inspection?.errors||['マイルド型の最終検査モジュールが利用できません']));
+     // Replacing a prerequisite with a real horse must NOT inherit the
+     // research trial's closing theory without rechecking the actual mating.
+     if(!problems.length&&isMaternalDDS67(draft)){
+      const close=chain09Parents(draft,2);
+      const current=currentParentTheory68()?.inspect?.(close?.ped);
+      if(!close.ready||!current||current.blocked||
+       current.perfect!==base.theory66?.perfect||current.superPerfect!==base.theory66?.superPerfect)
+       problems.push('実馬を連結した締め肌の完璧・超完璧条件が元の採用案と一致しません');
+     }
     }
    }catch(error){problems.push(error.message||'仮連結処理に失敗');}
    finally{stagingAuto21=false;}
@@ -3555,17 +3585,22 @@ function auto21Create(){
    const finalPair=chain09Parents(draft,9);
    if(finalPair.ready&&finalPair.ped?.known===31){
     pedigree=finalPair.ped;
-    parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount+(base.xPrep?1:0)+(base.marePrep?1:0),limited:false};
+    parents={sire:finalPair.sire,mare:finalPair.mare,stages:9-reusedCount+(base.xPrep&&!preparedSireReused?1:0)+(base.marePrep&&!preparedMareReused?1:0),limited:false};
    }
-   draft.mild50={version:50,reusedCount,productionStages:9-reusedCount+(base.xPrep?1:0)+(base.marePrep?1:0),gameVerified:false};
+   draft.mild50={version:50,reusedCount,productionStages:9-reusedCount+(base.xPrep&&!preparedSireReused?1:0)+(base.marePrep&&!preparedMareReused?1:0),gameVerified:false};
+   if(isMaternalDDS67(draft))draft.mild75={version:75,reusedSireId:preparedSireReused?.id||'',reusedMareId:preparedMareReused?.id||'',
+     sireEvidence:preparedSireReused||null,mareEvidence:preparedMareReused||null,
+     savedBirths:Number(!!preparedSireReused)+Number(!!preparedMareReused),
+     checkedRealFactors:!!preparedSireReused?.verifiedPersonalFactors,gameVerified:false};
    if(isMaternal66(draft))draft.mild66={version:isMaternalDDS67(draft)?67:66,layout:draft.routeDraft.layout,anchorPaths:{...anchorPaths66(draft)},closingStep:2,
     evaluation:base.theory66?{perfect:base.theory66.perfect,superPerfect:base.theory66.superPerfect,blocked:!!base.theory66.blocked}:null,
     searchCount:researched.tests,limited:!!researched.limited,gameVerified:false};
    if(isMaternalDDS67(draft)&&base.finish610)draft.mild610={...base.finish610,version:610,gameVerified:false};
    if(isMaternalDDS67(draft)&&base.efficiency71)draft.mild71={...base.efficiency71,gameVerified:false};
-   if(isMaternalDDS67(draft))draft.mild67={version:69,method:'見事4＋面白8枠先行判定・最小仕込み優先（公開CSV）',selectedSireId:chain09Data(draft).xId,extraSireBirths:base.xPrep?1:0,extraMareBirths:base.marePrep?1:0,
-      prep:base.xPrep?{fatherId:base.xPrep.fatherId,motherId:base.xPrep.motherId,foalId:chain09Data(draft).xId}:null,
-      marePrep:base.marePrep?{fatherId:base.marePrep.fatherId,motherId:base.marePrep.motherId,foalId:chain09Data(draft).mares[1]}:null,
+   if(isMaternalDDS67(draft))draft.mild67={version:69,method:'見事4＋面白8枠先行判定・最小仕込み優先（公開CSV）',selectedSireId:chain09Data(draft).xId,
+      extraSireBirths:base.xPrep&&!preparedSireReused?1:0,extraMareBirths:base.marePrep&&!preparedMareReused?1:0,
+      prep:base.xPrep&&!preparedSireReused?{fatherId:base.xPrep.fatherId,motherId:base.xPrep.motherId,foalId:chain09Data(draft).xId}:null,
+      marePrep:base.marePrep&&!preparedMareReused?{fatherId:base.marePrep.fatherId,motherId:base.marePrep.motherId,foalId:chain09Data(draft).mares[1]}:null,
       inverse69:researched.inverse69||null,
       scope:researched.scope,tests:researched.tests,limited:!!researched.limited,parentDataObserved:researched.parentEvidence68||0,prunedMatching:researched.prunedMatching68||0,prunedInteresting:researched.prunedInteresting68||0,
       closingTheory:{perfect:base.theory66?.perfect||'未確認',superPerfect:base.theory66?.superPerfect||'未確認',interestingDistinct:base.theory66?.interestingDistinct??null,interestingEight:base.theory66?.interestingEight||'未確認',matching:base.theory66?.matching||'未確認'},gameVerified:false};

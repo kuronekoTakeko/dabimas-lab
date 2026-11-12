@@ -434,7 +434,7 @@ function renderCrossFactor16(m){
 // v2.0 — Separate the five-generation FOAL window from the five generations
 // of each future parent. Do not extend the official cross score beyond its
 // supported five-generation foal window without a game-visible confirmation.
-function horseAnc20(row){return {path:kanaPath(row.path),name:row.horse||row.name||'',factors:[...(row.factors||[])],line:row.line||'',factorVariant:row.factorVariant||row.variant||'',source:row.source||'血統記録'};}
+function horseAnc20(row){return {path:kanaPath(row.path),name:row.horse||row.name||'',factors:[...(row.factors||[])],line:row.line||'',factorVariant:row.factorVariant||row.variant||'',parentSystem:row.parentSystem||'',source:row.source||'血統記録'};}
 function sirePaths20(){const arr=[];for(let depth=1;depth<=5;depth++){
  for(let i=0;i<2**(depth-1);i++){
   let p='';for(let k=depth-2;k>=0;k--)p+=(i>>k)&1?'D':'S';arr.push(p+'S');
@@ -458,7 +458,7 @@ function parentPedigree20(horse){
   const father=findParentHorse(fatherId),mother=findParentHorse(motherId);
   if(father&&mother&&key(father.id)!==key(horse.id)&&key(mother.id)!==key(horse.id)){
    const ped=getFoalPedigree(father,mother);
-   for(const a of ped.rows)if(a.name)insert({path:a.path,horse:a.name,factors:a.factors,line:a.line,factorVariant:a.factorVariant},'親の記録から再構成');
+   for(const a of ped.rows)if(a.name)insert({path:a.path,horse:a.name,factors:a.factors,line:a.line,factorVariant:a.factorVariant,parentSystem:a.parentSystem||''},'親の記録から再構成');
   }
  }
  // For public horses, extension uses their known ancestors' published bloodlines.
@@ -475,7 +475,9 @@ function parentPedigree20(horse){
    const factorSig=x=>JSON.stringify([...(x.factors||[])].sort());
    const factors=matches.every(x=>factorSig(x)===factorSig(matches[0]))?matches[0].factors||[]:[];
    const variant=matches.every(x=>key(x.factorVariant||'')===key(matches[0].factorVariant||''))?matches[0].factorVariant||'':'';
-   insert({path:dest,horse:matches[0].horse,factors,line:matches[0].line||'',factorVariant:variant},'祖先馬の公開血統をたどって補完');
+   const parentValues=matches.map(x=>window.DabimasParentTheory56?.canonical?.(x.parentSystem)||null);
+   const parentSystem=parentValues.length&&parentValues.every(x=>x&&x===parentValues[0])?parentValues[0]:'';
+   insert({path:dest,horse:matches[0].horse,factors,line:matches[0].line||'',factorVariant:variant,parentSystem},'祖先馬の公開血統をたどって補完');
   }
  }
  const rows=PED20_PATHS.map(path=>by.get(path)||{path,name:'',factors:[],line:'',factorVariant:'',source:'未収録'});
@@ -494,6 +496,31 @@ function gamePedigreeData20(sire,mare,foal){
  const outerPaths=new Set(outsidePairs.flatMap(x=>x.pair));
  return {s,d,main,mainPaths,outerPaths,outsidePairs};
 }
+// v7.3: Show the fifteen *parent* systems (not child lines) in pedigree tooltips.
+// The two-letter names follow the common Dabimas notation: Ns=Nasrullah,
+// Na=Native Dancer, Ne=Nearctic. Unknown/conflicted data stays unknown.
+const PARENT_CODES73=Object.freeze({'Eclipse':'Ec','Fairway':'Fa','Hampton':'Ha','Herod':'He','Himyar':'Hi','Matchem':'Ma','Nasrullah':'Ns','Native Dancer':'Na','Nearctic':'Ne','Phalaris':'Ph','Royal Charger':'Ro','St.Simon':'St','Swynford':'Sw','Teddy':'Te','Tom Fool':'To'});
+function pedigreeParentInfo73(r){
+ const api=window.DabimasParentTheory56,name=String(r?.name||r?.horse||'');
+ if(!name)return {code:'',label:'未収録',source:'祖先馬名が未収録'};
+ if(!api)return {code:'',label:'未確認',source:'親系統判定モジュール未読込'};
+ // If the public records disagree on an ancestor's parent system, even a
+ // single row's pa: field must not masquerade as a reliable classification.
+ if(parentRegistry68?.quarantined?.has(key(name)))return {code:'',label:'未確認',source:'公開CSV内に同名祖先の親系統矛盾あり'};
+ const raw=String(r?.parentSystem||'').trim(),direct=raw?api.canonical(raw):null;
+ const matched=api.lookup?.(name,parentRegistry68||api.REGISTRY)||null;
+ if(raw&&!direct)return {code:'',label:'未確認',source:'登録された親系統名を識別できません'};
+ if(direct&&matched?.parent&&direct!==matched.parent)return {code:'',label:'未確認',source:'祖先の親系統の記録が一致しません'};
+ const parent=direct||matched?.parent||null;
+ if(!parent||!PARENT_CODES73[parent])return {code:'',label:'未確認',source:'親系統pa列・公式限定資料で確認できません'};
+ const source=direct?'血統記録の親系統pa列（ゲーム内未確認）':
+    '同名祖先の親系統照合（公開CSV／公式限定資料・ゲーム内未確認）';
+ return {code:PARENT_CODES73[parent],label:`${PARENT_CODES73[parent]}（${parent}）`,source};
+}
+function pedigreeNodeLabel73(row,path){
+ const r=row||{},parent=pedigreeParentInfo73(r);
+ return `${path}｜${r.name||'未収録'}｜因子：${(r.factors||[]).join('・')||'未確認'}｜親系統：${parent.label}｜子系統：${r.line||'未確認'}｜親系統根拠：${parent.source}`;
+}
 function pedigreePathLabel20(path){return String(path||'').replace(/S/g,'父').replace(/D/g,'母');}
 function pedigreeTree20(rows,opts={}){
  const by=new Map(rows.map(x=>[x.path,x]));
@@ -505,7 +532,7 @@ function pedigreeTree20(rows,opts={}){
    const anchor=opts.anchorPaths?.has(globalPath),missing=!r.name;
    const cls=[cross?'p20-cross':'',outer?'p20-outer':'',anchor?'p20-anchor':'',missing?'p20-unknown':''].filter(Boolean).join(' ');
    const factors=(r.factors||[]).map(f=>`<span class="p20-factor p20-f-${esc(f)}">${esc(f)}</span>`).join('');
-   const label=`${globalPath}｜${r.name||'未収録'}｜${(r.factors||[]).join('・')||'本人因子未確認'}｜${r.line||'子系統未確認'}`;
+   const label=pedigreeNodeLabel73(r,globalPath);
    return `<button type="button" class="p20-node ${cls}" style="grid-row:span ${16/(2**(depth-1))}" title="${esc(label)}" aria-label="${esc(label)}" data-p31-info="${esc(label)}"><span class="p20-path">${esc(pedigreePathLabel20(globalPath))}</span><b class="p20-name">${esc(r.name||'未収録')}</b><span class="p20-factors">${factors}</span>${outer?'<small class="p20-out-note">参考</small>':''}</button>`;
   }).join('');
   cols.push(`<div class="p20-gen"><div class="p20-col-title">${depth}代</div><div class="p20-cells">${cells}</div></div>`);
@@ -513,8 +540,15 @@ function pedigreeTree20(rows,opts={}){
  return `<div class="p20-scroll" role="group" aria-label="画面内に収まる5代血統表"><div class="p20-tree">${cols.join('')}</div></div>`;
 }
 // Display the complete ancestor label on tapping a compact cell; read-only.
-document.addEventListener('click',e=>{const node=e.target.closest('.p20-node[data-p31-info]');if(!node)return;
- const out=node.closest('.p20-fold')?.querySelector('.p31-inspector');if(out)out.textContent=node.dataset.p31Info||'未収録';
+function showPedigreeNode73(node){
+ const out=node?.closest('.p20-fold')?.querySelector('.p31-inspector');
+ if(out)out.textContent=node.dataset.p31Info||'未収録';
+}
+document.addEventListener('click',e=>{const node=e.target.closest('.p20-node[data-p31-info]');if(node)showPedigreeNode73(node);});
+// Desktop: keep the read-only inspector synchronized with the hovered cell;
+// title remains available as the browser's native tooltip. Touch: tap works.
+document.addEventListener('pointerover',e=>{if(e.pointerType!=='mouse')return;
+ const node=e.target.closest('.p20-node[data-p31-info]');if(node)showPedigreeNode73(node);
 });
 function renderGamePedigree20(sire,mare,foal,p=null){
  if(!sire||!mare||!foal?.rows)return '';
@@ -524,11 +558,11 @@ function renderGamePedigree20(sire,mare,foal,p=null){
   {title:'最終種牡馬（交配前の自身の5代祖先）',name:sire.id||sire.name,rows:info.s.rows,prefix:'S',known:info.s.known},
   {title:'最終肌馬（交配前の自身の5代祖先）',name:mare.id||mare.name,rows:info.d.rows,prefix:'D',known:info.d.known}
  ];
- const folds=rootData.map(item=>`<details class="p20-fold" ${item.defaultOpen?'open':''}><summary>${esc(item.title)}：${esc(item.name)} <small>${item.known}/31枠</small></summary>${pedigreeTree20(item.rows,{prefix:item.prefix,mainPaths:info.mainPaths,outerPaths:info.outerPaths,anchorPaths:anchors})}<p class="p31-inspector" aria-live="polite">祖先をタップすると、馬名・因子・子系統をここに表示します。</p></details>`).join('');
+ const folds=rootData.map(item=>`<details class="p20-fold" ${item.defaultOpen?'open':''}><summary>${esc(item.title)}：${esc(item.name)} <small>${item.known}/31枠</small></summary>${pedigreeTree20(item.rows,{prefix:item.prefix,mainPaths:info.mainPaths,outerPaths:info.outerPaths,anchorPaths:anchors})}<p class="p31-inspector" aria-live="polite">祖先にカーソルを合わせるかタップすると、馬名・因子・親系統（Ro・Ne・Nsなど）・子系統をここに表示します。</p></details>`).join('');
  const active=info.main.candidates.map(c=>`${c.name}（${c.pairs.map(x=>x.join('×')).join('／')}）`);
  const outside=info.outsidePairs.map(x=>`${x.name}（${x.pair.join('×')}）`);
  return `<section class="p20-view" aria-label="v2.0ゲーム風5代血統表"><h4>最終血統表｜産駒・種牡馬・肌馬</h4>
- <p class="r12-foot">3つの表は個別に開閉できます。表の中はスクロールせずに全31枠を表示し、読みづらい馬名はタップで確認できます。赤文字＝独立クロス候補、金枠＝至高指定位置。ゲーム内成立は未確認です。</p>
+ <p class="r12-foot">3つの表は個別に開閉できます。表の中はスクロールせずに全31枠を表示し、馬名・因子・親系統（Ro・Ne・Nsなど）・子系統はカーソルまたはタップで確認できます。赤文字＝独立クロス候補、金枠＝至高指定位置。ゲーム内成立は未確認です。</p>
  <p class="p20-legend"><span class="p20-legend-red">● 独立クロス候補</span><span class="p20-legend-gold">● 至高指定位置</span><span class="p20-legend-orange">● 外側の参考位置</span></p>
  ${folds}
  <div class="p20-notice"><b>産駒5代の独立クロス候補：</b>${esc(active.join('、')||'なし')}<br><b>親の5代側だけに残る参考重複：</b>${esc(outside.join('、')||'検出なし')}。</div>

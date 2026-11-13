@@ -781,12 +781,12 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild81ExecutionHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
 <p class="muted" id="planSaveStatus">最終保存：${esc(dateJP(p.updatedAt))}</p>`;
-el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);setupChainPlanner09(el,p);setupOptimizer10(el,p);setupPrep17(el,p);setupProductionGuide13(el,p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
+el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);setupChainPlanner09(el,p);setupOptimizer10(el,p);setupPrep17(el,p);setupProductionGuide13(el,p);setupMild82GameLog(el,p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
 if(el.querySelector('#addPlanStep'))el.querySelector('#addPlanStep').onclick=()=>{p.steps.push({uid:uid(),title:`工程${p.steps.length+1}`,cross:'',sex:'',minSP:'',minST:'',result:'',note:'',done:false});touchPlan(p);showPlanEditor(p.id);};
 if(el.querySelector('#savePlanNow'))el.querySelector('#savePlanNow').onclick=()=>{touchPlan(p);alert('配合プランを保存しました。');};
 el.scrollIntoView({behavior:'instant',block:'start'});
@@ -3188,7 +3188,7 @@ function mild80ProductionDemand(plan){
 // v8.1: read-only start-order audit, not an automatic game-side mating action.
 // A 9-step draft is NEVER a produced horse. Strict 31-row signatures prevent
 // a manually toggled "real" flag on stale parentage being treated as done.
-function mild81ExecutionHtml(plan){
+function mild81ExecutionReport(plan){
  const api=window.DabimasMildExecution81,signature=window.DabimasReuse50?.signature;
  if(!api||!signature||!isMaternalDDS67(plan)||!plan?.chain09)return '';
  const preps=mild69PrepStages(plan),defs=chain09Definitions(plan),stages=[];
@@ -3226,6 +3226,11 @@ function mild81ExecutionHtml(plan){
    pedigreeKnown:pair.ped?.known,parentIssues:pair.problems||[]});
  }
  const r=api.assess({stages,inventory:state.owned});
+ return r;
+}
+function mild81ExecutionHtml(plan){
+ const r=mild81ExecutionReport(plan);
+ if(!r)return '';
  if(!r.applicable)return `<div class="notice warn">v8.1｜生産順の確認に失敗：${esc(r.errors.join('／')||'工程記録がありません')}</div>`;
  const pending=r.first.map(x=>`<li><b>${esc(x.label)}</b>：${esc(x.state)}<br><small>${esc(x.sireId||'父未指定')} × ${esc(x.mareId||'母未指定')}</small>${x.blocks.length?`<br><small>要確認：${esc(x.blocks.slice(0,3).join('／'))}</small>`:''}${x.warnings.length?`<br><small>注意：${esc(x.warnings.slice(0,2).join('／'))}</small>`:''}</li>`).join('');
  const rightShort=r.missingRights.map(x=>`${x.sireId}：残り予定${x.needed}回／登録${x.rights}回（不足${x.shortage}回）`);
@@ -3236,6 +3241,63 @@ function mild81ExecutionHtml(plan){
  ${rightShort.length?`<p class="notice warn"><b>残り工程の種付け権利不足：</b>${esc(rightShort.join('／'))}</p>`:''}
  ${missing.length?`<p class="notice warn"><b>所持登録がない公開種牡馬：</b>${esc(missing.join('／'))}</p>`:''}
  <p class="muted">必要権利は<strong>未生産の工程のみ</strong>を合算した登録上の比較です。権利0の所持種牡馬も設計対象から外しません。公開繁殖牝馬の確保、権利の実残数、自家製種牡馬の供用、至高・超完璧のゲーム内成立は別途確認してください。自動で権利を消費したり、所持・実馬・保存プランを書き換えることはありません。</p></details>`;
+}
+// v8.2: optional user-entered log. This does not auto-complete a step or edit
+// the inventory. Only verified real horses in v8.1 may unblock descendants.
+function mild82GameLogHtml(plan){
+ const api=window.DabimasMildGameLog82,report=mild81ExecutionReport(plan);
+ if(!api||!report?.applicable)return '';
+ const summary=api.assess(report.stages,plan.mild82);
+ const options=(values,current)=>Object.entries(values).map(([id,label])=>`<option value="${esc(id)}" ${current===id?'selected':''}>${esc(label)}</option>`).join('');
+ const rows=summary.rows.map(r=>{
+  const log=r.log,recorded=r.hasRecord?'記録あり':'未記録';
+  const signal=r.selectedOnly?'<span class="m82-alert">候補選別だけでは実馬未確認</span>':r.theoryMismatch?'<span class="m82-alert">配合理論の表示を再確認</span>':'';
+  return `<details class="prod-step m82-entry" data-m82-stage="${esc(r.id)}"><summary><span><b>${esc(r.label)}｜${esc(api.STATUSES[log.status])}</b><small>${esc(r.state)}／${recorded}／${r.realConfirmed?'実馬の血統照合済み':'実馬未確認'}</small></span><span class="prod-step-meta">${signal}<span class="prod-step-chevron">結果を記録</span></span></summary>
+  <div class="prod-step-body"><div class="plan-fields">
+  <label>生産・厳選の状態<select class="plan-input" data-m82-field="status">${options(api.STATUSES,log.status)}</select></label>
+  <label>試行回数（自身で記録）<input type="number" inputmode="numeric" min="0" max="99999" step="1" class="plan-input" data-m82-field="attempts" value="${log.attempts}"></label>
+  <label>SP（実測のみ）<input class="plan-input" maxlength="50" data-m82-field="sp" value="${esc(log.sp)}" placeholder="未確認"></label>
+  <label>ST（実測のみ）<input class="plan-input" maxlength="50" data-m82-field="st" value="${esc(log.st)}" placeholder="未確認"></label>
+  <label>ゲーム内の配合理論<select class="plan-input" data-m82-field="theory">${options(api.THEORIES,log.theory)}</select></label>
+  <label>実際のゲーム内表示名<input class="plan-input" maxlength="100" data-m82-field="theoryLabel" value="${esc(log.theoryLabel)}" placeholder="例：超完璧の配合（確認した場合のみ）"></label>
+  <label class="wide">生産結果・厳選メモ<textarea class="plan-textarea" maxlength="600" data-m82-field="memo" placeholder="生産した候補の特徴、次の確認事項など">${esc(log.memo)}</textarea></label>
+  </div><div class="btnrow"><button type="button" class="btn small" data-m82-save="1">この工程の記録を保存</button><button type="button" class="btn small ghost" data-m82-home="1">自家製馬の登録へ</button></div>
+  <p class="muted m82-save-status" role="status">${log.updatedAt?'前回記録：'+esc(log.updatedAt):'まだ記録していません。'} ${r.realConfirmed?'実馬の親子・31枠の照合済み。':'厳選記録は生産済み扱いにはなりません。'}</p></div></details>`;
+ }).join('');
+ return `<details class="a21-flow m82-journal" open><summary>v8.2｜生産・厳選の記録：入力済み${summary.recorded}/${summary.total}工程／照合済み実馬${summary.realConfirmed}工程</summary>
+ <p class="muted">工程ごとに試行回数・実測SP/ST・ゲーム内配合理論の表示・厳選メモを保存します。<b>採用と記録しただけでは実馬になりません。</b> 実際に生産した馬は「自家製馬」画面で実馬登録し、親子関係と血統を照合してください。</p>
+ ${summary.selectedOnly?`<p class="notice warn">候補選別済みでも実馬未確認の工程：${summary.selectedOnly}件。次工程へ進む前に自家製馬記録を確認してください。</p>`:''}
+ ${summary.theoryMismatch?`<p class="notice warn">想定と異なる、または成立表示がない工程：${summary.theoryMismatch}件。別案を検討する前にゲーム内表示を確認してください。</p>`:''}
+ ${rows}<p class="muted">この記録はブラウザの保存プラン（JSONバックアップ対象）に追加します。既存の所持種牡馬・種付け権利・実馬・ゲノム記録には触れません。SP/STや配合理論を自動判定したものではありません。</p></details>`;
+}
+function setupMild82GameLog(el,p){
+ const api=window.DabimasMildGameLog82;if(!api)return;
+ el.querySelectorAll('[data-m82-save]').forEach(btn=>btn.onclick=()=>{
+  const card=btn.closest('[data-m82-stage]'),id=card?.dataset.m82Stage;
+  const input={};card.querySelectorAll('[data-m82-field]').forEach(control=>{input[control.dataset.m82Field]=control.value;});
+  const result=api.save(p.mild82,id,input,nowISO());
+  const status=card.querySelector('.m82-save-status');
+  if(!result.ok){if(status)status.textContent='保存できません：'+result.error;return;}
+  const previous=p.mild82,prevUpdated=p.updatedAt;
+  p.mild82=result.data;p.updatedAt=nowISO();
+  if(!persist()){
+   p.mild82=previous;p.updatedAt=prevUpdated;if(status)status.textContent='保存できませんでした。端末の空き容量・保存設定を確認してください。';return;
+  }
+  renderSavedPlans();if(status)status.textContent='保存しました。実馬の照合状態や種付け権利は変更していません。';
+  const stage=mild81ExecutionReport(p),after=stage?.applicable?api.assess(stage.stages,p.mild82):null;
+  const head=el.querySelector('.m82-journal>summary');
+  if(head&&after)head.textContent=`v8.2｜生産・厳選の記録：入力済み${after.recorded}/${after.total}工程／照合済み実馬${after.realConfirmed}工程`;
+  const label=card.querySelector('summary b'),small=card.querySelector('summary small');
+  const current=after?.rows.find(r=>r.id===id);
+  if(label&&current)label.textContent=`${current.label}｜${api.STATUSES[current.log.status]}`;
+  if(small&&current)small.textContent=`${current.state}／記録あり／${current.realConfirmed?'実馬の血統照合済み':'実馬未確認'}`;
+ });
+ el.querySelectorAll('[data-m82-home]').forEach(btn=>btn.onclick=()=>{
+  const id=btn.closest('[data-m82-stage]')?.dataset.m82Stage;
+  switchTab('homebreds');$('homePlan').value=p.id;
+  const n=/^C:([1-9])$/.exec(id||'');refreshHomeSteps(n?Number(n[1]):null);
+  $('homeStatus').textContent=n?`工程${n[1]}の実馬を登録・確認してください。父母と血統をゲーム内結果に合わせて照合します。`:'準備馬の登録・確認です。準備工程には通常工程の番号を付けず、該当する仮馬の実馬記録を確認してください。';
+ });
 }
 function production63Html(plan){
  const api=window.DabimasProductionReady63;if(!api||plan?.autoDesign21?.mode!=='mild')return '';

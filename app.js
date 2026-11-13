@@ -781,7 +781,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild81ExecutionHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3184,6 +3184,58 @@ function mild80ProductionDemand(plan){
  <p class="muted">同じ種牡馬を別工程や準備工程でも使用する場合は必要回数を合計します。実馬を安全に再利用できた工程は除外します。現在の登録権利数との比較であり、種付けの実行可否やゲーム内権利の残数を保証しません。</p>
  <div style="overflow-x:auto"><table class="detailtbl"><thead><tr><th>起点種牡馬</th><th>予定</th><th>登録権利</th><th>判定</th></tr></thead><tbody>${rows||'<tr><td colspan="4">公開種牡馬の利用予定なし</td></tr>'}</tbody></table></div>
  ${pending}<p class="muted">記録のない権利数はゼロ扱いしません。所持0頭の新規端末では、種牡馬図鑑でご自身の所持チェックを登録してください。ゲーム内の至高・超完璧成立は別途確認が必要です。</p></details>`;
+}
+// v8.1: read-only start-order audit, not an automatic game-side mating action.
+// A 9-step draft is NEVER a produced horse. Strict 31-row signatures prevent
+// a manually toggled "real" flag on stale parentage being treated as done.
+function mild81ExecutionHtml(plan){
+ const api=window.DabimasMildExecution81,signature=window.DabimasReuse50?.signature;
+ if(!api||!signature||!isMaternalDDS67(plan)||!plan?.chain09)return '';
+ const preps=mild69PrepStages(plan),defs=chain09Definitions(plan),stages=[];
+ const home=id=>state.homebreds.find(h=>key(h.id)===key(id));
+ const isReal=id=>home(id)?.mode==='real';
+ const sourceType=h=>h?.isHomebred||String(h?.id||'').startsWith('自家製:')?'homebred':'public';
+ const sameRows=(record,ped)=>!!(record&&ped?.known===31&&signature(record.ancestry)&&signature(record.ancestry)===signature(ped.rows));
+ for(const [i,item] of preps.entries()){
+  const sire=findParentHorse(item.info.fatherId),mare=findParentHorse(item.info.motherId);
+  const ped=sire&&mare?getFoalPedigree(sire,mare):null;
+  const foal=item.foal,sex=item.sex==='牡'?'male':'female';
+  stages.push({id:'P:'+item.kind,label:`準備${i+1}（${item.label}）`,deps:[],
+   sireId:item.info.fatherId,mareId:item.info.motherId,sireType:sourceType(sire),mareType:sourceType(mare),
+   sireReal:isReal(item.info.fatherId),mareReal:isReal(item.info.motherId),
+   outputReal:foal?.mode==='real',outputVerified:!!(foal&&foal.mode==='real'&&foal.sex===sex&&
+    key(foal.fatherId)===key(item.info.fatherId)&&key(foal.motherId)===key(item.info.motherId)&&sameRows(foal,ped)),
+   manualDone:item.progress.done===true,pedigreeKnown:ped?.known,
+   parentIssues:[!sire?'準備父馬が未登録':'',!mare?'準備繁殖牝馬が未登録':''].filter(Boolean)});
+ }
+ for(const def of defs){
+  const n=def.n,pair=chain09Parents(plan,n),valid=chain09Output(plan,n),marked=plan.chain09?.reused50?.[n];
+  const rawId=plan.chain09?.outputs?.[n];
+  const raw=home(rawId)||state.homebreds.filter(h=>h.planId===plan.id&&Number(h.stepNo)===n).slice(-1)[0];
+  const deps=[];
+  if(def.sireStep)deps.push('C:'+def.sireStep);
+  if(def.mareStep)deps.push('C:'+def.mareStep);
+  if(n===1&&preps.some(x=>x.kind==='mare'))deps.push('P:mare');
+  if(n===2&&preps.some(x=>x.kind==='sire'))deps.push('P:sire');
+  stages.push({id:'C:'+n,label:n===9?'工程9（最終配合）':`工程${n}`,deps,
+   sireId:pair.sireId||'',mareId:pair.mareId||'',
+   sireType:sourceType(pair.sire),mareType:sourceType(pair.mare),
+   sireReal:isReal(pair.sireId),mareReal:isReal(pair.mareId),
+   outputReal:raw?.mode==='real',outputVerified:!!(raw&&valid.horse&&raw.mode==='real'&&sameRows(raw,pair.ped)),
+   outputReused:!!marked,manualDone:plan.steps?.[n-1]?.done===true,
+   pedigreeKnown:pair.ped?.known,parentIssues:pair.problems||[]});
+ }
+ const r=api.assess({stages,inventory:state.owned});
+ if(!r.applicable)return `<div class="notice warn">v8.1｜生産順の確認に失敗：${esc(r.errors.join('／')||'工程記録がありません')}</div>`;
+ const pending=r.first.map(x=>`<li><b>${esc(x.label)}</b>：${esc(x.state)}<br><small>${esc(x.sireId||'父未指定')} × ${esc(x.mareId||'母未指定')}</small>${x.blocks.length?`<br><small>要確認：${esc(x.blocks.slice(0,3).join('／'))}</small>`:''}${x.warnings.length?`<br><small>注意：${esc(x.warnings.slice(0,2).join('／'))}</small>`:''}</li>`).join('');
+ const rightShort=r.missingRights.map(x=>`${x.sireId}：残り予定${x.needed}回／登録${x.rights}回（不足${x.shortage}回）`);
+ const missing=r.missingOwned.map(x=>x.sireId);
+ return `<details class="a21-flow" open><summary>v8.1｜生産開始の準備リスト：実馬記録${r.completed}/${r.total}工程・残り${r.remaining}工程</summary>
+ <p class="muted">ゲームで新たに生産するときの依存関係を確認します。<b>仮馬や手動の完了チェックは実際の生産済みとみなしません。</b> 現在、前工程が未完成で待機している工程は${r.waiting}件です。</p>
+ <p><b>先に準備できる工程（${r.first.length}件）</b></p><ol>${pending||'<li>未完了の起点工程がありません。実馬記録と依存関係を再確認してください。</li>'}</ol>
+ ${rightShort.length?`<p class="notice warn"><b>残り工程の種付け権利不足：</b>${esc(rightShort.join('／'))}</p>`:''}
+ ${missing.length?`<p class="notice warn"><b>所持登録がない公開種牡馬：</b>${esc(missing.join('／'))}</p>`:''}
+ <p class="muted">必要権利は<strong>未生産の工程のみ</strong>を合算した登録上の比較です。権利0の所持種牡馬も設計対象から外しません。公開繁殖牝馬の確保、権利の実残数、自家製種牡馬の供用、至高・超完璧のゲーム内成立は別途確認してください。自動で権利を消費したり、所持・実馬・保存プランを書き換えることはありません。</p></details>`;
 }
 function production63Html(plan){
  const api=window.DabimasProductionReady63;if(!api||plan?.autoDesign21?.mode!=='mild')return '';

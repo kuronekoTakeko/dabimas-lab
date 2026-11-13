@@ -32,7 +32,10 @@
    // A strictly verified reused REAL horse is a legitimate exception.
    const pendingDeps=s.deps.filter(d=>!nodes.get(d)?.completed);
    const verifiedBirth=!!s.outputReal&&s.outputVerified===true;
-   const completed=verifiedBirth&&(pendingDeps.length===0||s.outputReused===true);
+   // v8.4: a birth with unresolved parentage cannot complete the chain,
+   // even if a stale caller supplied outputVerified=true.
+   const completed=verifiedBirth&&!parentIssues.length&&(s.pedigreeKnown===undefined||s.pedigreeKnown===31)&&
+    !!s.sireId&&!!s.mareId&&(pendingDeps.length===0||s.outputReused===true);
    const invalidReal=!!s.outputReal&&!completed;
    const warnings=[],blocks=[];
    if(s.manualDone&&!completed)warnings.push('手動の「完了」だけでは実馬生産済みと確認できません');

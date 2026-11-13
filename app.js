@@ -67,6 +67,17 @@ function currentParentTheory68(){
  if(!parentRegistry68?.observed)return api;
  return {...api,lookup:name=>api.lookup(name,parentRegistry68),inspect:ped=>api.inspect(ped,{registry:parentRegistry68})};
 }
+// v8.4: compare the actual per-device owned register with imported CSV IDs.
+// Missing a public record NEVER removes ownership or silently invents ancestry.
+function masterCoverage84(){
+ if(!master.length)return 'v8.4｜公開CSV未取込。所持情報と既存プランは維持しています。';
+ const ids=new Set(master.map(r=>key(r.id)));
+ const acquired=Object.entries(state.owned||{}).filter(([id,v])=>v?.owned===true);
+ const absent=acquired.map(([id])=>id).filter(id=>!ids.has(key(id)));
+ const mares=master.filter(r=>horseSex(r)==='female').length;
+ return `v8.4｜公開CSV ${master.length}頭（繁殖牝馬 ${mares}頭）／取得済み ${acquired.length}頭中、CSVと一致 ${acquired.length-absent.length}頭・CSVに未収録 ${absent.length}頭。`+
+  (absent.length?` 未収録：${absent.slice(0,8).join('・')}${absent.length>8?' ほか':''}。所持チェックは維持。祖先情報が欠ける馬は、無理に血統を補完せず未確認扱いにします。`:'');
+}
 function parentRegistryNotice68(){
  const n=parentRegistry68;
  if(!n?.observed)return 'この端末の公開マスターには親系統pa列がありません。データ管理から「公開CSVから読み込む」を1回実行すると、途中配合理論の根拠を増やせます（所持・プランは維持）。';
@@ -118,7 +129,7 @@ const score=goal==='speed'?cnt['短']*5+cnt['速']*3+cnt['走']*2+cnt['中']*1:g
 out.push({base,set,kinds,score,count:cnt});}}}return out.sort((a,b)=>b.score-a.score||b.kinds.length-a.kinds.length||a.set.length-b.set.length).slice(0,maxResults>0?maxResults:undefined);}
 function renderCandidates(){if(!$('candidateSummary')||!$('candidates'))return;const v=getCandidates();$('candidateSummary').textContent=`因子6種類以上の一次候補：${v.length}組（最多40組表示）。取得済みなら権利数0でも含みます。`; $('candidates').innerHTML=v.length?v.map((c,i)=>`<div class="card"><div class="results-head"><h3>${i+1}. ${esc(c.set[0].name)}</h3><span class="score">${c.kinds.length}種類の因子</span></div><div class="metrics">${c.kinds.map(f=>chip(f)).join('')}</div>${c.set.map((r,j)=>`<div class="slot"><strong>構成候補 ${j+1}</strong><span>${esc(r.id)}　${r.factors.map(f=>chip(f)).join('')}　${chip('取得済み','owned')}</span></div>`).join('')}<div class="plan-actions"><button class="btn small" data-save-candidate="${i}">この候補を計画に保存</button></div><p class="muted">目的別に因子を重み付けして並び替えています。血統の配合プラン保存後に3×4×5の仮ルートを生成できます。成立の保証、完成産駒のニトロ・子系統補正、SP/ST予想は未実装です。</p></div>`).join(''):'<div class="empty">所持馬の中に、因子6種類が揃う同名種牡馬の組合せはありません。公開CSVを読み込み、所持馬にチェックを追加してください。</div>';}
 function genomeRows(){return (state.genomes||[]).map((v,i)=>`<div class="card"><div class="results-head"><b>${esc(v.name||'名称未設定')}</b><span class="muted">${esc(v.at||'')}</span></div><div class="muted">SP ${esc([v.spMin??v.sp0,v.spMid??v.sp1,v.spMax??v.sp2].join(' / '))}　ST ${esc([v.stMin??v.st0,v.stMid??v.st1,v.stMax??v.st2].join(' / '))}</div></div>`).join('')||'<div class="empty">まだ記録がありません。</div>';}
-function renderAll(){auto21RefreshCandidates();updateHeader();const parentInfo68=$('parentRegistry68Info');if(parentInfo68)parentInfo68.textContent=parentRegistryNotice68();if(currentTab==='mares')renderMares();if(currentTab==='homebreds')renderHomebreds();if(currentTab==='catalog')renderCatalog();renderSavedPlans();$('genomeHistory').innerHTML=genomeRows();updateCleanStatus();}
+function renderAll(){auto21RefreshCandidates();updateHeader();const parentInfo68=$('parentRegistry68Info');if(parentInfo68)parentInfo68.textContent=parentRegistryNotice68();const coverage84=$('masterCoverage84Info');if(coverage84)coverage84.textContent=masterCoverage84();if(currentTab==='mares')renderMares();if(currentTab==='homebreds')renderHomebreds();if(currentTab==='catalog')renderCatalog();renderSavedPlans();$('genomeHistory').innerHTML=genomeRows();updateCleanStatus();}
 function switchTab(id){currentTab=id;document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active',el.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===id?'true':'false'));if(id==='catalog')renderCatalog();if(id==='mares')renderMares();if(id==='homebreds')renderHomebreds();if(id==='plans')renderCandidates();if(id==='library'){renderSavedPlans();if(openPlanId)showPlanEditor(openPlanId);}if(id==='pedigree')renderPedigree();if(id==='bc14')renderBCExplorer14();window.scrollTo(0,0);}
 function parseCSV(txt){if(txt.charCodeAt(0)===0xFEFF)txt=txt.slice(1);let rows=[],row=[],field='',quoted=false;for(let i=0;i<txt.length;i++){const ch=txt[i];if(ch==='"'){if(quoted&&txt[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}else if(ch===','&&!quoted){row.push(field);field='';}else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(field);if(row.some(x=>x!==''))rows.push(row);row=[];field='';}else field+=ch;}if(field!==''||row.length){row.push(field);rows.push(row);}return rows;}
 function processCSV(txt){const parsed=parseCSV(txt);const hdr=parsed.shift()||[];const ind=s=>hdr.indexOf(s);if(ind('馬名')<0||ind('因子1')<0||ind('chi:父')<0)throw Error('たかな牧場データのCSV形式を確認してください（必要な列がありません）');let rows=[];for(const cols of parsed){const get=s=>String(cols[ind(s)]||'').trim(),id=get('馬名');if(!id)continue;const a=splitName(id),f=['因子1','因子2','因子3'].map(get).filter(Boolean);const ancestry=PED_FIELDS.map(path=>({path,horse:get(path),factors:[1,2,3].filter(n=>ind(path+'_因子'+n)>=0).map(n=>get(path+'_因子'+n)).filter(Boolean),line:get('chi:'+path),parentSystem:get('pa:'+path)})).filter(x=>x.horse);rows.push({id,name:a.name,variant:a.variant,display:id,factors:f,lineage:get('子系統'),parentSystem:get('pa:父'),ancestry,talent:get('非凡'),distance:get('距離'),sex:get('距離')?'male':'female',start:get('成長'),rating:get('実績')});}if(rows.length<100)throw Error('データ件数が少なすぎます。別のCSVを選んでいませんか？');return rows;}
@@ -158,7 +169,7 @@ function importJSON(obj){
  dl(`dabimas_before_safe_import_${new Date().toISOString().slice(0,10)}.json`,productionDataBackup());
  state=checked.next;
  buildMap();persist();renderAll();updateCleanStatus();
- $('importStatus').textContent=`v8.3：JSONから${checked.added}件を追加。衝突${checked.conflicts}件は端末の既存データを維持しました。衝突分は元のJSONを保存してください。`;
+ $('importStatus').textContent=`v8.4：JSONから${checked.added}件を追加。衝突${checked.conflicts}件は端末の既存データを維持しました。衝突分は元のJSONを保存してください。`;
  return true;
 }
 
@@ -329,6 +340,16 @@ function mild79CacheHtml(plan){
  return `<details class="a21-flow"><summary>v7.9｜マイルド型の逆算探索・再利用監査</summary>
  <p class="muted">探索方式：${esc(x.scope||'未確認')}／逆算索引の新規作成 ${esc(x.uniqueInverseSearches??'未確認')}回／4・5代目の入替えなどで索引を再利用 ${esc(x.cachedInverseSearches??'未確認')}回。</p>
  <p class="muted">祖先情報と因子評価は探索単位で一度だけ読み込みます。再利用対象は候補の一次逆算結果であり、9工程・31枠・親子関係・配合理論の最終検査は配置ごとに再実行します。実速度やゲーム内能力の保証ではありません。</p>
+ </details>`;
+}
+// v8.4: persisted, read-only evidence from the LAST successful pre-save gate.
+// Existing v8.3 plans remain readable: no retroactive "passed" verdict.
+function mild84GateHtml(plan){
+ const x=plan?.mildAcceptance51;
+ if(!x||x.version!==84)return '';
+ return `<details class="a21-flow"><summary>v8.4｜最終血統・異因名の保存前監査</summary>
+ <p class="muted">最終血統の重複なし・位置照合 ${esc(x.checkedPositions??'未確認')}/31枠 ／ 至高の因子種類 ${esc(x.anchorFactorKinds??'未確認')}種類 ／ 異因名3頭の登録IDと異因名 ${x.distinctVariants?'照合済み':'未確認'} ／ 基幹工程 ${esc(x.checkedStages??'未確認')}/9。</p>
+ <p class="muted">これは保存時点の構造監査記録です。<b>全兄弟姉妹による阻害条件は公開CSVの父母情報だけでは網羅確認できないため未確認。</b> 保存後の実馬・因子・親子関係の変更には、生産順・実馬の現在の照合状態を優先してください。ゲーム内の至高・完璧成立やSP/ST能力を保証しません。</p>
  </details>`;
 }
 function mild78EvidenceHtml(plan){
@@ -789,7 +810,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3345,6 +3366,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
  ${audit34Html(plan,ped)}
+ ${mild84GateHtml(plan)}
  ${mild56TheoryHtml(plan)}
  ${cross36Html(ped)}
  ${evidence37Html(ped,plan)}
@@ -3761,6 +3783,7 @@ function auto21Create(){
    const problems=[];
    let reusedCount=0,preparedSireReused=null,preparedMareReused=null;
    draft.note=`【${isMaternalDDS67(draft)?'v6.9 DDS8枠逆算ルート':isMaternal66(draft)?'v6.6 母側3代目ルート':'v5.9マイルド型'}${fast?'・高速限定探索':''}】${isMaternalDDS67(draft)?'取得済み種牡馬の8枠→必要時1代の種牡馬→基礎名牝を逆算。超完璧優先、追加仕込み最小化。':isMaternal66(draft)?'公開名牝7頭を母側3代目＋父側4・5代目の9工程で探索。補助種牡馬Xなし。締め肌は工程2。':'名牝6頭・補助種牡馬Xを研究用評価で自動選択。'}${race}／${goal}。${mild55?`2枠同時差し替え${mild55.checked}候補を追加照合。`:''}${mild53?`同一9工程の差し替え${mild53.searched}候補を追加比較（X: ${mild53.initialX} → ${mild53.chosenX}）。`:mild53ReusePriority?`一致する実馬${mild55ReusableRoots}工程を保護するため追加探索を省略。`:''}目標距離照合：${draft.mildDistance54?.rangeStatus||'未確認'}。至高の一次条件を満たす候補（ゲーム内未確認）。SP/ST能力は未確認。`;
+   let mild84Acceptance=null;
    stagingAuto21=true;
    try{
     state.plans.unshift(draft);
@@ -3797,6 +3820,14 @@ function auto21Create(){
       stageResolver:n=>chain09Parents(draft,n)
      }):null;
      if(!problems.length&&!inspection?.ok)problems.push(...(inspection?.errors||['マイルド型の最終検査モジュールが利用できません']));
+     if(inspection?.ok)mild84Acceptance={version:84,
+      status:'祖先31枠・登録異因名・親子血統の独立検査通過（ゲーム内未確認）',
+      checkedPositions:inspection.checkedPositions,
+      checkedStages:inspection.checkedStages,
+      checkedLineageStages:inspection.checkedLineageStages,
+      anchorFactorKinds:inspection.anchorFactorKinds,
+      distinctVariants:inspection.distinctVariants,
+      fullSiblingChecked:false,gameVerified:false};
      // Replacing a prerequisite with a real horse must NOT inherit the
      // research trial's closing theory without rechecking the actual mating.
      if(!problems.length&&isMaternalDDS67(draft)){
@@ -3839,7 +3870,7 @@ function auto21Create(){
       inverse69:researched.inverse69||null,
       scope:researched.scope,tests:researched.tests,limited:!!researched.limited,parentDataObserved:researched.parentEvidence68||0,prunedMatching:researched.prunedMatching68||0,prunedInteresting:researched.prunedInteresting68||0,
       closingTheory:{perfect:base.theory66?.perfect||'未確認',superPerfect:base.theory66?.superPerfect||'未確認',interestingDistinct:base.theory66?.interestingDistinct??null,interestingEight:base.theory66?.interestingEight||'未確認',matching:base.theory66?.matching||'未確認'},gameVerified:false};
-   draft.mildAcceptance51={version:52,status:"全9工程の親子血統と一次条件検査通過（ゲーム内未確認）",gameVerified:false};
+   draft.mildAcceptance51=mild84Acceptance||{version:52,status:"全9工程の親子血統と一次条件検査通過（ゲーム内未確認）",gameVerified:false};
    }
   }
   const chosenQuality=auto35Quality(pedigree,saved);

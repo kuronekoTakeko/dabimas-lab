@@ -22,7 +22,7 @@ function audit({stages=[],inventory={},resolve=null}={}){
  }
  const rows=[...requests.values()].map(r=>{
   const rec=inventory[norm(r.id)]||null,owned=rec?.owned===true;
-  const rights=owned&&rec&&rec.rights!==''&&rec.rights!==null&&rec.rights!==undefined&&Number.isFinite(Number(rec.rights))&&Number(rec.rights)>=0?Number(rec.rights):null;
+  const rights=owned&&rec&&rec.rights!==''&&rec.rights!==null&&rec.rights!==undefined&&Number.isSafeInteger(Number(rec.rights))&&Number(rec.rights)>=0?Number(rec.rights):null;
   const shortage=!owned?null:rights===null?null:Math.max(0,r.count-rights);
   const status=!owned?'所持未確認':rights===null?'権利数未確認':shortage>0?'権利不足':'登録上は必要回数あり';
   return {...r,owned,rights,shortage,status};

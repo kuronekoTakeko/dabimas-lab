@@ -27,13 +27,17 @@
   const nodes=new Map(),remainingRights=new Map();
   for(const s of ordered){
    const parentIssues=list(s.parentIssues).filter(Boolean).map(String);
-   const completed=!!s.outputReal&&s.outputVerified===true;
-   const invalidReal=!!s.outputReal&&!completed;
+   // v8.3: a newly produced descendant cannot complete a production DAG
+   // while its own prerequisite births remain only draft/uncorroborated.
+   // A strictly verified reused REAL horse is a legitimate exception.
    const pendingDeps=s.deps.filter(d=>!nodes.get(d)?.completed);
+   const verifiedBirth=!!s.outputReal&&s.outputVerified===true;
+   const completed=verifiedBirth&&(pendingDeps.length===0||s.outputReused===true);
+   const invalidReal=!!s.outputReal&&!completed;
    const warnings=[],blocks=[];
    if(s.manualDone&&!completed)warnings.push('手動の「完了」だけでは実馬生産済みと確認できません');
    if(s.outputReused&&!completed)blocks.push('再利用実馬の照合が未完了です');
-   if(invalidReal)blocks.push('登録実馬の親子・血統を再照合してください');
+   if(invalidReal)blocks.push(verifiedBirth&&pendingDeps.length&&!s.outputReused?'先行工程に実馬記録がないため完了とは判定しません':'登録実馬の親子・血統を再照合してください');
    if(!s.sireId)blocks.push('父馬が未指定');
    if(!s.mareId)blocks.push('母馬が未指定');
    if(parentIssues.length)blocks.push(...parentIssues);

@@ -141,17 +141,25 @@ function requestProductionReset(){
  dl(`dabimas_before_cleanup_${new Date().toISOString().slice(0,10)}.json`,productionDataBackup());
  clearProductionData();alert('初期化しました。所持チェックと公開マスターは保持されています。念のため画面上部の件数を確認してください。');return true;
 }
+// v8.3: import is a non-destructive, local-first union. Do not overwrite
+// existing plan/homebred IDs, genome records, ownership, or settings.
 function importJSON(obj){
- if(obj?.resetProductionData===true&&obj?.owned&&typeof obj.owned==='object'){
-  if(!confirm('このファイルは本番準備用です。所持情報を読み込み、既存のプラン・自家製馬・能力記録をゼロに置き換えます。実行しますか？'))return false;
-  dl(`dabimas_before_clean_import_${new Date().toISOString().slice(0,10)}.json`,productionDataBackup());
-  state.owned={...obj.owned};
-  // Preserve device-added horse master; preserve verified mare labels and favorites.
-  clearProductionData();buildMap();renderAll();return true;
- }
- if(obj&&Array.isArray(obj.stallions)){for(const s of obj.stallions){const id=s.display_name||`${s.name}-${s.variant}-`,k=key(id);state.owned[k]={owned:s.owned!==false,rights:Number(s.rights_remaining)||0,verified:'import'};if(!map.has(k))state.added.push(toSeed(s));}if(Array.isArray(obj.predictions))state.genomes.push(...obj.predictions);}
- else if(obj?.owned&&typeof obj.owned==='object'){state.owned={...state.owned,...obj.owned};if(Array.isArray(obj.added))state.added=obj.added;if(Array.isArray(obj.genomes))state.genomes=obj.genomes;if(Array.isArray(obj.plans))mergePlans(obj.plans);if(obj.mareFavorites&&typeof obj.mareFavorites==='object')state.mareFavorites={...state.mareFavorites,...obj.mareFavorites};if(obj.mareGrades&&typeof obj.mareGrades==='object')state.mareGrades={...state.mareGrades,...obj.mareGrades};if(Array.isArray(obj.homebreds))mergeHomebreds(obj.homebreds);}
- else if(obj&&Array.isArray(obj.plans)){mergePlans(obj.plans);if(Array.isArray(obj.homebreds))mergeHomebreds(obj.homebreds);}else throw Error('所持馬・プランJSONの形式ではありません');buildMap();persist();renderAll();updateCleanStatus();return true;
+ const api=window.DabimasBackupSafety83;
+ if(!api){alert('データ保護モジュールが読み込まれていないため、JSON取り込みを中止しました。');return false;}
+ const checked=api.review(state,obj);
+ if(!checked.ok){alert(checked.reason||'JSON取り込みの安全性を確認できません。');return false;}
+ const s=checked.stats,counts=['owned','plans','homebreds','genomes','added','mareGrades','mareFavorites']
+  .map(k=>`${k}：追加${s.added[k]||0}／衝突${s.conflicts[k]||0}`).join('\n');
+ const message=(checked.freshOnly?'新しい空の端末への所持馬取り込みです。\n':'既存データを優先して取り込みます。\n')+
+  '既存データは削除・上書きしません。\n'+counts+'\n'+
+  (checked.conflicts?'衝突した外部データは取り込まず、元のJSONに残ります。\n':'')+
+  '既存データのバックアップを保存して続けますか？';
+ if(!confirm(message))return false;
+ dl(`dabimas_before_safe_import_${new Date().toISOString().slice(0,10)}.json`,productionDataBackup());
+ state=checked.next;
+ buildMap();persist();renderAll();updateCleanStatus();
+ $('importStatus').textContent=`v8.3：JSONから${checked.added}件を追加。衝突${checked.conflicts}件は端末の既存データを維持しました。衝突分は元のJSONを保存してください。`;
+ return true;
 }
 
 
@@ -3221,7 +3229,7 @@ function mild81ExecutionReport(plan){
    sireId:pair.sireId||'',mareId:pair.mareId||'',
    sireType:sourceType(pair.sire),mareType:sourceType(pair.mare),
    sireReal:isReal(pair.sireId),mareReal:isReal(pair.mareId),
-   outputReal:raw?.mode==='real',outputVerified:!!(raw&&valid.horse&&raw.mode==='real'&&sameRows(raw,pair.ped)),
+   outputReal:raw?.mode==='real',outputVerified:!!(raw&&valid.horse&&key(raw.id)===key(valid.horse.id)&&raw.mode==='real'&&raw.sex===chain09ExpectedSex(plan,n)&&key(raw.fatherId)===key(pair.sireId)&&key(raw.motherId)===key(pair.mareId)&&sameRows(raw,pair.ped)),
    outputReused:!!marked,manualDone:plan.steps?.[n-1]?.done===true,
    pedigreeKnown:pair.ped?.known,parentIssues:pair.problems||[]});
  }

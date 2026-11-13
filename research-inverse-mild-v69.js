@@ -47,11 +47,20 @@
  // of B and maternal grandsire system inherited from C's own father.
  function preparedBaseKey(f,m,theory){const a=ownLine(f,theory),b=ownLine(m,theory);return a&&b?pairLineKey(a,b):null;}
  function scoreOf(r,score){return Number(score?.(r))||0;}
- function buildBaseGroups(mares,owned,theory,score,maxPerKey=7){
+ function buildBaseGroups(mares,owned,theory,score,maxPerKey=7,lines=null,scores=null){
+  // v7.9: the 300x500 cross-join must not repeatedly parse ancestry,
+  // consult parent-system dictionaries or rescore the same CSV mare.
+  // These maps belong only to ONE search call (no stale global cache).
+  const parent=r=>lines?lines.get(r.id)?.S||null:ownLine(r,theory);
+  const motherDad=r=>lines?lines.get(r.id)?.DS||null:lineAt(r,'DS',theory);
+  const weight=r=>scores?scores.get(r):scoreOf(r,score);
   const direct=new Map(),prepared=new Map();
   function add(map,k,obj){if(!k)return;const group=map.get(k)||[];group.push(obj);group.sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name,'ja'));if(group.length>maxPerKey)group.pop();map.set(k,group);}
-  for(const m of mares){const k=baseKey(m,theory);add(direct,k,{mareId:m.id,score:scoreOf(m,score),name:m.id});}
-  for(const f of owned){for(const m of mares){const k=preparedBaseKey(f,m,theory);add(prepared,k,{fatherId:f.id,motherId:m.id,score:scoreOf(f,score)+scoreOf(m,score),name:f.id+' × '+m.id});}}
+  for(const m of mares){const a=parent(m),b=motherDad(m),k=a&&b?pairLineKey(a,b):null;
+   add(direct,k,{mareId:m.id,score:weight(m),name:m.id});}
+  for(const f of owned){const a=parent(f),fs=weight(f);if(!a)continue;
+   for(const m of mares){const b=parent(m);if(!b)continue;
+    const k=pairLineKey(a,b);add(prepared,k,{fatherId:f.id,motherId:m.id,score:fs+weight(m),name:f.id+' × '+m.id});}}
   return {direct,prepared};
  }
  function matchingBaseKeys(matching){const allow=new Set(matching),other=uniq(matching.filter(x=>!FIXED.includes(x)));
@@ -69,16 +78,19 @@
   // Precompute the few lineages actually needed before cross-joining 300×500.
   const cache=new Map();for(const r of [...owned,...eligibleMares])cache.set(r.id,Object.fromEntries(['S','DS','SDS','DDS','SSDS','SDDS','DSDS','DDDS'].map(k=>[k,lineAt(r,k,theory)])));
   const v=(r,k)=>cache.get(r.id)?.[k]||null;
-  const bases=buildBaseGroups(eligibleMares,owned,{...theory,lookup:theory.lookup},score,maxPerKey);
+  // Each record is scored once instead of once for every prepared sire/maiden
+  // combination. Scores have the same input and numeric coercion as v6.9.
+  const scored=new Map();for(const r of [...owned,...eligibleMares])scored.set(r,scoreOf(r,score));
+  const bases=buildBaseGroups(eligibleMares,owned,theory,score,maxPerKey,cache,scored);
   const usableSires=[],stats={ownedSires:owned.length,mares:eligibleMares.length,ownedEightEligible:0,preparedEightEligible:0,precheckedPrepared:0,directBaseMatches:0,preparedBaseMatches:0,unknownEight:0};
   for(const sire of owned){const sig={interesting:INTERESTING.map(p=>v(sire,p)),matching:MATCHING.map(p=>v(sire,p))},verdict=describe(sig);
    if(verdict.status==='未確認')stats.unknownEight++;
-   if(verdict.eligible){stats.ownedEightEligible++;usableSires.push({sireId:sire.id,sireName:sire.id,sig,distinct:verdict.distinct,sireScore:scoreOf(sire,score)});}
+   if(verdict.eligible){stats.ownedEightEligible++;usableSires.push({sireId:sire.id,sireName:sire.id,sig,distinct:verdict.distinct,sireScore:scored.get(sire)});}
   }
   for(const f of owned){for(const m of eligibleMares){stats.precheckedPrepared++;
     const sig={interesting:[v(f,'S'),v(f,'DS'),v(m,'S'),v(m,'DS')],matching:[v(f,'SDS'),v(f,'DDS'),v(m,'SDS'),v(m,'DDS')]},verdict=describe(sig);
     if(!verdict.eligible)continue;stats.preparedEightEligible++;
-    usableSires.push({sirePrep:{fatherId:f.id,motherId:m.id},sireName:f.id+' × '+m.id,sig,distinct:verdict.distinct,sireScore:scoreOf(f,score)+scoreOf(m,score)});
+    usableSires.push({sirePrep:{fatherId:f.id,motherId:m.id},sireName:f.id+' × '+m.id,sig,distinct:verdict.distinct,sireScore:scored.get(f)+scored.get(m)});
   }}
   const finalists=[];
   for(const entry of usableSires){const keys=matchingBaseKeys(entry.sig.matching);

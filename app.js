@@ -309,6 +309,13 @@ function mild72ScheduleHtml(p){
 // v7.7: show a reproducible pedigree-topology bound rather than promising
 // a fictitious 8-stage mating. Read-only and compatible with old saved plans.
 // v7.8: only saved evidence, no runtime claims about game breeding effects.
+function mild79CacheHtml(plan){
+ const x=plan?.mild79;if(!x)return '';
+ return `<details class="a21-flow"><summary>v7.9｜マイルド型の逆算探索・再利用監査</summary>
+ <p class="muted">探索方式：${esc(x.scope||'未確認')}／逆算索引の新規作成 ${esc(x.uniqueInverseSearches??'未確認')}回／4・5代目の入替えなどで索引を再利用 ${esc(x.cachedInverseSearches??'未確認')}回。</p>
+ <p class="muted">祖先情報と因子評価は探索単位で一度だけ読み込みます。再利用対象は候補の一次逆算結果であり、9工程・31枠・親子関係・配合理論の最終検査は配置ごとに再実行します。実速度やゲーム内能力の保証ではありません。</p>
+ </details>`;
+}
 function mild78EvidenceHtml(plan){
  const x=plan?.mild78;if(!x)return '';
  return `<details class="a21-flow"><summary>v7.8｜最終31枠の因子・独立クロス重視の比較</summary>
@@ -767,7 +774,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -1644,7 +1651,7 @@ function opt67Find(p,scope){
 // and ONE-birth foundation mare). Unlike the legacy search, no top-12 mare
 // truncation occurs before inverse parent-line matching. The final pedigree,
 // early-cross guard, sex graph, and saved 31-slot structure remain mandatory.
-function opt69Find(p,scope){
+function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const api=window.DabimasMaternalDDS67,inv=window.DabimasInverseMild69,theory=currentParentTheory68();
  if(!api?.validateGraph?.().ok||!inv||!theory||!parentRegistry68?.observed)
   return {results:[],tests:0,message:'v6.9逆算探索にはpa親系統付き公開CSVが必要です。データ管理で添付mydata.csvを読み込んでください。'};
@@ -1655,7 +1662,20 @@ function opt69Find(p,scope){
  if(!deep||!mares.length||!owned.length)return {results:[],tests:0,message:'ディープ3因名・所持種牡馬・名牝のいずれかが不足しています'};
  const wanted=p.goal==='speed'?['短','速','走']:p.goal==='stamina'?['長','中','底']:['短','速','走','長','中','底'];
  const factorScore=r=>(r?.ancestry||[]).flatMap(a=>a.factors||[]).reduce((n,f)=>n+(wanted.includes(f)?2:0.4),0);
- const inverse=inv.search({ownedSires:owned,mares,theory,score:factorScore,excludeNames:Object.values(p.routeDraft.slots).map(id=>splitName(id).name),limit:scope==='meihin_fast'?100:260});
+ // v7.9: two DDS layouts often differ ONLY in g4/g5 order.  Their
+ // closing-mare inverse index is identical (same exclusions, owned sires,
+ // published mares and goal). Reuse it within this one button click ONLY.
+ // No persistent memo: importing a new CSV or changing acquired sires must
+ // take effect on the very next search.
+ const exclusions=Object.values(p.routeDraft.slots).map(id=>splitName(id).name);
+ const memoKey=JSON.stringify([scope,p.goal||'balance',[...new Set(exclusions.map(x=>key(x)))].sort()]);
+ let inverse=inverseMemo79?.get(memoKey);
+ if(inverse){if(inverseStats79)inverseStats79.hits++;}
+ else{
+  inverse=inv.search({ownedSires:owned,mares,theory,score:factorScore,excludeNames:exclusions,limit:scope==='meihin_fast'?100:260});
+  inverseMemo79?.set(memoKey,inverse);
+  if(inverseStats79)inverseStats79.misses++;
+ }
  let tests=inverse.stats?.precheckedPrepared||0,invalid=0,theoryRejected=0;
  const foal=(n,pedigree,sire,sex=api.definitions[n-1]?.sex||'male')=>({id:'__trial69_'+n,name:'逆算仮馬'+n,sex,ancestry:pedigree.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,line:r.line,factors:[...(r.factors||[])],factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),factors:[],lineage:sire.lineage||'',distance:sex==='male'?'仮馬':'',isHomebred:true});
  const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length;
@@ -3197,6 +3217,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${isMaternalDDS67(plan)&&plan.chain09?.outputs?.[9]?mild71BirthReview(plan):''}
  ${plan.mild75?.savedBirths?mild75ReuseHtml(plan):''}${mild76CoreReuseHtml(plan)}
  ${mild72ScheduleHtml(plan)}
+ ${mild79CacheHtml(plan)}
  ${mild78EvidenceHtml(plan)}
  ${mild77TopologyHtml(plan)}
  ${plan.mild67?`<div class="notice"><b>v6.9｜締め肌DDS逆算：</b>工程1：ディープ直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
@@ -3270,6 +3291,8 @@ function auto21Create(){
  // Allow the progress text to paint before the CPU-only bounded search.
  setTimeout(async ()=>{
  const yieldToBrowser=()=>new Promise(resolve=>setTimeout(resolve,0));
+ // Per-operation bounded reuse; never retain old CSV, plan or acquired-horse state.
+ const inverseMemo79=new Map(),inverseStats79={hits:0,misses:0};
  let mildRollback=null,mildCommitted=false;
  try{
   // v4.5: Automatic anchor selection uses completed 6-mare/X foundations,
@@ -3313,7 +3336,7 @@ function auto21Create(){
     const routeLayout=routeType==='dds'?'maternal-dds-g3':routeType==='maternal'?'maternal-g3':'paternal-g3';
     draft.routeDraft={slots,paths:routeType==='dds'?{...window.DabimasMaternalDDS67.anchorPaths}:routeType==='maternal'?{...window.DabimasMaternal66.anchorPaths}:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},layout:routeLayout,validated:false};
     draft.steps=routeType==='dds'?buildMaternal66Steps(slots,routeLayout):routeType==='maternal'?buildMaternal66Steps(slots):buildDraftSteps(slots);
-    const researched=routeType==='dds'?opt69Find(draft,fast?'meihin_fast':'meihin'):routeType==='maternal'?opt66Find(draft,fast?'meihin_fast':'meihin'):opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
+    const researched=routeType==='dds'?opt69Find(draft,fast?'meihin_fast':'meihin',inverseMemo79,inverseStats79):routeType==='maternal'?opt66Find(draft,fast?'meihin_fast':'meihin'):opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
     if(fast)await yieldToBrowser();
     const eligible=researched.results.filter(x=>x.matches===3);
     // Closing mare theory is the first mild-mode ranking rule. Unknown is
@@ -3495,6 +3518,10 @@ function auto21Create(){
   if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildRank78){
    draft.mild78=window.DabimasMildRank78.snapshot(base,goal,window.DabimasMildFinish610);
   }
+  // v7.9: only counters, never a claim of measured SP/ST or guaranteed speed.
+  if(mode==='mild'&&isMaternalDDS67(draft))draft.mild79={version:79,
+   cachedInverseSearches:inverseStats79.hits,uniqueInverseSearches:inverseStats79.misses,
+   scope:fast?'限定探索':'広域探索',gameVerified:false};
   // v5.8: Optional SINGLE maternal preparation at stage 6. Run only
   // when there are no protected reusable real-horse roots. A confirmed
   // perfect/super-perfect improvement must outweigh the extra birth.

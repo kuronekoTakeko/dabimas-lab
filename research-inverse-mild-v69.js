@@ -12,6 +12,7 @@
  const MATCHING=['SSDS','SDDS','DSDS','DDDS'];
  const path=p=>String(p||'').replace(/父/g,'S').replace(/母/g,'D');
  const uniq=a=>[...new Set(a)];
+ const norm=v=>String(v??'').normalize('NFKC').trim().toLowerCase();
  function lineAt(r,p,theory){if(!r||!theory)return null;
   const a=(r.ancestry||[]).find(x=>path(x.path)===p);
   // A source record is preferred over the global name dictionary only when it
@@ -81,7 +82,70 @@
   const out=[];for(const a of allow)for(const b of allow){const k=pairLineKey(a,b);if(familyKey([...fixed,a,b])===familyKey(matching)&&!out.includes(k))out.push(k);}return out;
  }
  function compare(a,b){return b.distinct-a.distinct||a.additionalBirths-b.additionalBirths||b.score-a.score||a.sireName.localeCompare(b.sireName,'ja')||a.baseName.localeCompare(b.baseName,'ja');}
- function search({ownedSires=[],mares=[],theory,score,excludeNames=[],limit=100,maxPerKey=7,fixedMareLines=null}={}){
+ // v8.8: A truncated candidate list previously concentrated on the same high-
+ // scoring sire family. Diversify within EACH preliminarily qualified grade,
+ // preserving the original ordered best candidate as the first choice. This
+ // changes only which real 31-slot matings are examined, not their final rank.
+ function diversifyLane(rows){
+  const grades=new Map();
+  for(const row of rows){const grade=Number(row.distinct)||0;
+   if(!grades.has(grade))grades.set(grade,new Map());
+   const families=grades.get(grade),family=norm(row.sirePrep?.fatherId||row.sireId||row.sireName);
+   if(!families.has(family))families.set(family,[]);
+   families.get(family).push(row);
+  }
+  const byGrade=new Map();
+  for(const grade of [...grades.keys()].sort((a,b)=>b-a)){
+   const families=[...grades.get(grade).values()],offsets=families.map(()=>0),spread=[];
+   let remaining=families.reduce((n,g)=>n+g.length,0);
+   while(remaining){for(let j=0;j<families.length;j++){
+    if(offsets[j]<families[j].length){spread.push(families[j][offsets[j]++]);remaining--;}
+   }}
+   byGrade.set(grade,spread);
+  }
+  // 8-system prechecks have priority, but reserve one chance in five for a
+  // 7-system fallback: an 8-system shortcut may later fail the 31-slot gate.
+  const levels=[...byGrade.keys()].sort((a,b)=>b-a),top=byGrade.get(levels[0])||[];
+  const lower=levels.slice(1).flatMap(g=>byGrade.get(g)||[]),chosen=[];
+  let hi=0,lo=0;
+  while(hi<top.length||lo<lower.length){
+   for(let i=0;i<4&&hi<top.length;i++)chosen.push(top[hi++]);
+   if(lo<lower.length)chosen.push(lower[lo++]);
+  }
+  return chosen;
+ }
+ // Default remains backward-compatible for earlier research/test consumers;
+ // production mild mode explicitly passes 1, never silently creates 11 stages.
+ function shortlist(finalists,{limit=100,maxAdditionalBirths=2}={}){
+  const direct=[],oneSire=[],other=[],seen=new Set();
+  const budget=Math.max(0,Math.min(2,Math.trunc(Number(maxAdditionalBirths)||0)));
+  let excludedOverBudget=0,duplicates=0;
+  for(const c of finalists||[]){
+   if((Number(c.additionalBirths)||0)>budget){excludedOverBudget++;continue;}
+   const k=[c.sireId||c.sireName,c.baseMareId||c.baseName,c.distinct].join('|');
+   if(seen.has(k)){duplicates++;continue;}seen.add(k);
+   if(c.additionalBirths===0)direct.push(c);
+   else if(c.additionalBirths===1&&c.sirePrep&&!c.basePrep)oneSire.push(c);
+   else other.push(c);
+  }
+  const d=diversifyLane(direct),s=diversifyLane(oneSire),o=diversifyLane(other);
+  const max=Math.max(0,Math.trunc(Number(limit)||0)),out=[];
+  let di=0,si=0,oi=0;
+  while(out.length<max&&(di<d.length||si<s.length||oi<o.length)){
+   for(let j=0;j<4&&di<d.length&&out.length<max;j++)out.push(d[di++]);
+   if(si<s.length&&out.length<max)out.push(s[si++]);
+   if(di>=d.length&&si>=s.length&&oi<o.length&&out.length<max)out.push(o[oi++]);
+  }
+  const familyKey=c=>norm(c.sirePrep?.fatherId||c.sireId||c.sireName);
+  return {candidates:out,stats:{availableDirect:d.length,availableOptionalSires:s.length,
+   availableOther:o.length,directShortlist:di,optionalSireShortlist:si,otherShortlist:oi,
+   diverseSireFamilies:new Set(out.map(familyKey)).size,
+   excludedOverBudget,duplicateRecipes:duplicates,
+   maxAdditionalBirths:budget,limitReached:out.length===max&&d.length+s.length+o.length>out.length,
+   diversityPolicy:'父馬ごとに比較枠を分散し、8系統事前候補4件につき7系統候補1件を確保（最終31枠で再順位付け）',
+   gameVerified:false}};
+ }
+ function search({ownedSires=[],mares=[],theory,score,excludeNames=[],limit=100,maxPerKey=7,fixedMareLines=null,maxAdditionalBirths=2}={}){
   if(!theory?.canonical||!theory?.lookup)return {candidates:[],stats:{error:'親系統参照が必要'}};
   if(!validFixed(fixedMareLines,theory))return {candidates:[],stats:{error:'中心種牡馬の父・母父の親系統が未確認',fixedMareLines}};
   const fixed=fixedMareLines;
@@ -115,31 +179,9 @@
     }
   }
   finalists.sort(compare);
-  // v8.5: the earlier grade/birth sorted top-N could fill completely with
-  // direct mating candidates; a valid one-generation sire was then NEVER
-  // checked against the final 31-slot cross evidence. Reserve a bounded
-  // comparison lane (one prepared SIRE, no extra mare) and interleave it.
-  // Final pedigree/theory/risk rechecks by the caller remain mandatory.
-  const direct=[],oneSire=[],other=[],seen=new Set();
-  for(const c of finalists){
-   const k=[c.sireId||c.sireName,c.baseMareId||c.baseName,c.distinct].join('|');
-   if(seen.has(k))continue;seen.add(k);
-   if(c.additionalBirths===0)direct.push(c);
-   else if(c.additionalBirths===1&&c.sirePrep&&!c.basePrep)oneSire.push(c);
-   else other.push(c);
-  }
-  const max=Math.max(0,Math.trunc(Number(limit))||0),unique=[];
-  // Keep direct breeding the default. One candidate from the prepared-sire
-  // lane is examined per four direct candidates; no extra birth is accepted
-  // merely by appearing in this bounded shortlist.
-  let di=0,si=0,oi=0;
-  while(unique.length<max&&(di<direct.length||si<oneSire.length||oi<other.length)){
-   for(let j=0;j<4&&di<direct.length&&unique.length<max;j++)unique.push(direct[di++]);
-   if(si<oneSire.length&&unique.length<max)unique.push(oneSire[si++]);
-   if(di>=direct.length&&si>=oneSire.length&&oi<other.length&&unique.length<max)unique.push(other[oi++]);
-  }
-  return {candidates:unique,stats:{...stats,fixedMareLines:[...fixed],ranked:finalists.length,returned:unique.length,
-   directShortlist:di,optionalSireShortlist:si,otherShortlist:oi,availableOptionalSires:oneSire.length}};
+  const picked=shortlist(finalists,{limit,maxAdditionalBirths});
+  return {candidates:picked.candidates,stats:{...stats,...picked.stats,fixedMareLines:[...fixed],
+   ranked:finalists.length,returned:picked.candidates.length}};
  }
- return Object.freeze({FIXED,INTERESTING,MATCHING,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
+ return Object.freeze({FIXED,INTERESTING,MATCHING,diversifyLane,shortlist,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
 });

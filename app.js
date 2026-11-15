@@ -395,9 +395,9 @@ function mild88CoverageHtml(plan){
 }
 function mild89CoverageHtml(plan){
  const d=plan?.mild89;if(!d)return '';
- return `<details class="a21-flow"><summary>v8.9｜候補ゼロを再調査する第2検査枠・網羅性監査</summary>
+ return `<details class="a21-flow"><summary>${d.version===90?'v9.0｜超完璧優先の第2検査枠・網羅性監査':'v8.9｜候補ゼロを再調査する第2検査枠・網羅性監査'}</summary>
  <p class="muted">一次逆算レシピ ${esc(d.precheckRecipes??'未確認')}案、比較候補リスト ${esc(d.offered??'未確認')}案、31枠を実際に詳細検査 ${esc(d.inspected??'未確認')}案（第2枠 ${esc(d.rescueInspected??0)}案）、31枠完成 ${esc(d.completeCandidates??0)}案。検査リスト内で未実施 ${esc(d.notReviewed??0)}案、比較候補リスト外 ${esc(d.outsideShortlist??0)}案。</p>
- <p class="muted">結果：${esc(d.stopReason||'未確認')}。${d.exhaustive?'この時点の公開データ上の事前レシピは検査範囲内です。':'探索上限・早期終了があるため、候補の不存在は証明していません。'} 9工程と追加1工程の採否は別の横断比較で決定します。</p>
+ <p class="muted">${d.version===90?`追加検査を行う条件：${esc(d.rescueTrigger||'未確認')}。詳細検査済みの完璧候補${esc(d.perfectCandidates??0)}件・超完璧候補${esc(d.superPerfectCandidates??0)}件（公開血統の一次条件、ゲーム内未確認）。` : ''}結果：${esc(d.stopReason||'未確認')}。${d.exhaustive?'この時点の公開データ上の事前レシピは検査範囲内です。':'探索上限・早期終了があるため、候補の不存在は証明していません。'} 9工程と追加1工程の採否は別の横断比較で決定します。</p>
  <p class="muted">中心種牡馬 ${esc(d.centerId||'未確認')}。${esc(d.caveat||'ゲーム内未確認。')}</p>
  </details>`;
 }
@@ -1786,14 +1786,24 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const rescueLimit=scope==='meihin_fast'?60:120;
  const offered=inverse.candidates.length;
  let rescueInspected=0;
+ let bestTheoryGrade=0; // v9.0: 2=perfect precheck, 3=super-perfect precheck
+ let gradeAtPrimaryEnd=0;
+ let rescueTrigger='第2枠は未使用';
+ const completeLimit=scope==='meihin_fast'?10:20;
  for(let recipeIndex=0;recipeIndex<offered;recipeIndex++){
-  // Once the first window produced complete results, preserve the old
-  // bounded runtime. Otherwise inspect a second DIVERSE window, then stop.
-  if(!inv.shouldInspect89(recipeIndex,results.length,primaryLimit,rescueLimit))break;
+  // v9.0: a perfect-only first window is NOT grounds for stopping before
+  // the separately budgeted super-perfect alternatives. All comparisons
+  // remain document prechecks, not game confirmations.
+  if(recipeIndex===primaryLimit){
+   gradeAtPrimaryEnd=bestTheoryGrade;
+   rescueTrigger=bestTheoryGrade===3?'第1枠で超完璧候補を確認（追加不要）':
+    bestTheoryGrade===2?'第1枠で完璧候補のみ（超完璧を追加探索）':'第1枠で完成候補なし（追加探索）';
+  }
+  if(!inv.shouldInspect90(recipeIndex,bestTheoryGrade,primaryLimit,rescueLimit))break;
+  if(results.length>=completeLimit&&bestTheoryGrade===3)break;
   const recipe=inverse.candidates[recipeIndex];
   if(recipeIndex>=primaryLimit)rescueInspected++;
   reject88.recipesTried++;
-  if(results.length>=(scope==='meihin_fast'?10:20))break;
   const father=recipe.sirePrep?findParentHorse(recipe.sirePrep.fatherId):findParentHorse(recipe.sireId);
   const mother=recipe.sirePrep?findParentHorse(recipe.sirePrep.motherId):null;
   let xPrep=null,sire=father,prepTheory=null;
@@ -1817,6 +1827,9 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   const theoryGrade=closingTheory?.superPerfect==='成立'?8:closingTheory?.perfect==='成立'?7:0;
   // Never use the eight-lineage shortcut alone as game/theory confirmation.
   if(theoryGrade<7||theoryGrade!==recipe.distinct){theoryRejected++;reject88.closingTheory++;continue;}
+  // Save at most the bounded amount of grade-7 evidence. Still inspect
+  // later recipes, as one may be a verified 31-slot grade-8 challenger.
+  if(theoryGrade===7&&results.length>=completeLimit)continue;
   const sireKey=recipe.sireId||recipe.sireName;
   // Diversity across candidate sire recipes: preserve alternatives for factor/cross assessment.
   const signature=[sireKey,base.id].join('|');if(seen.has(signature))continue;seen.add(signature);
@@ -1850,7 +1863,14 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
    return trial;
   };
   for(let salt=0;salt<2;salt++){
-   const trial=makeMore(results.length,salt);if(trial){reject88.completeCandidates++;results.push(trial);break;}
+   const trial=makeMore(results.length,salt);if(trial){
+    reject88.completeCandidates++;
+    const grade=opt66TheoryRank(trial);
+    bestTheoryGrade=Math.max(bestTheoryGrade,grade);
+    const retained=inv.retainStrongest90(results,trial,completeLimit,opt66TheoryRank);
+    results.splice(0,results.length,...retained);
+    break;
+   }
   }
  }
  // v6.10: The earlier DDS search picked the FIRST valid supporting mares.
@@ -1932,11 +1952,16 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  if(challenger&&finalists.length>=2&&!finalists.includes(challenger))finalists[finalists.length-1]=challenger;
  const notReviewed=Math.max(0,offered-reject88.recipesTried);
  const outsideShortlist=Math.max(0,(inverse.stats.ranked||0)-offered);
- const coverage89={version:89,gameVerified:false,primaryLimit,rescueLimit,
+ const perfectCandidates=results.filter(x=>opt66TheoryRank(x)===2).length;
+ const superPerfectCandidates=results.filter(x=>opt66TheoryRank(x)===3).length;
+ if(rescueTrigger==='第2枠は未使用')rescueTrigger=bestTheoryGrade===3?'第1枠で超完璧候補を確認（追加不要）':
+  '第1枠を最後まで検査する前に候補リストを使い切り';
+ const coverage89={version:90,gameVerified:false,primaryLimit,rescueLimit,
+  rescueTrigger,gradeAtPrimaryEnd,bestTheoryGrade,perfectCandidates,superPerfectCandidates,completeLimit,
   precheckRecipes:inverse.stats.ranked||0,offered,inspected:reject88.recipesTried,
   rescueInspected,completeCandidates:reject88.completeCandidates,notReviewed,
   outsideShortlist,exhaustive:outsideShortlist===0&&notReviewed===0,
-  stopReason:results.length?(reject88.recipesTried<primaryLimit?'完成候補を発見（第1検査枠）':'完成候補を発見（第2検査枠）'):
+  stopReason:results.length?(rescueInspected?'第2枠まで比較して完成候補を発見':'第1検査枠で完成候補を発見'):
    (outsideShortlist+notReviewed?'限定探索内に完成候補なし':'公開データ上の今回の全事前レシピを調査'),
   caveat:'親系統の事前条件・31枠の公開血統・締め肌理論の一次判定。ゲーム内成立や強さの保証ではありません。'};
  return {scope,results:finalists,tests,mares:mares.length,x:inverse.stats.ownedEightEligible,

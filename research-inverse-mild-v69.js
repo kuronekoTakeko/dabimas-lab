@@ -128,6 +128,23 @@
   if(!Number.isFinite(n)||n<0||n>=p+r)return false;
   return n<p||Number(found)===0;
  }
+ // v9.0: even if grade-7 full pedigrees are found, a finite reserve window
+ // must be available while the grade-8 comparison remains unresolved.
+ // bestGrade: -1/0/1 no complete, 2 perfect, 3 super-perfect (documentary).
+ function shouldInspect90(index,bestGrade,primary=100,reserve=60){
+  const n=Math.trunc(Number(index)),p=Math.max(0,Math.trunc(Number(primary)||0));
+  const r=Math.max(0,Math.trunc(Number(reserve)||0));
+  if(!Number.isFinite(n)||n<0||n>=p+r)return false;
+  return n<p||Number(bestGrade)<3;
+ }
+ // Pure bounded candidate retention. Later grade-8 pedigrees may replace
+ // an earlier perfect-only slate without mutating caller-owned results.
+ function retainStrongest90(previous,candidate,cap,rank){
+  const limit=Math.max(0,Math.trunc(Number(cap)||0));
+  if(!limit)return [];
+  const score=typeof rank==='function'?rank:()=>0;
+  return [...(previous||[]),candidate].sort((a,b)=>(Number(score(b))||0)-(Number(score(a))||0)).slice(0,limit);
+ }
  function shortlist(finalists,{limit=100,maxAdditionalBirths=2}={}){
   const direct=[],oneSire=[],other=[],seen=new Set();
   const budget=Math.max(0,Math.min(2,Math.trunc(Number(maxAdditionalBirths)||0)));
@@ -195,5 +212,5 @@
   return {candidates:picked.candidates,stats:{...stats,...picked.stats,fixedMareLines:[...fixed],
    ranked:finalists.length,returned:picked.candidates.length}};
  }
- return Object.freeze({FIXED,INTERESTING,MATCHING,diversifyLane,shortlist,shouldInspect89,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
+ return Object.freeze({FIXED,INTERESTING,MATCHING,diversifyLane,shortlist,shouldInspect89,shouldInspect90,retainStrongest90,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
 });

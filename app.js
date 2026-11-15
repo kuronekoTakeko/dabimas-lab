@@ -54,6 +54,7 @@ if(!Array.isArray(state.homebreds))state.homebreds=[];
 if(!state.mareFavorites||typeof state.mareFavorites!=='object')state.mareFavorites={};
 if(!state.mareGrades||typeof state.mareGrades!=='object')state.mareGrades={};
 let master=[], map=new Map(),visible=40, currentTab='auto21', loading=false;
+let masterAudit86=null; // public master only; NEVER mutate user production data
 // v6.8: separate parent-system index from child lines and from user saves.
 // Rebuild only when a public master is imported/restored; old records stay valid.
 let parentRegistry68=null;
@@ -69,6 +70,12 @@ function currentParentTheory68(){
 }
 // v8.4: compare the actual per-device owned register with imported CSV IDs.
 // Missing a public record NEVER removes ownership or silently invents ancestry.
+function masterIntegrityNotice86(){
+ const a=masterAudit86;
+ if(!master.length||!a)return 'v8.6｜公開CSV未取込。保存プラン・所持情報には影響しません。';
+ const details=a.duplicateGroups?` ／ 重複ID ${a.duplicateGroups}組（余分な行 ${a.duplicateExtraRows}件）／ 血統・因子矛盾 ${a.quarantinedIds}件 ／ 距離等の異なる属性 ${a.uncertainAttributes}項目`:' ／ 重複IDなし（取り込み時点で整理済みの場合は元の行数不明）';
+ return `v8.6｜公開マスター ${a.sourceRows}行・異なる登録ID ${a.uniqueIds}頭${details}。矛盾する属性は推測で決めず未確認。所持・プラン・実馬は変更しません。`;
+}
 function masterCoverage84(){
  if(!master.length)return 'v8.4｜公開CSV未取込。所持情報と既存プランは維持しています。';
  const ids=new Set(master.map(r=>key(r.id)));
@@ -89,13 +96,19 @@ function persist(){if(stagingAuto21)return true;try{localStorage.setItem(SAVE_KE
 if(!localStorage.getItem(SAVE_KEY))persist();
 function toSeed(s){return{id:s.display_name||`${s.name}-${s.variant}-`,name:s.name,variant:s.variant||'',factors:s.factors||[],rights:s.rights_remaining||0,lineage:s.lineage||'',ancestry:[],isSeed:true};}
 function buildMap(){
+ // v8.6: collapse duplicated CSV IDs before any parent-system lookup or
+ // race-dependent ordering. The existing IndexedDB format remains readable.
+ const integrity=window.DabimasMasterIntegrity86;
+ if(integrity?.reconcile&&master.length){const normalized=integrity.reconcile(master);master=normalized.records;
+  // Retain an original duplicate audit on the same in-memory master.
+  if(!masterAudit86||normalized.audit.duplicateGroups)masterAudit86=normalized.audit;}
  // Old IndexedDB masters may retain the pre-v2.5 name "キングカメハメハ2012".
  // Re-derive name/variant from the ORIGINAL ID every time without replacing the
  // actual ID, so existing owner flags, pedigrees and JSON exports remain stable.
  for(const r of master){const parsed=splitName(r.id);if(r.name!==parsed.name||r.variant!==parsed.variant){
   r.name=parsed.name;r.variant=parsed.variant;
  }}
- map=new Map(master.map(r=>[key(r.id),r]));for(const s of SEED){const k=key(s.display_name);if(map.has(k)){const v=map.get(k);if(!v.factors.length)v.factors=s.factors||[];}else if(!master.length||state.owned[k]?.owned)map.set(k,toSeed(s));}for(const m of state.added||[]){const k=key(m.id||`${m.name}-${m.variant}-`);if(!map.has(k))map.set(k,m);}}
+ map=new Map(master.map(r=>[key(r.id),r]));for(const s of SEED){const k=key(s.display_name);if(map.has(k)){const v=map.get(k);if(!v.factors.length&&!v.duplicateConflict86)v.factors=s.factors||[];}else if(!master.length||state.owned[k]?.owned)map.set(k,toSeed(s));}for(const m of state.added||[]){const k=key(m.id||`${m.name}-${m.variant}-`);if(!map.has(k))map.set(k,m);}}
 function getRows(){return [...map.values()];}
 // Source's published index separates entries by distance field presence; keep as an explicit heuristic.
 // Data imported on v0.6 can be recognized without redownloading the master.
@@ -129,14 +142,14 @@ const score=goal==='speed'?cnt['短']*5+cnt['速']*3+cnt['走']*2+cnt['中']*1:g
 out.push({base,set,kinds,score,count:cnt});}}}return out.sort((a,b)=>b.score-a.score||b.kinds.length-a.kinds.length||a.set.length-b.set.length).slice(0,maxResults>0?maxResults:undefined);}
 function renderCandidates(){if(!$('candidateSummary')||!$('candidates'))return;const v=getCandidates();$('candidateSummary').textContent=`因子6種類以上の一次候補：${v.length}組（最多40組表示）。取得済みなら権利数0でも含みます。`; $('candidates').innerHTML=v.length?v.map((c,i)=>`<div class="card"><div class="results-head"><h3>${i+1}. ${esc(c.set[0].name)}</h3><span class="score">${c.kinds.length}種類の因子</span></div><div class="metrics">${c.kinds.map(f=>chip(f)).join('')}</div>${c.set.map((r,j)=>`<div class="slot"><strong>構成候補 ${j+1}</strong><span>${esc(r.id)}　${r.factors.map(f=>chip(f)).join('')}　${chip('取得済み','owned')}</span></div>`).join('')}<div class="plan-actions"><button class="btn small" data-save-candidate="${i}">この候補を計画に保存</button></div><p class="muted">目的別に因子を重み付けして並び替えています。血統の配合プラン保存後に3×4×5の仮ルートを生成できます。成立の保証、完成産駒のニトロ・子系統補正、SP/ST予想は未実装です。</p></div>`).join(''):'<div class="empty">所持馬の中に、因子6種類が揃う同名種牡馬の組合せはありません。公開CSVを読み込み、所持馬にチェックを追加してください。</div>';}
 function genomeRows(){return (state.genomes||[]).map((v,i)=>`<div class="card"><div class="results-head"><b>${esc(v.name||'名称未設定')}</b><span class="muted">${esc(v.at||'')}</span></div><div class="muted">SP ${esc([v.spMin??v.sp0,v.spMid??v.sp1,v.spMax??v.sp2].join(' / '))}　ST ${esc([v.stMin??v.st0,v.stMid??v.st1,v.stMax??v.st2].join(' / '))}</div></div>`).join('')||'<div class="empty">まだ記録がありません。</div>';}
-function renderAll(){auto21RefreshCandidates();updateHeader();const parentInfo68=$('parentRegistry68Info');if(parentInfo68)parentInfo68.textContent=parentRegistryNotice68();const coverage84=$('masterCoverage84Info');if(coverage84)coverage84.textContent=masterCoverage84();if(currentTab==='mares')renderMares();if(currentTab==='homebreds')renderHomebreds();if(currentTab==='catalog')renderCatalog();renderSavedPlans();$('genomeHistory').innerHTML=genomeRows();updateCleanStatus();}
+function renderAll(){auto21RefreshCandidates();updateHeader();const parentInfo68=$('parentRegistry68Info');if(parentInfo68)parentInfo68.textContent=parentRegistryNotice68();const coverage84=$('masterCoverage84Info');if(coverage84)coverage84.textContent=masterCoverage84();const integrity86=$('masterIntegrity86Info');if(integrity86)integrity86.textContent=masterIntegrityNotice86();if(currentTab==='mares')renderMares();if(currentTab==='homebreds')renderHomebreds();if(currentTab==='catalog')renderCatalog();renderSavedPlans();$('genomeHistory').innerHTML=genomeRows();updateCleanStatus();}
 function switchTab(id){currentTab=id;document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active',el.id===id));document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===id?'true':'false'));if(id==='catalog')renderCatalog();if(id==='mares')renderMares();if(id==='homebreds')renderHomebreds();if(id==='plans')renderCandidates();if(id==='library'){renderSavedPlans();if(openPlanId)showPlanEditor(openPlanId);}if(id==='pedigree')renderPedigree();if(id==='bc14')renderBCExplorer14();window.scrollTo(0,0);}
 function parseCSV(txt){if(txt.charCodeAt(0)===0xFEFF)txt=txt.slice(1);let rows=[],row=[],field='',quoted=false;for(let i=0;i<txt.length;i++){const ch=txt[i];if(ch==='"'){if(quoted&&txt[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}else if(ch===','&&!quoted){row.push(field);field='';}else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(field);if(row.some(x=>x!==''))rows.push(row);row=[];field='';}else field+=ch;}if(field!==''||row.length){row.push(field);rows.push(row);}return rows;}
 function processCSV(txt){const parsed=parseCSV(txt);const hdr=parsed.shift()||[];const ind=s=>hdr.indexOf(s);if(ind('馬名')<0||ind('因子1')<0||ind('chi:父')<0)throw Error('たかな牧場データのCSV形式を確認してください（必要な列がありません）');let rows=[];for(const cols of parsed){const get=s=>String(cols[ind(s)]||'').trim(),id=get('馬名');if(!id)continue;const a=splitName(id),f=['因子1','因子2','因子3'].map(get).filter(Boolean);const ancestry=PED_FIELDS.map(path=>({path,horse:get(path),factors:[1,2,3].filter(n=>ind(path+'_因子'+n)>=0).map(n=>get(path+'_因子'+n)).filter(Boolean),line:get('chi:'+path),parentSystem:get('pa:'+path)})).filter(x=>x.horse);rows.push({id,name:a.name,variant:a.variant,display:id,factors:f,lineage:get('子系統'),parentSystem:get('pa:父'),ancestry,talent:get('非凡'),distance:get('距離'),sex:get('距離')?'male':'female',start:get('成長'),rating:get('実績')});}if(rows.length<100)throw Error('データ件数が少なすぎます。別のCSVを選んでいませんか？');return rows;}
 function idb(){return new Promise((res,rej)=>{try{const req=indexedDB.open('dabimas_lab_v02',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('db'))req.result.createObjectStore('db');};req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);}catch(e){rej(e);}});}
 async function saveMaster(data){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('db','readwrite');t.objectStore('db').put(data,'master');t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});db.close();return true;}catch(e){return false;}}
 async function readMaster(){try{const db=await idb();const v=await new Promise((res,rej)=>{const t=db.transaction('db');const q=t.objectStore('db').get('master');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});db.close();return Array.isArray(v)?v:null;}catch(e){return null;}}
-async function setMaster(csv){let data=processCSV(csv);master=data;buildMap();rebuildParentRegistry68();const saved=await saveMaster(data);$('importStatus').textContent=`マスター ${data.length}頭を読み込みました。${saved?'この端末に保存済みです。':'端末への自動保存に失敗したため、再読込が必要です。'} ${parentRegistryNotice68()}`;renderAll();}
+async function setMaster(csv){let data=processCSV(csv);master=data;masterAudit86=null;buildMap();rebuildParentRegistry68();const saved=await saveMaster(master);$('importStatus').textContent=`マスター ${master.length}ID（元CSV ${data.length}行）を読み込みました。${saved?'この端末に保存済みです。':'端末への自動保存に失敗したため、再読込が必要です。'} ${parentRegistryNotice68()}`;renderAll();}
 async function loadWeb(){if(loading)return;loading=true;$('loadWebMaster').disabled=true;$('importStatus').textContent='公開CSVを読み込んでいます…';try{const r=await fetch(RAW_URL,{cache:'no-store'});if(!r.ok)throw Error(`HTTP ${r.status}`);await setMaster(await r.text());}catch(e){$('importStatus').textContent='Web取り込みに失敗しました（通信制限/CORSなど）：'+e.message+'。CSVを保存してファイル選択から読み込む方法も使えます。';}finally{loading=false;$('loadWebMaster').disabled=false;}}
 function dl(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function productionDataBackup(){return {version:13,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,mareGrades:state.mareGrades,homebreds:state.homebreds};}
@@ -3622,9 +3635,15 @@ function auto21Create(){
     // v5.4: distance priority is a MILD-only ranking, never a Shiko gate.
     // Unknown distance does not mean incompatible. Hard-mode selection unchanged.
     const distanceApi=window.DabimasDistance54;
-    const anchorStud=t=>map.get(key(t.draft?.routeDraft?.slots?.[isMaternal66(t.draft)?'g4':'g3']||''))||null;
-    const distanceOrder=mode==='mild'&&distanceApi?
-      distanceApi.compare(distanceApi.assess(race,anchorStud(trial)),distanceApi.assess(race,anchorStud(initial))):0;
+    // Maternal-DDS g4 is a remote fourth-generation sire, NOT the finished foal's
+    // proven race-distance aptitude. Don't promote a pedigree on that proxy.
+    const anchorStud=t=>isMaternal66(t.draft)?null:(map.get(key(t.draft?.routeDraft?.slots?.g3||''))||null);
+    // A maternal candidate has no evidence-backed final-sire distance proxy.
+    // Comparing its 'unknown' to a paternal candidate's 'covered' would still
+    // unfairly demote maternal DDS. Compare only when BOTH proxies are known.
+    const trialStud=anchorStud(trial),initialStud=anchorStud(initial);
+    const distanceOrder=mode==='mild'&&distanceApi&&trialStud&&initialStud?
+      distanceApi.compare(distanceApi.assess(race,trialStud),distanceApi.assess(race,initialStud)):0;
     const quality=auto35CompareQuality(a.quality,b.quality);
     const evidence=auto37Compare(a.evidence,b.evidence);
     const theoryOrder=mode==='mild'?opt66TheoryRank(b.candidate)-opt66TheoryRank(a.candidate):0;
@@ -4010,7 +4029,7 @@ $('importInventory').onchange=async e=>{const file=e.target.files[0];if(!file)re
 $('clearProductionData').onclick=requestProductionReset;
 $('saveGenome').onclick=()=>{const vals=['sp0','sp1','sp2','st0','st1','st2'].map(k=>$(k).value.trim());if(vals.some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)){alert('SP/STの最小・中央・最大を入力してください。');return;}const a=vals.map(Number);if(a[0]>a[1]||a[1]>a[2]||a[3]>a[4]||a[4]>a[5]){alert('最小 ≦ 中央 ≦ 最大の順序で入力してください。');return;}state.genomes.unshift({name:$('predName').value.trim(),sp0:a[0],sp1:a[1],sp2:a[2],st0:a[3],st1:a[4],st2:a[5],at:new Date().toLocaleDateString('ja-JP')});persist();$('genomeHistory').innerHTML=genomeRows();alert('ゲーム内解析値を保存しました。');};
 $('clearGenome').onclick=()=>['sp0','sp1','sp2','st0','st1','st2'].forEach(k=>$(k).value='');
-async function init(){buildMap();setupAuto21();renderAll();updateCleanStatus();const loaded=await readMaster();if(loaded){master=loaded;buildMap();rebuildParentRegistry68();renderAll();$('importStatus').textContent=`保存済みの公開マスター ${loaded.length}頭を復元しました。${parentRegistryNotice68()}`;}if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+async function init(){buildMap();setupAuto21();renderAll();updateCleanStatus();const loaded=await readMaster();if(loaded){master=loaded;masterAudit86=null;buildMap();rebuildParentRegistry68();renderAll();$('importStatus').textContent=`保存済みの公開マスター ${master.length}IDを復元しました。${parentRegistryNotice68()}`;}if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 init();
 // v2.9: Always reachable, accessible back-to-top control for long plans.
 const backToTop=document.getElementById('backToTop');

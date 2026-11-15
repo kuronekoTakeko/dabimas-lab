@@ -19,6 +19,10 @@
   // provides a canonical, nonconflicting parent classification.
   const explicit=theory.canonical?.(a?.parentSystem||'')||null;
   const published=a?.horse||a?.name;
+  // A name with contradictory published parent systems is quarantined by
+  // the master registry. An individual row must NOT bypass that quarantine
+  // merely because it carries a nonempty pa column.
+  if(published&&theory.isQuarantined?.(published))return null;
   const named=published?theory.lookup?.(published)?.parent||null:null;
   if(explicit&&named&&explicit!==named)return null;
   return explicit||named||null;
@@ -116,6 +120,14 @@
  }
  // Default remains backward-compatible for earlier research/test consumers;
  // production mild mode explicitly passes 1, never silently creates 11 stages.
+ // v8.9: strict two-pass budget. The caller tries the reserve window ONLY
+ // when no complete pedigree survived the first window. Never scan forever.
+ function shouldInspect89(index,found,primary=100,reserve=60){
+  const n=Math.trunc(Number(index)),p=Math.max(0,Math.trunc(Number(primary)||0)),
+   r=Math.max(0,Math.trunc(Number(reserve)||0));
+  if(!Number.isFinite(n)||n<0||n>=p+r)return false;
+  return n<p||Number(found)===0;
+ }
  function shortlist(finalists,{limit=100,maxAdditionalBirths=2}={}){
   const direct=[],oneSire=[],other=[],seen=new Set();
   const budget=Math.max(0,Math.min(2,Math.trunc(Number(maxAdditionalBirths)||0)));
@@ -183,5 +195,5 @@
   return {candidates:picked.candidates,stats:{...stats,...picked.stats,fixedMareLines:[...fixed],
    ranked:finalists.length,returned:picked.candidates.length}};
  }
- return Object.freeze({FIXED,INTERESTING,MATCHING,diversifyLane,shortlist,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
+ return Object.freeze({FIXED,INTERESTING,MATCHING,diversifyLane,shortlist,shouldInspect89,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
 });

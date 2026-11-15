@@ -22,13 +22,15 @@
    return pa-pb; // stable sort preserves existing research ranking within tier
   });
  }
- function summarize(ped,theory,{anchors=['SSS','DSSS','DDDSS']}={}){
+ function summarize(ped,theory,{anchors=['SSS','DSSS','DDDSS'],focusParent=RO}={}){
   const rows=Array.isArray(ped?.rows)?ped.rows:[];
   const eligible=rows.filter(r=>[4,5].includes(r.path?.length)&&!anchors.some(p=>r.path===p||r.path.startsWith(p)));
   const knownParent=eligible.map(r=>({row:r,parent:theory?.lookup?.(r.name)?.parent||null}));
   const childLines=eligible.map(r=>String(r.line||'').trim()).filter(Boolean);
   const parentKnown=knownParent.filter(v=>v.parent),parentUnknown=knownParent.length-parentKnown.length;
   return {eligibleSlots:eligible.length,parentKnown:parentKnown.length,parentUnknown,
+   focusParent:focusParent||null,
+   extraFocusParent:focusParent?parentKnown.filter(v=>v.parent===focusParent).length:0,
    extraRoyalCharger:parentKnown.filter(v=>v.parent===RO).length,
    nonRoyalCharger:parentKnown.filter(v=>v.parent!==RO).length,
    distinctChildLines:new Set(childLines).size,childLineKnown:childLines.length,
@@ -37,8 +39,17 @@
  }
  // No global score: only break otherwise identical research-scored ties.
  function compareAtTie(a,b){if(!a||!b)return 0;
-  if(a.extraRoyalCharger!==b.extraRoyalCharger)return a.extraRoyalCharger-b.extraRoyalCharger;
-  // Do not reward more unknown evidence as Ro-free.
+  // For a selected DDS center, use that center's documented parent
+  // system rather than ranking every sire as though the anchor were Deep.
+  // Cross-center comparisons have no common parent-repeat penalty.
+  if(a.focusParent&&a.focusParent===b.focusParent){
+   // Keep the older Royal Charger summary compatible with saved plans/tests,
+   // while comparing Native Dancer and other centers by their own parent line.
+   const ak=a.focusParent===RO?a.extraRoyalCharger:a.extraFocusParent;
+   const bk=b.focusParent===RO?b.extraRoyalCharger:b.extraFocusParent;
+   if(Number.isFinite(ak)&&Number.isFinite(bk)&&ak!==bk)return ak-bk;
+  }
+  // Do not reward more unknown evidence as free of repeated systems.
   if(a.parentKnown!==b.parentKnown)return b.parentKnown-a.parentKnown;
   return b.distinctChildLines-a.distinctChildLines;
  }

@@ -7,7 +7,7 @@
 (function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.DabimasMaternalDDS67=api;})(typeof window!=='undefined'?window:globalThis,function(){'use strict';
  const anchorPaths=Object.freeze({g3:'DDS',g4:'SSSS',g5:'SDSSS'});
  const definitions=Object.freeze([
-  {n:1,sireSlot:'g3',mareInput:true,sex:'female',output:'ディープ直仔・基礎牝',mareLabel:'P1'},
+  {n:1,sireSlot:'g3',mareInput:true,sex:'female',output:'至高3代目直仔・基礎牝',mareLabel:'P1'},
   {n:2,sireInput:true,mareStep:1,sex:'female',output:'最終繁殖牝馬・締め肌M'},
   {n:3,sireSlot:'g4',mareInput:true,sex:'male',output:'父系起点A1牡',mareLabel:'Q1'},
   {n:4,sireStep:3,mareInput:true,sex:'male',output:'父系中間A2牡',mareLabel:'Q2'},

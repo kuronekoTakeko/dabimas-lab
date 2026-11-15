@@ -42,15 +42,25 @@
   const first=pool.find(e=>norm(e.slots.g3)===norm(preferred))||pool[0];
   if(!first)return [];
   const second=pool.find(e=>isSwap(e.slots,first.slots));
-  // Preserve the v7.3 shortlist as fallback; imposing a particular g3 must
-  // never silently remove a formerly searchable pedigree. The pair is first,
-  // then the original shortlist (up to six total permutations).
+  // v8.5: every owned anchor can be the maternal 3rd-generation sire.
+  // The Deep-only preferred pair previously skipped King Kamehameha and other
+  // possible centers; evaluate both fourth/fifth swaps for all THREE centers.
+  // Keep earlier preferred/legacy positions first. The caller still audits
+  // every complete mating and can return 'no supported candidate'.
+  const byCenter=[];for(const item of pool){
+   if(!byCenter.some(x=>norm(x.slots.g3)===norm(item.slots.g3)))byCenter.push(item);
+  }
+  const paired=[];
+  for(const item of byCenter){
+   paired.push(item);
+   const swapped=pool.find(x=>isSwap(x.slots,item.slots));if(swapped)paired.push(swapped);
+  }
   const picked=[];
-  for(const item of [first,second,...(baseEntries||[])]){
+  for(const item of [first,second,...(baseEntries||[]),...paired]){
    if(!item||picked.some(x=>slotsEqual(x.slots,item.slots)))continue;
    picked.push(item);
   }
-  return picked;
+  return picked.slice(0,6);
  }
  // This is deliberately defined ONLY for the two otherwise equivalent swaps;
  // final legitimacy, closing theory and additional births are decided by caller.

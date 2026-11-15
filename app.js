@@ -375,6 +375,13 @@ function mild85ExtraHtml(plan){
  <p class="muted">判定理由：${esc(from?.reason||'既存の候補を選択')}。本人因子・SP/ST・ゲーム内効果は未確認。追加工程を増やしただけでは加点しません。</p>
  </details>`;
 }
+function mild87GlobalHtml(plan){
+ const d=plan?.mild87;if(!d)return '';
+ return `<details class="a21-flow"><summary>v8.7｜至高候補・追加1工程の横断比較</summary>
+ <p class="muted">検証済みDDS候補（比較範囲内）${esc(d.distinct??'未確認')}件、重複除外 ${esc(d.duplicates??0)}件、追加1工程を同じ理論の9工程案と照合 ${esc(d.oneExtraCompared??0)}件（証拠が改善 ${esc(d.oneExtraApproved??0)}件）。同等の9工程案が見つからない追加1工程候補 ${esc(d.oneExtraWithoutDirect??0)}件。</p>
+ <p class="muted">これは同一クリック内の限定的な候補比較であり、候補ゼロや対照不在は「不可能」を意味しません。最終31枠の独立クロス・因子記録・危険度を照合した研究上の順位で、ゲーム内での至高・完璧・超完璧成立や産駒SP/STの保証ではありません。</p>
+ </details>`;
+}
 function mild78EvidenceHtml(plan){
  const x=plan?.mild78;if(!x)return '';
  return `<details class="a21-flow"><summary>v7.8｜最終31枠の因子・独立クロス重視の比較</summary>
@@ -833,7 +840,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3438,6 +3445,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild72ScheduleHtml(plan)}
  ${mild79CacheHtml(plan)}
  ${mild85ExtraHtml(plan)}
+ ${mild87GlobalHtml(plan)}
  ${mild78EvidenceHtml(plan)}
  ${mild77TopologyHtml(plan)}
  ${plan.mild67?`<div class="notice"><b>v8.5｜中心種牡馬から締め肌DDS逆算：</b> ${plan.mild67.centerParentLines?.values?.length===2?`固定親系統 ${esc(plan.mild67.centerParentLines.values.join('・'))}（公開CSV由来、ゲーム内未確認）。`:''}工程1：選択した至高3代目の直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。ゲーム内成立確定ではありません。</div>`:''}
@@ -3673,6 +3681,34 @@ function auto21Create(){
     if(theoryOrder<0||(theoryOrder===0&&(additionalBirthOrder<0||(additionalBirthOrder===0&&(distanceOrder<0||(distanceOrder===0&&researchOrder<0))))))initial=trial;
    }
   }
+  // v8.7: Compare all *validated* DDS finalists across anchor sets and layouts.
+  // Earlier versions approved one extra birth against the best direct horse
+  // within EACH layout; a weaker local baseline could thus be misleading.
+  // This audit is scoped to one click, does not persist a global cache and
+  // cannot turn an incomplete or unknown theory into an eligible candidate.
+  let mildGlobal87=null;
+  if(mode==='mild'&&window.DabimasMildGlobal87&&window.DabimasMildRank78){
+   mildGlobal87=window.DabimasMildGlobal87.select(viableAnchorTrials,{
+    ranker:window.DabimasMildRank78,finish:window.DabimasMildFinish610,goal,
+    qualityCompare:auto35CompareQuality,evidenceCompare:auto37Compare,fallback:opt10Sort});
+   const chosen=mildGlobal87.winner;
+   if(chosen){
+    const grade=opt66TheoryRank(chosen.rank.candidate),prev=opt66TheoryRank(initial?.ranked?.[0]?.candidate);
+    const oldBirths=Number(initial?.ranked?.[0]?.candidate?.additionalBirths)||0;
+    const newBirths=Number(chosen.rank.candidate.additionalBirths)||0;
+    // Preserve an explicitly superior legacy theory or stronger 9-step
+    // evidence. Within DDS, always use the global cross-anchor comparator.
+    const globalAgainstLegacy=initial?.ranked?.[0]?window.DabimasMildRank78.compare(
+     chosen.rank,initial.ranked[0],{goal,finish:window.DabimasMildFinish610,
+      qualityCompare:auto35CompareQuality,evidenceCompare:auto37Compare,fallback:opt10Sort}):-1;
+    const maySelect=initial?.routeType==='dds'||!initial||grade>prev||
+      (grade===prev&&newBirths<=oldBirths&&globalAgainstLegacy<0);
+    if(maySelect){
+     initial=chosen.trial;
+     initial.ranked=[chosen.rank,...initial.ranked.filter(x=>x!==chosen.originalRank)];
+    }
+   }
+  }
   if(!initial){out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組、配置${placementSearches}通りを調べましたが、選択ルートの9工程を最後まで満たす候補を確定できませんでした（工程検査約${candidateAudit.reduce((s,x)=>s+x.foundationTrials,0)}回）。<b>この結果は配合不可能を意味しません。</b>高速限定探索をOFFにするか、祖先配置を「旧／新の両方を比較」に切り替えてください。名牝判定・CSVの祖先データ不足、途中の近親交配回避なども候補数に影響します。保存データは変更していません。</div>`;return;}
   // v6.8a: For the Deep mild design, confirmed theory is mandatory for a
   // successful automatic plan. Other legacy routes may be examined, but an
@@ -3761,6 +3797,9 @@ function auto21Create(){
   if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildRank78){
    draft.mild78=window.DabimasMildRank78.snapshot(base,goal,window.DabimasMildFinish610);
    const choice=ranked[0];
+   if(mildGlobal87?.stats)draft.mild87={...mildGlobal87.stats,
+    selectedFromGlobal:!!mildGlobal87.winner&&mildGlobal87.winner.trial===initial,
+    selectedSire:base.xId||'',gameVerified:false};
    draft.mild85={version:85,goal,additionalBirths:base.additionalBirths||0,
     preparedSire:!!base.xPrep,comparison:choice?.oneExtra85||null,
     prepTheory:base.prepSireTheory||null,gameVerified:false,

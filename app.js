@@ -888,7 +888,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3368,7 +3368,7 @@ function mild80ProductionDemand(plan){
 // a manually toggled "real" flag on stale parentage being treated as done.
 function mild81ExecutionReport(plan){
  const api=window.DabimasMildExecution81,signature=window.DabimasReuse50?.signature;
- if(!api||!signature||!isMaternalDDS67(plan)||!plan?.chain09)return '';
+ if(!api||!signature||plan?.autoDesign21?.mode!=='mild'||!plan?.chain09)return '';
  const preps=mild69PrepStages(plan),defs=chain09Definitions(plan),stages=[];
  const home=id=>state.homebreds.find(h=>key(h.id)===key(id));
  const isReal=id=>home(id)?.mode==='real';
@@ -3494,6 +3494,50 @@ function production63Html(plan){
  ただし、追加準備で使う種牡馬の権利数、同一権利の複数回使用・母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
  <ul>${prepLists}${list}</ul><p class="muted">締め肌の超完璧・完璧、最終至高はゲーム内で必ず確認してください。表示値は現在のブラウザの登録情報に基づきます。未確認の能力値を予想しません。</p></details>`;
 }
+// v93 | Candidate selection evidence. This is a scoped bounded-search receipt,
+// not a game-verified strength ranking or a claim of exhaustive optimality.
+function mild93Audit(trials,selectedTrial,selectedCandidate,goal,choice,fast){
+ const label={dds:'DDS（母母父）',maternal:'DSS（母側）',paternal:'旧（父側）'};
+ const items=(trials||[]).map((t,i)=>{
+  const c=t?.ranked?.[0]?.candidate;
+  if(!c||c.matches!==3||c.full?.known!==31)return null;
+  const m=window.DabimasMildFinish610?.metric?.(c,goal)||null;
+  return {key:i,route:t.routeType,routeLabel:label[t.routeType]||t.routeType,
+   anchor:t.anchor?.base||'',variants:(t.anchor?.set||[]).map(r=>r.id),
+   anchorFactorKinds:new Set((t.anchor?.set||[]).flatMap(r=>Array.isArray(r.factors)?r.factors:[])).size,
+   factorRows:(t.anchor?.set||[]).map(r=>({id:r.id,factors:Array.isArray(r.factors)?[...r.factors]:[]})),
+   slots:{...(t.draft?.routeDraft?.slots||{})},
+   theory:c.theory66?.superPerfect==='成立'?'超完璧':c.theory66?.perfect==='成立'?'完璧':'未確認',
+   theoryRank:opt66TheoryRank(c),additionalBirths:Number(c.additionalBirths)||0,
+   independentCrosses:m?.independentCrossEvidence??null,
+   crossFactors:m?.crossFactorEvidence??null,
+   sourceScore:m?.score??null,
+   chosen:t===selectedTrial,valid31:true};
+ }).filter(Boolean);
+ // Sorting here changes REPORT ORDER ONLY. It never replaces the engine's
+ // validated winner or turns an unverified cross score into game ability.
+ const order=(a,b)=>b.theoryRank-a.theoryRank||a.additionalBirths-b.additionalBirths||
+  ((b.independentCrosses??-1)-(a.independentCrosses??-1))||
+  ((b.crossFactors??-1)-(a.crossFactors??-1))||a.key-b.key;
+ const chosen=items.find(x=>x.chosen)||null;
+ const alternatives=items.filter(x=>!x.chosen).sort(order).slice(0,5);
+ const reviewedRoutes={dds:0,maternal:0,paternal:0};
+ for(const x of items)if(Object.hasOwn(reviewedRoutes,x.route))reviewedRoutes[x.route]++;
+ return {version:93,choice,fast:!!fast,goal,reviewed:items.length,
+  validRoutes:reviewedRoutes,chosen:chosen?{...chosen,localRefinementPossible:true}:null,
+  alternatives,shown:alternatives.length,gameVerified:false,
+  scope:'一次基礎探索で9工程・31枠・指定祖先を確認できた各ルートの代表候補のみ。名牝・Xの途中差替え後の最終案は別途血統検査。探索上限あり。',
+  caveat:'理論の見込み、追加工程、文書化済み独立クロスを表示。未収録因子・全兄弟姉妹の成立阻害・SP/ST実測は未確定。ゲーム内の至高成立は未確認。数値は競走能力ではない。'};
+}
+function mild93AuditHtml(plan){
+ const a=plan?.mild93;if(!a)return '';
+ const row=(x,first)=>`<tr><td>${first?'<b>採用</b>':'代案'}</td><td>${esc(x.anchor)}<br><small>${esc((x.variants||[]).join('・'))}</small><br><small>登録因子 ${esc(x.anchorFactorKinds??'未確認')}種類：${(x.factorRows||[]).map(r=>esc((r.factors||[]).join('・')||'未収録')).join(' ／ ')}</small></td><td>${esc(x.routeLabel)}</td><td>${esc(x.theory)}</td><td>${esc(x.additionalBirths)}</td><td>${esc(x.independentCrosses??'未計算')}</td></tr>`;
+ const c=a.chosen;
+ return `<details class="a21-flow" open><summary>v93｜マイルド候補を比較：31枠を確認できた基礎案${esc(a.reviewed)}件</summary>
+ <p class="muted">DDS ${esc(a.validRoutes?.dds||0)}件／DSS ${esc(a.validRoutes?.maternal||0)}件／旧ルート ${esc(a.validRoutes?.paternal||0)}件。${a.fast?'高速限定探索':'詳細探索'}で、選んだ中心種牡馬・異因名・締め肌理論・準備回数を確認します。</p>
+ <div style="overflow-x:auto"><table class="detailtbl"><thead><tr><th>位置</th><th>中心種牡馬・異因名3頭</th><th>経路</th><th>締め肌</th><th>追加準備</th><th>記録済み独立クロス</th></tr></thead><tbody>${c?row(c,true):''}${(a.alternatives||[]).map(x=>row(x,false)).join('')||'<tr><td colspan="6">比較できる別案なし</td></tr>'}</tbody></table></div>
+ <p class="muted">${esc(a.scope)} ${esc(a.caveat)} この一覧は<b>最終的な強さの順位ではありません</b>。採用案を含む一次候補のみの記録であり、代案の研究用相対評価が高くても最終採用とは限りません。</p></details>`;
+}
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
  const lines4=ped.rows.filter(r=>r.path.length===4);
@@ -3542,6 +3586,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild79CacheHtml(plan)}
  ${mild85ExtraHtml(plan)}
  ${mild87GlobalHtml(plan)}
+ ${mild93AuditHtml(plan)}
  ${mild88CoverageHtml(plan)}
  ${mild89CoverageHtml(plan)}
  ${mild78EvidenceHtml(plan)}
@@ -3556,6 +3601,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${reuse44Html(plan)}
  ${production63Html(plan)}
  ${mild80ProductionDemand(plan)}
+ ${mild81ExecutionHtml(plan)}
  ${auto21Flow(plan)}
  ${renderGamePedigree20(sire,mare,{...ped,rows:foalRow},plan)}
  ${plan.externalReview48?`<div class="btnrow"><button class="btn grey" type="button" data-external-review="${esc(plan.id)}">種・肌・産駒の31枠を外部照合用に出力（TXT）</button></div><p class="muted">ダビふぁく等に照らして目視で確認するための資料です。ツールへの自動転送・至高成立の確定判定ではありません。</p>`:''}
@@ -3649,8 +3695,9 @@ function auto21Create(){
     (routeChoice==='paternal'?['paternal']:routeChoice==='maternal'?['maternal']:
      routeChoice==='both'?['dds','maternal','paternal']:['dds','maternal','paternal']):['paternal'];
    for(const routeType of routeTypes){
-    if(flexibleMild&&routeChoice==='maternal-auto'&&routeType!=='dds'&&
-     trials.some(t=>t.routeType==='dds'&&opt66TheoryRank(t.ranked[0]?.candidate)>=2))break;
+    // v93: DDS success is not evidence that a DSS/paternal route cannot
+   // offer a stronger closing theory or fewer required matings. Compare all
+   // three bounded routes in automatic mode; NEVER stop at the first perfect.
     // v7.4: DDS must compare BOTH fourth/fifth permutations sharing the
     // same third-generation center ancestor, even when the preflight top-two cutoff
     // would discard one. Legacy routes keep their original shortlist.
@@ -4097,6 +4144,7 @@ function auto21Create(){
    draft.mildAcceptance51=mild84Acceptance||{version:52,status:"全9工程の親子血統と一次条件検査通過（ゲーム内未確認）",gameVerified:false};
    }
   }
+  if(mode==='mild')saved.mild93=mild93Audit(viableAnchorTrials,initial,base,goal,routeChoice,fast);
   const chosenQuality=auto35Quality(pedigree,saved);
   const evidence37=auto37Evidence(pedigree,saved);
   saved.autoDesign21={createdAt:nowISO(),mode,goal,race,autoAnchor45:{enabled:autoPick||familyPick,selectionMode:selectionInfo.mode,requestedFamily:selectionInfo.family||null,

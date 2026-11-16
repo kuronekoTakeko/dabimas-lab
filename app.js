@@ -888,7 +888,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3605,6 +3605,65 @@ function mild94MatingStages(plan){
  }
  return stages;
 }
+// v97 | Rebuild every mating from the CURRENT registered parents. This is not
+// a cached saved-plan verdict: editing the plan, importing a different master
+// or replacing a real-horse link must make the review fail closed.
+function mild97LiveReport(plan,compareSaved=true){
+ const api=window.DabimasMildReadiness97;
+ if(!api||plan?.autoDesign21?.mode!=='mild')return null;
+ const type=horse=>horse?.isHomebred||String(horse?.id||'').startsWith('自家製:')?'homebred':horse?'public':'unknown';
+ const matings=[];
+ for(const prep of mild69PrepStages(plan)){
+  const sire=findParentHorse(prep.info?.fatherId),mare=findParentHorse(prep.info?.motherId);
+  const ped=sire&&mare?getFoalPedigree(sire,mare):null;
+  const problems=[];
+  if(!sire||!mare)problems.push('準備交配の父母が見つかりません');
+  if(sire&&horseSex(sire)!=='male')problems.push('準備交配の父の性別が不一致');
+  if(mare&&horseSex(mare)!=='female')problems.push('準備交配の母の性別が不一致');
+  if(ped?.known!==31||ped?.conflicts?.length||ped?.transmission?.invalid?.length||ped?.directAncestor?.blocked||ped?.closeCross65?.blocked)
+   problems.push('準備交配の祖先31枠・親子情報が不完全または近親交配の懸念');
+  matings.push({kind:'prep',id:'P:'+prep.kind,label:prep.label,sireId:prep.info?.fatherId||'',mareId:prep.info?.motherId||'',
+   sireType:type(sire),mareType:type(mare),pedigreeKnown:ped?.known??0,ready:problems.length===0,problems});
+ }
+ // The optional v5.8 maternal graft is serialized in hard23, not mild67.
+ // Counting only mild67 would wrongly certify a ten-birth plan as nine births.
+ for(const [i,prep] of (plan?.hard23?.preparations||[]).entries()){
+  const sire=findParentHorse(prep.father),mare=findParentHorse(prep.mother);
+  const ped=sire&&mare?getFoalPedigree(sire,mare):null,problems=[];
+  if(!sire||!mare)problems.push('追加仕込みの父母が見つかりません');
+  if(sire&&horseSex(sire)!=='male')problems.push('追加仕込みの父の性別が不一致');
+  if(mare&&horseSex(mare)!=='female')problems.push('追加仕込みの母の性別が不一致');
+  if(ped?.known!==31||ped?.conflicts?.length||ped?.transmission?.invalid?.length||ped?.directAncestor?.blocked||ped?.closeCross65?.blocked)
+   problems.push('追加仕込みの祖先31枠・親子情報が不完全または近親交配の懸念');
+  matings.push({kind:'prep',id:'P:hard:'+i,label:prep.label||'追加仕込み'+(i+1),sireId:prep.father||'',mareId:prep.mother||'',
+   sireType:type(sire),mareType:type(mare),pedigreeKnown:ped?.known??0,ready:problems.length===0,problems});
+ }
+ for(let n=1;n<=9;n++){
+  const pair=chain09Parents(plan,n),out=chain09Output(plan,n);
+  matings.push({kind:'core',id:'C:'+n,number:n,label:'工程'+n,sireId:pair?.sireId||'',mareId:pair?.mareId||'',
+   sireType:type(pair?.sire),mareType:type(pair?.mare),pedigreeKnown:pair?.ped?.known??0,
+   ready:pair?.ready===true,problems:[...(pair?.problems||[])],reused:out?.reused===true});
+ }
+ const final=chain09Parents(plan,9)?.ped,closing=chain09Parents(plan,chain09ClosureStep(plan))?.ped;
+ const sibling=window.DabimasMildSiblings95?.inspect?.({plan,pedigree:final})||null;
+ return api.assess({plan,matings,finalPed:final,closingPed:closing,
+  release:plan?.mild94,siblings:sibling,owned:state.owned,
+  stored:compareSaved?plan?.mild97:null,requireSaved:compareSaved,goal:plan?.goal,race:plan?.target});
+}
+function mild97ReadinessHtml(plan){
+ const report=mild97LiveReport(plan,true);if(!report)return '';
+ const status=report.ok?'構造・保存内容を再照合済み（ゲーム内未確認）':'保存後の変更または未確認事項あり';
+ const errors=report.errors.length?`<p class="notice warn"><b>再検証が必要：</b>${esc(report.errors.slice(0,5).join('／'))}${report.errors.length>5?'（ほか'+esc(report.errors.length-5)+'件）':''}</p>`:'';
+ const mares=report.publicMares.map(m=>`<li>${esc(m.id)}：予定${esc(m.uses)}回（入手・在庫未確認）</li>`).join('');
+ const rights=report.publicSires.filter(s=>s.shortage>0||s.rights===null).map(s=>
+  `<li>${esc(s.id)}：予定${esc(s.uses)}回／登録権利${esc(s.rights===null?'未確認':s.rights+'回')}${s.shortage>0?'（不足'+esc(s.shortage)+'回）':''}</li>`).join('');
+ return `<details class="a21-flow" open><summary>v97｜生産前の再検証：${esc(status)}</summary>
+  <p>設計条件：<b>${esc(report.currentRace||'未確認')}</b>／${esc(GOAL_LABELS[report.currentGoal]||report.currentGoal||'未確認')}。基幹${report.core}工程＋準備${report.preparations}工程、最終31枠と締め肌の血統を現在の登録から再計算しました。</p>
+  ${errors}${report.ok?'<p class="notice">登録上の父母・31枠・過去の保存内容は一致しています。次はゲーム内で実際の配合理論と必要権利を確認してください。</p>':''}
+  <details><summary>公開繁殖牝馬の確保・重複利用（${report.publicMares.length}種類）</summary><ul>${mares||'<li>公開牝馬の直接使用なし</li>'}</ul><p class="muted">公開CSVは牝馬を所有している証明ではありません。必要な数はゲーム内で確保してください。</p></details>
+  ${rights?`<p class="muted"><b>種付け権利に注意：</b></p><ul>${rights}</ul>`:''}
+  <p class="muted">${esc(report.limitations)} 既存プランの親馬や距離を変更すると旧検証結果は無効になります。再び「作成決定」で設計してください。</p></details>`;
+}
 function mild96VariantHtml(plan){
  const x=plan?.mild96;if(!x||x.version!==96)return '';
  const list=(x.considered||[]).map(r=>`<tr><td>${esc(r.id)}</td><td>${esc((r.factors||[]).join('・')||'未収録')}</td><td>${esc(r.rights)}</td><td>${esc(r.checked31?'再検査済み':'不採用')}</td></tr>`).join('');
@@ -3699,6 +3758,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
  ${audit34Html(plan,ped)}
  ${mild84GateHtml(plan)}
+ ${mild97ReadinessHtml(plan)}
  ${mild56TheoryHtml(plan)}
  ${cross36Html(ped)}
  ${evidence37Html(ped,plan)}
@@ -4317,6 +4377,18 @@ function auto21Create(){
     bothSideNames:evidence37.bothSideNames??null,fullyDocumented:evidence37.fullyDocumented??null,
     unresolvedCrossNames:evidence37.unresolvedCrossNames??null,verifiedTheory:false}};
   saved.externalReview48=external48Snapshot(saved,pedigree,parents.sire,parents.mare);
+  // v97: commit only a plan whose ACTUAL final matings reproduce the saved
+  // intended race, goal, 31-slot pedigree and closing-mare family. Save the
+  // immutable comparison fingerprint, then re-evaluate live on every open.
+  if(mode==='mild'){
+   const readiness=mild97LiveReport(saved,false);
+   if(!readiness?.ok){
+    if(mildRollback){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;}
+    out.innerHTML=`<div class="notice warn"><b>v97 生産前の再検証で停止：</b>${esc(readiness?.errors?.slice(0,5).join('／')||'検査モジュールが未読込')}。新規プラン・仮馬は破棄し、既存データは維持しました。</div>`;
+    return;
+   }
+   saved.mild97=readiness;
+  }
   const errors=[];
   if(mode==='mild'&&!persist()){
    if(mildRollback){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;}

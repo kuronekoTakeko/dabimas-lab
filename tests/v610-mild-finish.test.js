@@ -54,8 +54,8 @@ test('invalid proposed mating is ignored; no provisional or partial plan is save
 });
 test('full-source integration and PWA cache include the independent finishing module',()=>{
  const html=get('index.html'),sw=get('sw.js'),app=get('app.js');
- assert(html.indexOf('research-mild-finish-v610.js?v=610')<html.indexOf('app.js?v=610'));
- assert(sw.includes('dbms-v610-1')&&sw.includes("'./research-mild-finish-v610.js'"));
+ assert(html.indexOf('research-mild-finish-v610.js?v=610')<html.indexOf('app.js?v=901'));
+ assert(sw.includes('dbms-v901-1')&&sw.includes("'./research-mild-finish-v610.js'"));
  assert(app.includes('finish610.optimize({initial:starting'));
  assert(app.includes('api.validateFinal(replacement.full'));
  assert(app.includes('theory.inspect(replacement.closingPed)'));

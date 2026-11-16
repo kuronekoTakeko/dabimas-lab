@@ -181,9 +181,20 @@ function importJSON(obj){
   '既存データのバックアップを保存して続けますか？';
  if(!confirm(message))return false;
  dl(`dabimas_before_safe_import_${new Date().toISOString().slice(0,10)}.json`,productionDataBackup());
+ // v9.0.1: Commit the non-destructive merge only after storage confirms
+ // success. On quota/private-storage failure, preserve the previous in-memory
+ // record as well as the original localStorage value. Never report success.
+ const previousState=state;
  state=checked.next;
- buildMap();persist();renderAll();updateCleanStatus();
- $('importStatus').textContent=`v8.4：JSONから${checked.added}件を追加。衝突${checked.conflicts}件は端末の既存データを維持しました。衝突分は元のJSONを保存してください。`;
+ buildMap();
+ if(!persist()){
+  state=previousState;
+  buildMap();
+  $('importStatus').textContent='JSONの取り込み結果を端末に保存できなかったため、変更を取り消しました。既存の所持情報・プラン・実馬・ゲノムは維持されています。';
+  return false;
+ }
+ renderAll();updateCleanStatus();
+ $('importStatus').textContent=`v9.0.1：JSONから${checked.added}件を追加。衝突${checked.conflicts}件は端末の既存データを維持しました。衝突分は元のJSONを保存してください。`;
  return true;
 }
 

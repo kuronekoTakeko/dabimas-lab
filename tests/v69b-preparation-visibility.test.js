@@ -34,5 +34,5 @@ api.showList();assert.match(ui.get('savedPlans').innerHTML,/1\/10工程/);
 assert.match(api.editor(prepared),/完了（手動記録）/);
 const two={...prepared,id:'two',mild50:{productionStages:11},mild67:{prep:sirePrep,marePrep,prepProgress:{}}};api.prepare(two,[...homes,{id:'draft-mare',name:'基礎牝・仮',mode:'draft'}]);
 assert.equal(api.total(two),11);let twoFlow=api.flow(two);assert.match(twoFlow,/合計11工程／基幹9枠/);assert(twoFlow.indexOf('準備1｜')<twoFlow.indexOf('準備2｜')&&twoFlow.indexOf('準備2｜')<twoFlow.indexOf('工程1｜'));
-assert.match(api.editor(two),/準備2｜ディープに付ける基礎牝馬を1代生産/);
+assert.match(api.editor(two),/準備2｜至高3代目種牡馬に付ける基礎牝馬を1代生産/);
 console.log('PASS v6.9b: 9 / 10 / 11 births, prerequisite cards, full production order, actual parent names, completion notes, persistence, and no real-horse promotion');

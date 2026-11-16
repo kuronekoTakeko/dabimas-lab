@@ -26,6 +26,7 @@ const before=source.slice(0,source.lastIndexOf("document.addEventListener('click
 vm.runInContext('const SEED='+seedMatch[1]+';'+before+`
 window.__test67=(incoming,goal)=>{
  master=incoming;buildMap();
+ for(const r of maleRows().filter(r=>r.name==='ディープインパクト'))state.owned[key(r.id)]={owned:true,rights:0};
  for(const sire of maleRows().filter(r=>r.name.startsWith('試験種牡馬')))state.owned[key(sire.id)]={owned:true,rights:0};
  const deep=maleRows().filter(r=>r.name==='ディープインパクト'&&isOwned(r));
  const anchor={set:deep.slice(0,3),kinds:['速','短','走','長','中','底'],base:'ディープインパクト'};

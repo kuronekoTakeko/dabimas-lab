@@ -65,7 +65,7 @@ t('known-matching placement rises before search cap despite lower base score',()
 t('distance is bounded to mild code paths and hard deep comparison is intact',()=>{
  const src=fs.readFileSync(path.join(root,'app.js'),'utf8');
  assert(src.includes("const distanceSorted=mode==='mild'&&distanceApi?"));
- assert(src.includes("const distanceOrder=mode==='mild'&&distanceApi?"));
+ assert(src.includes("const distanceOrder=mode==='mild'&&distanceApi&&trialStud&&initialStud?"));
  assert(src.includes("if(mode==='hard'){"));
  assert(src.includes('DabimasGlobalShortlist49?.select(viableAnchorTrials,4'));
  assert(src.includes('plan.mildDistance54'));
@@ -77,8 +77,8 @@ t('source, HTML script and Service Worker cache integrate in correct order',()=>
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
  assert(html.includes('research-distance-v54.js?v=54'));
- assert(html.indexOf('research-distance-v54.js?v=54')<html.indexOf('app.js?v=610'));
- assert(sw.includes('dbms-v610-1'));
+ assert(html.indexOf('research-distance-v54.js?v=54')<html.indexOf('app.js?v=901'));
+ assert(sw.includes('dbms-v901-1'));
  assert(sw.includes("'./research-distance-v54.js'"));
  assert(!sw.includes('dbms-v53-1'));
 });

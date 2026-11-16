@@ -30,11 +30,11 @@ test('source includes read-only nine-stage lineage audit before save',()=>{
 });
 test('saved plan version and ownership-compatible storage unchanged',()=>{
  const s=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
- assert(s.includes('draft.mildAcceptance51={version:52'));
+ assert(s.includes('draft.mildAcceptance51=mild84Acceptance||{version:52'));
  assert(s.includes('function productionDataBackup(){return {version:13,owned:state.owned'));
 });
 test('browser loads module before app and cache is isolated',()=>{
  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),sw=fs.readFileSync(path.join(__dirname,'..','sw.js'),'utf8');
- assert(html.indexOf('research-mild-lineage-v52.js?v=52')<html.indexOf('app.js?v=610'));assert(sw.includes('research-mild-lineage-v52.js'));assert(sw.includes('dbms-v610-1'));
+ assert(html.indexOf('research-mild-lineage-v52.js?v=52')<html.indexOf('app.js?v=901'));assert(sw.includes('research-mild-lineage-v52.js'));assert(sw.includes('dbms-v901-1'));
 });
 console.log(n+' v5.2 tests passed');

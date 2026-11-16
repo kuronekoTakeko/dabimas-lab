@@ -43,8 +43,12 @@
   for(const [key,path] of Object.entries(anchorPaths)){
    const r=members?.[key],actual=at.get(path);
    if(!r||!actual||normalize(actual.name)!==normalize(r.name)||factors(actual.factors)!==factors(r.factors)||!actual.factors?.length)errors.push(`${path}：${key}の同名・因子照合が不一致`);
+   if(!normalize(r?.variant)||!normalize(actual?.factorVariant)||normalize(r.variant)!==normalize(actual.factorVariant))
+    errors.push(`${path}：${key}の異因名が不一致・未収録`);
   }
   const ids=['g3','g4','g5'].map(k=>slots?.[k]);if(ids.some(x=>!x)||new Set(ids.map(normalize)).size!==3)errors.push('異因名種牡馬の登録IDが3つ必要');
+  const variants=['g3','g4','g5'].map(k=>normalize(members?.[k]?.variant));
+  if(variants.some(v=>!v)||new Set(variants).size!==3)errors.push('異因名3頭が別因名と確認できません');
   if(new Set(['g3','g4','g5'].flatMap(k=>members?.[k]?.factors||[])).size<6)errors.push('判明因子が6種類未満');
   return {ok:errors.length===0,errors,gameVerified:false};
  }

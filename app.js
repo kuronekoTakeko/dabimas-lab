@@ -547,10 +547,11 @@ function effectiveCrossFactors16(rows,plan=null){
    if(id){
     const known=routeSnapshotMember(id,plan);
     const wantedName=known?.name||splitName(id).name;
-    if(known&&key(wantedName)===key(baseName) &&
-       JSON.stringify([...factors].sort())===JSON.stringify([...(known.factors||[])].sort())){
+    if(known&&anchorIdentity92(r,known,id).ok&&key(wantedName)===key(baseName)){
+     // Only same IDENTIFIED variant is eligible; never stamp the planned variant
+     // over an inherited record with another identity or missing evidence.
      variant=known.variant||splitName(id).variant;
-     factors=[...(known.factors||[])];source='指定3頭の因名';
+     factors=[...(known.factors||[])];source='指定3頭と実血統の因名一致';
     }
    }
    return {path,name:baseName,variant,factors,source};
@@ -721,6 +722,23 @@ function renderGamePedigree20(sire,mare,foal,p=null){
 // v0.5: Partial pedigree auditor for 3x4x5 route drafts. A verified full-pedigree or game-rule solver is NOT implied.
 function kanaPath(p){return String(p||'').replace(/父/g,'S').replace(/母/g,'D');}
 function routeSnapshotMember(id,p){return map.get(key(id))||(p.source?.members||[]).find(x=>key(x.id)===key(id))||null;}
+// v92: Match the ACTUAL inherited variant at each chosen 3x4x5 slot.
+// Name/factors alone do not identify an 異因名; unknown variants cannot prove a match.
+// Research-only identity check; not proof of game breeding theory.
+function anchorIdentity92(actual,member,id=''){
+ const name=member?.name||splitName(member?.id||id).name;
+ const expectedVariant=member?.variant||splitName(member?.id||id).variant;
+ const observedVariant=actual?.factorVariant||actual?.variant||'';
+ const factorKey=v=>JSON.stringify((Array.isArray(v)?v:[]).map(key).sort());
+ const sameName=!!name&&!!actual?.name&&key(actual.name)===key(name);
+ const factorEvidence=Array.isArray(member?.factors)&&member.factors.length>0&&Array.isArray(actual?.factors)&&actual.factors.length>0;
+ const sameFactors=factorEvidence&&factorKey(actual.factors)===factorKey(member.factors);
+ const variantKnown=!!key(expectedVariant)&&!!key(observedVariant);
+ const sameVariant=variantKnown&&key(expectedVariant)===key(observedVariant);
+ return {ok:!!(sameName&&sameFactors&&sameVariant),sameName,sameFactors,sameVariant,
+  variantKnown,expectedVariant,observedVariant,
+  reason:!sameName?'馬名不一致':!sameFactors?'因子不一致・未収録':!variantKnown?'異因名未収録':!sameVariant?'異因名不一致':'記録上の一致（ゲーム内未確認）'};
+}
 function getRouteAudit(p,slots,xId=''){
  const raw=anchorPositions66(p).map(([path,slot])=>[slot,path]);const known=[],issues=[];
  function addFrom(r,path,label){
@@ -948,8 +966,7 @@ function v28PlanPedigree(p){
  // original theory assumption were still satisfied.
  const check=anchorPositions66(p).map(([path,slot])=>{
   const r=ped.rows.find(x=>x.path===path),original=routeSnapshotMember(p.routeDraft.slots[slot],p);
-  const ok=!!r?.name&&!!original&&key(r.name)===key(original.name||splitName(original.id).name)&&
-   JSON.stringify([...(r.factors||[])].sort())===JSON.stringify([...(original.factors||[])].sort());
+  const ok=anchorIdentity92(r,original,p.routeDraft.slots[slot]).ok;
   return {path,ok};
  });
  const cross=effectiveCrossFactors16(ped.rows,p);
@@ -1322,9 +1339,10 @@ function chain09FinalAudit(p){
   const a=rows.get(path),id=p.routeDraft?.slots?.[g]||'',original=routeSnapshotMember(id,p);
   if(!original)return {path,ok:false,msg:'基礎種牡馬が未登録'};
   const have=(a?.factors||[]).slice().sort().join('|'),want=(original.factors||[]).slice().sort().join('|');
-  const ok=key(a?.name)===key(original.name||splitName(id).name)&&have===want&&!!want;
+  const identity=anchorIdentity92(a,original,id);
+  const ok=identity.ok;
   if(ok)matches++;
-  return {path,ok,msg:`${a?.name||'不明'} [${(a?.factors||[]).join('・')||'因子未確認'}] ／ 指定 ${id}`};
+  return {path,ok,msg:`${a?.name||'不明'} [${(a?.factors||[]).join('・')||'因子未確認'}] ／ 指定 ${id} ／ ${identity.reason}`};
  });
  return `<div class="chain-final"><b>最終仮馬の祖先・因子照合：${matches}/3箇所一致</b><p class="chain-note">5代血統：${pair.ped.known}/31枠、同名祖先の重複${pair.ped.repeats.length}種類／独立クロス候補${pair.ped.crossCheck.candidates.length}種類／派生重複${pair.ped.crossCheck.inherited.length}種類。各指定位置と因子を比較しました。</p>${details.map(x=>`<div class="chain-state">${x.ok?'✓':'要確認'} ${esc(x.path)}：${esc(x.msg)}</div>`).join('')}<div class="notice warn"><b>ゲーム内の「至高の配合」成立確定ではありません。</b> 全兄弟姉妹や特殊条件、公式BCでの能力は別途ゲーム内で確認してください。SP/ST・合格ラインの予想値も未計算です。</div></div>`;
 }
@@ -1509,8 +1527,7 @@ function opt10Trial(p,choices,xId,xCandidate=null,mareCandidates=null){
  const anchors=anchorPositions66(p).map(([path,slot])=>[path,slots[slot]]);
  const matches=anchors.filter(([path,id])=>{
   const r=routeSnapshotMember(id,p),a=byPath.get(path);
-  return r&&a&&key(a.name)===key(r.name||splitName(id).name)
-    &&JSON.stringify([...a.factors].sort())===JSON.stringify([...(r.factors||[])].sort());
+  return anchorIdentity92(a,r,id).ok;
  }).length;
  const cnt=Object.fromEntries(final.factorCounts),sp=OPT10_SP_FACTORS.reduce((v,f)=>v+(cnt[f]||0),0),
  st=OPT10_ST_FACTORS.reduce((v,f)=>v+(cnt[f]||0),0),
@@ -2306,7 +2323,7 @@ function prep17Trial(p,selectedA,selectedB,choicePool=null,extra22=null){
  const byPath=new Map(final.rows.map(r=>[r.path,r]));
  const anchors=[['SSS','g3'],['DSSS','g4'],['DDDSS','g5']].map(([path,g])=>{
   const target=routeSnapshotMember(slots[g],p),r=byPath.get(path);
-  return !!target&&key(target.name||splitName(slots[g]).name)===key(r?.name)&&JSON.stringify([...(target.factors||[])].sort())===JSON.stringify([...(r?.factors||[])].sort());
+  return anchorIdentity92(r,target,slots[g]).ok;
  });
  if(anchors.filter(Boolean).length!==3)return {error:'至高の指定3頭の血統位置が維持できません。別の組み合わせを選んでください。'};
  const cross=effectiveCrossFactors16(final.rows,p);
@@ -2549,9 +2566,8 @@ function reviewMetrics12(p){
  const targets=anchorPositions66(p);const byPath=new Map(rows.map(r=>[r.path,r]));
  const anchors=targets.map(([path,slot])=>{
   const wantedId=p.routeDraft.slots[slot],wanted=routeSnapshotMember(wantedId,p),seen=byPath.get(path);
-  const sameName=!!wanted&&key(seen?.name)===key(wanted.name||splitName(wantedId).name);
-  const sameFactors=!!wanted&&JSON.stringify((seen?.factors||[]).slice().sort())===JSON.stringify((wanted.factors||[]).slice().sort());
-  return {path,wantedId,seen:seen?.name||'',ok:sameName&&sameFactors&&!!(wanted?.factors||[]).length};
+  const verified=anchorIdentity92(seen,wanted,wantedId);
+  return {path,wantedId,seen:seen?.name||'',ok:verified.ok,reason:verified.reason};
  });
  const missingFactorPositions=rows.filter(r=>r.name&&!(r.factors||[]).length).length;
  return {ready:true,linked,ped,rows,depths,freq,groupSP,groupST,bottom,eligibleSP,eligibleST,kindsSP,kindsST,spByDepth,stByDepth,
@@ -3008,8 +3024,7 @@ function hard23Trial(p,grafts={},goal=p.goal||'balance',xPlan=null){
  const at=new Map(final.rows.map(x=>[x.path,x]));
  const anchors=[['SSS','g3'],['DSSS','g4'],['DDDSS','g5']].every(([path,slot])=>{
   const wanted=routeSnapshotMember(slots[slot],p),actual=at.get(path);
-  return !!wanted&&key(actual?.name)===key(wanted.name||splitName(wanted.id).name)&&
-   JSON.stringify([...(actual?.factors||[])].sort())===JSON.stringify([...(wanted.factors||[])].sort());
+  return anchorIdentity92(actual,wanted,slots[slot]).ok;
  });
  if(!anchors)return {error:'至高3×4×5の固定祖先が変化しました'};
  const cross=effectiveCrossFactors16(final.rows,p),t={final,finalSire,finalMare,cross,prepared,preparedX,outputs,grafts:hard23Clone(grafts),xPlan:xPlan?{sireId:xPlan.sireId,mareIds:[...(xPlan.mareIds||[])]}:null};

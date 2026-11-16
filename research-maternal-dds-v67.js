@@ -35,9 +35,16 @@
  function validateFinal(pedigree,slots,members){const at=new Map((pedigree?.rows||[]).map(r=>[r.path,r])),errors=[];
   if(pedigree?.known!==31||at.size!==31||pedigree?.conflicts?.length||pedigree?.transmission?.conflicts?.length)errors.push('31枠の血統不全・衝突');
   for(const [g,path] of Object.entries(anchorPaths)){
-   const r=members?.[g],p=at.get(path);if(!r||!p||norm(r.name)!==norm(p.name)||[...(r.factors||[])].sort().join('|')!==[...(p.factors||[])].sort().join('|'))errors.push(`${g}の${path}同名・因子が不一致`);
+   const r=members?.[g],p=at.get(path);
+   if(!r||!p||norm(r.name)!==norm(p.name)||[...(r.factors||[])].sort().join('|')!==[...(p.factors||[])].sort().join('|')||!r.factors?.length)
+    errors.push(`${g}の${path}同名・因子が不一致`);
+   if(!norm(r?.variant)||!norm(p?.factorVariant)||norm(r.variant)!==norm(p.factorVariant))
+    errors.push(`${g}の${path}異因名が不一致・未収録`);
   }
-  const ids=Object.values(slots||{});if(ids.length!==3||new Set(ids.map(norm)).size!==3)errors.push('異因名IDが3つ必要');
+  const ids=['g3','g4','g5'].map(g=>slots?.[g]);
+  if(ids.some(x=>!norm(x))||new Set(ids.map(norm)).size!==3)errors.push('異因名IDが3つ必要');
+  const variants=['g3','g4','g5'].map(g=>norm(members?.[g]?.variant));
+  if(variants.some(x=>!x)||new Set(variants).size!==3)errors.push('異因名3頭が別因名と確認できません');
   if(new Set(Object.values(members||{}).flatMap(r=>r?.factors||[])).size<6)errors.push('判明因子が6種類未満');
   return {ok:!errors.length,errors,gameVerified:false};
  }

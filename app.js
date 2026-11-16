@@ -888,7 +888,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -1969,6 +1969,54 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
    tests+=two.audit?.tested||0;
   }
  }
+ // v96: revisit the prepared closing-sire's PUBLIC father.  A factor-variant
+ // swap is never a text replacement in a saved pedigree: the prep sire and
+ // all nine subsequent matings are recomputed from the actual alternate horse.
+ // This is limited to DDS prepared sire candidates; it does not silently
+ // change the three fixed Shiko variants or mutate existing saved plans.
+ const variant96=window.DabimasMildVariants96;
+ if(variant96?.optimize){
+  const ownedVariants=maleRows().filter(r=>isOwned(r)&&opt10Self(r));
+  const members96=Object.fromEntries(['g3','g4','g5'].map(k=>[k,routeSnapshotMember(p.routeDraft.slots[k],p)]));
+  for(let i=0;i<results.length;i++){
+   const original=results[i];if(!original?.xPrep?.fatherId||!original?.xPrep?.motherId)continue;
+   const parent=findParentHorse(original.xPrep.fatherId),mare=findParentHorse(original.xPrep.motherId);
+   if(!parent||!mare)continue;
+   const check=variant96.optimize({current:original,originalSire:parent,owned:ownedVariants,goal:p.goal,
+    rights:id=>state.owned[key(id)]?.rights||0,metric:finish610?.metric,maxVariants:12,
+    evaluate:alternative=>{
+     if(!isOwned(alternative)||!variant96.equivalent(parent,alternative))return null;
+     const preparedPed=getFoalPedigree(alternative,mare);tests++;
+     if(!valid(preparedPed))return null;
+     const preparedHorse={...foal(0,preparedPed,alternative,'male'),id:original.xPrep.horse.id,
+      name:original.xPrep.horse.name};
+     const newTrial=opt10Trial(p,original.choices,original.xId,preparedHorse,
+      original.marePrep?{1:original.marePrep.horse}:null);tests++;
+     if(!newTrial||newTrial.matches!==3||!valid(newTrial.full)||!valid(newTrial.closingPed)||
+        !api.validateFinal(newTrial.full,p.routeDraft.slots,members96).ok)return null;
+     const inspected=theory.inspect(newTrial.closingPed);
+     if(inspected.blocked||inspected.perfect!==original.theory66?.perfect||
+        inspected.superPerfect!==original.theory66?.superPerfect||
+        opt66TheoryRank({...newTrial,theory66:inspected})<2)return null;
+     if(window.DabimasMildSiblings95?.inspect?.({plan:p,pedigree:newTrial.full})?.blocked)return null;
+     const preparedVerdict=theory.inspect(preparedPed);
+     if(preparedVerdict?.blocked)return null;
+     newTrial.theory66=inspected;
+     newTrial.xPrep={...original.xPrep,fatherId:alternative.id,pedigree:preparedPed,horse:preparedHorse};
+     newTrial.marePrep=original.marePrep||null;
+     newTrial.prepSireTheory={perfect:preparedVerdict?.perfect||'未確認',
+      superPerfect:preparedVerdict?.superPerfect||'未確認',gameVerified:false};
+     newTrial.additionalBirths=original.additionalBirths;
+     newTrial.maternal67=original.maternal67;
+     newTrial.xSearchCount=original.xSearchCount;
+     newTrial.finish610=original.finish610||null;
+     newTrial.efficiency71=original.efficiency71||null;
+     return newTrial;
+    }});
+   results[i]=check.winner;
+   if(check.audit)results[i].variant96=check.audit;
+  }
+ }
  results.sort((a,b)=>finish610?.compare(a,b,p.goal)||opt66TheoryRank(b)-opt66TheoryRank(a)||a.additionalBirths-b.additionalBirths||opt66Compare(a,b));
  // v8.5: do not discard the prepared-sire challenger AGAIN when the small
  // finalist cap is reached. At least one documented equal-or-better-theory
@@ -2917,6 +2965,35 @@ const AUTO21_RACES=[
  ['芝2000m','芝2000m'],['芝2200m','芝2200m'],['芝2400m','芝2400m'],['芝2500m','芝2500m'],
  ['芝3000m','芝3000m'],['ダート1200m','ダート1200m'],['ダート1600m','ダート1600m'],
  ['ダート1800m','ダート1800m'],['ダート2000m','ダート2000m']];
+// v95 | Why a owned name/variant group is not a six-type Shiko anchor.
+// This is a 3-variant factor-union diagnostic, not a pedigree/theory verdict.
+function auto21ExcludedFamilies95(){
+ const groups=new Map();
+ for(const r of maleRows())if(isOwned(r)){
+  const base=normalize(r.name||splitName(r.id).name).toLowerCase();
+  if(!groups.has(base))groups.set(base,[]);groups.get(base).push(r);
+ }
+ const excluded=[];
+ for(const [base,members] of groups){
+  if(members.length<3)continue;
+  let best=0;
+  for(let i=0;i<members.length;i++)for(let j=i+1;j<members.length;j++)for(let k=j+1;k<members.length;k++){
+   const factorSet=new Set([...(members[i].factors||[]),...(members[j].factors||[]),...(members[k].factors||[])]);
+   best=Math.max(best,factorSet.size);
+  }
+  if(best>=6)continue;
+  const unverified=members.some(m=>!m.factors?.length||(master.length&&m.isSeed));
+  excluded.push({base,count:members.length,maximumKinds:best,unverified});
+ }
+ return excluded.sort((a,b)=>b.maximumKinds-a.maximumKinds||a.base.localeCompare(b.base,'ja'));
+}
+function auto21ExclusionHtml95(){
+ const excluded=auto21ExcludedFamilies95();
+ if(!excluded.length)return '<p class="muted">因子種類不足で除外した、同名3頭以上の所持グループはありません（探索上限・祖先条件は別途検証）。</p>';
+ return `<p class="muted">3頭の登録因子を合計しても6種類に届かないため、至高3×4×5の一次候補から外れる同名グループです。4頭構成や未登録因子は別途検証します。</p><div class="metrics">`+
+  excluded.slice(0,20).map(x=>chip(`${x.base}：所持${x.count}登録・最大${x.maximumKinds}種類${x.unverified?'（因子未確認を含む）':''}`,'warn')).join('')+
+  `</div>${excluded.length>20?`<p class="muted">ほか${excluded.length-20}グループ</p>`:''}`;
+}
 let auto21Candidates=[],auto21LastPlanId='';
 function auto21RefreshCandidates(){
  const sel=$('auto21Horse');if(!sel)return;
@@ -2945,6 +3022,7 @@ function auto21RefreshCandidates(){
  $('auto21CandidateNote').textContent=auto21Candidates.length?
    `取得済みの至高一次候補${auto21Candidates.length}組／${families.length}馬名。馬名を選ぶと因名セットを内部比較します（1馬名最大24組・全体240組）。権利数0も対象。外部・ゲーム内成立は未確認です。`:
    (Object.values(state.owned).filter(v=>v?.owned).length===0?'この端末は所持0頭からの新規開始です。データ管理で公開CSVを読み込み、種牡馬図鑑から所持馬を登録してください。PCの所持情報は自動同期されません。':'取得済みの同名3頭・因子6種類以上の候補がありません。公開マスター・所持チェックを確認してください。');
+ const exclusions=$('auto21Exclusions95');if(exclusions)exclusions.innerHTML=auto21ExclusionHtml95();
 }
 
 function auto21SetResearch(p,base){
@@ -3527,6 +3605,23 @@ function mild94MatingStages(plan){
  }
  return stages;
 }
+function mild96VariantHtml(plan){
+ const x=plan?.mild96;if(!x||x.version!==96)return '';
+ const list=(x.considered||[]).map(r=>`<tr><td>${esc(r.id)}</td><td>${esc((r.factors||[]).join('・')||'未収録')}</td><td>${esc(r.rights)}</td><td>${esc(r.checked31?'再検査済み':'不採用')}</td></tr>`).join('');
+ return `<details class="a21-flow"><summary>v96｜締め肌の父仕込み・同名異因名の比較（${esc(x.checked)}件）</summary>
+ <p>採用：<b>${esc(x.chosen)}</b> ／ 比較前：${esc(x.previous)} ／ ${x.changed?'同名異因名を変更':'比較の結果、維持'}。</p>
+ <p class="muted">${esc(x.caveat)}</p><div class="pedigree-scroll"><table class="detailtbl"><thead><tr><th>比較した取得済み種牡馬</th><th>本人因子</th><th>登録権利</th><th>再検査</th></tr></thead><tbody>${list}</tbody></table></div>
+ <p class="muted">締め肌の父を1代仕込むDDSルートのみ対象。ゲーム内成立確定や能力値予想ではありません。権利0の候補も検査対象です。</p></details>`;
+}
+function mild95SiblingHtml(plan){
+ const a=plan?.mild95;
+ if(!a)return '';
+ const status=a.blocked?'既知の全兄弟姉妹の衝突あり':'公開血統の既知ペアのみ照合済み（未網羅）';
+ return `<details class="a21-flow"><summary>v95｜至高・全兄弟姉妹の追加チェック：${esc(status)}</summary>
+  <p>${esc(a.status||'未確認')}</p>
+  <p class="muted">${esc(a.caveat||'母系の隠れた牝馬などは未確認です。')} <a href="https://note.com/huh_ds/n/n0eb8a439d3f3" target="_blank" rel="noopener">根拠：ふふ牧場のプレイヤー検証</a>（2026-11-16確認）</p>
+  </details>`;
+}
 function mild94ReleaseHtml(plan){
  const a=plan?.mild94;if(!a)return '';
  const anchors=(a.anchors||[]).map(x=>`${esc(x.id)}〔${esc(x.factors.join('・')||'因子未収録')}〕`).join(' ／ ');
@@ -3630,7 +3725,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild79CacheHtml(plan)}
  ${mild85ExtraHtml(plan)}
  ${mild87GlobalHtml(plan)}
- ${mild94ReleaseHtml(plan)}
+ ${mild94ReleaseHtml(plan)}${mild96VariantHtml(plan)}
  ${mild93AuditHtml(plan)}
  ${mild88CoverageHtml(plan)}
  ${mild89CoverageHtml(plan)}
@@ -3987,6 +4082,7 @@ function auto21Create(){
    return;
   }
   auto21SetResearch(draft,base);
+  if(mode==='mild'&&base.variant96)draft.mild96={...base.variant96};
   if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildRank78){
    draft.mild78=window.DabimasMildRank78.snapshot(base,goal,window.DabimasMildFinish610);
    const choice=ranked[0];
@@ -4193,15 +4289,17 @@ function auto21Create(){
     stageResolver:n=>chain09Parents(saved,n)});
    const expected=mild58Trial?{perfect:mild58.end?.perfect,superPerfect:mild58.end?.superPerfect,blocked:false}:base.theory66;
    const actual=currentParentTheory68()?.inspect?.(closing?.ped)||null;
+   const siblingAudit=window.DabimasMildSiblings95?.inspect?.({plan:saved,pedigree:ending?.ped});
    const check=window.DabimasMildRelease94?.assess({plan:saved,pedigree:ending?.ped,gate,
     closing:{...closing,step:closingStep,theory:actual},expected,
-    stages:mild94MatingStages(saved),inventory:state.owned});
+    stages:mild94MatingStages(saved),inventory:state.owned,siblings:siblingAudit});
    if(!check?.ok){
     if(mildRollback){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;}
     out.innerHTML=`<div class="notice warn"><b>v94 最終保存前検査で停止：</b>${esc(check?.errors?.slice(0,5).join('／')||'検査モジュールが利用できません')}。今回のプランと仮馬は取り消し、既存保存データは変更しません。</div>`;
     return;
    }
    saved.mild94=check;
+   saved.mild95=siblingAudit;
    saved.mild93=mild93Audit(viableAnchorTrials,initial,base,goal,routeChoice,fast);
   }
   const chosenQuality=auto35Quality(pedigree,saved);

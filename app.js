@@ -888,7 +888,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3439,6 +3439,18 @@ function external103Html(plan){
  ${r.issues.length?`<p class="notice warn">要確認：${esc(r.issues.join('／'))}</p>`:''}
  <p class="muted">因子未収録位置：${esc(r.unknownFactors.join('、')||'なし')}。異因名未収録位置：${esc(r.unknownVariants.join('、')||'なし')}。異因名未収録は通常祖先にもあり、すべてが配合不成立を意味するものではありません。外部照合・ゲーム内成立は未確認です。</p></details>`;
 }
+function mild104Html(plan){
+ if(plan?.autoDesign21?.mode!=='mild'||!plan?.externalReview48)return '';
+ const api=window.DabimasMildDistanceAudit104;if(!api?.review)return '';
+ const d=api.review(plan.externalReview48,{race:plan.autoDesign21.race,goal:plan.goal});
+ const label={speed:'短距離寄り',stamina:'中長距離寄り',balance:'中間距離',unknown:'未判定'};
+ const scored=Object.entries(d.indicators).map(([g,n])=>`${esc(GOAL_LABELS[g]||g)}：${esc(n)}`).join(' ／ ');
+ return `<details class="a21-flow"><summary>v104｜距離別の既知因子比較（研究参考・能力予測ではありません）</summary>
+ <p>目標：${esc(plan.autoDesign21.race||'未確認')} ／ 選択方針：${esc(GOAL_LABELS[d.goal]||d.goal)} ／ 距離から見た比較軸：${esc(label[d.emphasis])}。</p>
+ ${d.goalDiffersFromDistanceLens?'<p class="notice warn">目標距離と選択した能力方針は異なる比較軸です。距離を変更しても同じ能力方針なら同じ血統が選ばれることがあります。方針は自動変更しません。</p>':''}
+ <p>最終産駒の登録祖先 ${esc(d.registeredSlots)}/31枠・因子未収録 ${esc(d.unknownFactorSlots)}枠。既知因子の仮重み比較：${scored}。</p>
+ <p class="muted">${esc(d.caveat)} 対象距離は至高成立や最終産駒の得意距離の確定条件ではありません。</p></details>`;
+}
 function external48Download(plan){
  const api=window.DabimasExternalReview48,report=plan?.externalReview48;
  if(!api||!report){alert('このプランには外部照合用の血統情報がありません。v4.8以降に自動生成したプランで利用してください。');return;}
@@ -3839,6 +3851,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild87GlobalHtml(plan)}
  ${mild94ReleaseHtml(plan)}${mild96VariantHtml(plan)}
  ${mild93AuditHtml(plan)}
+ ${mild104Html(plan)}
  ${mild88CoverageHtml(plan)}
  ${mild89CoverageHtml(plan)}
  ${mild78EvidenceHtml(plan)}
@@ -4451,6 +4464,10 @@ function auto21Create(){
     bothSideNames:evidence37.bothSideNames??null,fullyDocumented:evidence37.fullyDocumented??null,
     unresolvedCrossNames:evidence37.unresolvedCrossNames??null,verifiedTheory:false}};
   saved.externalReview48=external48Snapshot(saved,pedigree,parents.sire,parents.mare);
+  // v104: read-only comparison, no extra persisted schema or simulated SP/ST.
+  if(mode==='mild'&&window.DabimasMildDistanceAudit104&&!saved.externalReview48){
+   console.warn('v104: 距離別根拠監査は血統表未収録のため省略');
+  }
   // v97: commit only a plan whose ACTUAL final matings reproduce the saved
   // intended race, goal, 31-slot pedigree and closing-mare family. Save the
   // immutable comparison fingerprint, then re-evaluate live on every open.

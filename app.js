@@ -888,7 +888,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3209,10 +3209,26 @@ function hard23Save(p,t,goal,summary={},options={}){
  }
  const slots=copy.routeDraft.slots,ms=ch.mares,x=ch.xId;
  const texts=[`${slots.g3} × ${ms[1]} → A1牡`,`A1牡 × ${ms[2]} → A2牡`,`${slots.g4} × ${ms[3]} → B1牡`,`B1牡 × ${ms[4]} → B2牡`,`${slots.g5} × ${ms[5]} → C1牡`,`C1牡 × ${ms[6]} → C2牝`,`${x} × C2牝 → C3牝`,'B2牡 × C3牝 → M牝','A2牡 × M牝 → 公式BC候補'];
- copy.steps=copy.steps.slice(0,9).map((s,i)=>({...s,cross:texts[i],done:false,result:'',minSP:'',minST:'',...(i<5?{wantedFactors:v27FactorGoal(copy)}:{})}));
+ copy.steps=Array.from({length:9},(_,i)=>({...((copy.steps||[])[i]||makeStep('工程'+(i+1),texts[i],'不問','仮設計。ゲーム内成立・能力は未確認')),cross:texts[i],done:false,result:'',minSP:'',minST:'',...(i<5?{wantedFactors:v27FactorGoal(copy)}:{})}));
  copy.note=(copy.note?copy.note+'\n':'')+`【v4.0】工程効率で再評価。5代に残る仕込み${extras}工程＋基本9工程。2因子種牡馬と補助Xの仕込みにも対応。研究用評価${t.metrics.score}。ニトロ・実SP/ST・至高成立未確認。候補枝数を制限した部分探索。追加工程は研究評価の実質改善を要する。`;
  copy.autoDesign21={...(copy.autoDesign21||{}),mode:options.mode==='mild'?'mild':'hard',searchStage:options.mode==='mild'?`v5.8 母系1代仕込み・${t.stages}工程（限定探索）`:`v2.4 5代逆算・可変${t.stages}工程（候補数制限あり）`,confirmedTheory:false};
  state.plans.unshift(copy);state.homebreds.push(...records);
+ // v94: In the 10-step MILD branch, trial foal names (e.g. __h23_foal_1)
+ // must never remain as ancestors of the *saved* foals. Rebuild the nine
+ // actual saved links in dependency order, after the extra mare is connected.
+ // Otherwise the saved parent and offspring pedigrees disagree even though
+ // the exploration trial itself had 31/31 names. All changes remain staged.
+ if(options.mode==='mild'){
+  for(let n=1;n<=9;n++){
+   const pair=chain09Parents(copy,n),r=records.find(x=>x.planId===copy.id&&x.stepNo===n);
+   if(!r||!pair.ready||pair.ped?.known!==31||pair.ped?.conflicts?.length){
+    state.plans.shift();state.homebreds.splice(-records.length,records.length);
+    return {error:`工程${n}の保存血統が親馬から再生成できません：${(pair.problems||[]).slice(0,2).join('／')}`};
+   }
+   r.fatherId=pair.sireId;r.motherId=pair.mareId;
+   r.ancestry=pair.ped.rows.map(a=>({path:a.path,horse:a.name,factors:[...(a.factors||[])],line:a.line||'',factorVariant:a.factorVariant||'',parentSystem:a.parentSystem||''}));
+  }
+ }
  if(!persist()){state.plans.shift();state.homebreds.splice(-records.length,records.length);return {error:'端末保存に失敗したため、新規プランと仮馬を取り消しました'};}
  return {id:copy.id};
 }
@@ -3494,6 +3510,34 @@ function production63Html(plan){
  ただし、追加準備で使う種牡馬の権利数、同一権利の複数回使用・母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
  <ul>${prepLists}${list}</ul><p class="muted">締め肌の超完璧・完璧、最終至高はゲーム内で必ず確認してください。表示値は現在のブラウザの登録情報に基づきます。未確認の能力値を予想しません。</p></details>`;
 }
+// v94 | Build an explicit, read-only mating list from the FINAL saved plan.
+// Unlike an exploration trial, this includes any retained one-generation
+// preparation and the actual parents after verified real-horse reuse.
+function mild94MatingStages(plan){
+ const stages=[];
+ const add=(phase,id,reused=false)=>{
+  const sire=findParentHorse(id);
+  stages.push({phase,sireId:id||'',sireType:sire?.isHomebred||String(id||'').startsWith('自家製:')?'homebred':sire?'public':'unknown',reused});
+ };
+ for(const [i,x] of mild69PrepStages(plan).entries())add(`追加準備${i+1}`,x.info?.fatherId);
+ for(const [i,x] of (plan?.hard23?.preparations||[]).entries())add(`追加仕込み${i+1}`,x.father);
+ for(let n=1;n<=9;n++){
+  const pair=chain09Parents(plan,n),already=chain09Output(plan,n);
+  add(`工程${n}`,pair.sireId,already.reused===true);
+ }
+ return stages;
+}
+function mild94ReleaseHtml(plan){
+ const a=plan?.mild94;if(!a)return '';
+ const anchors=(a.anchors||[]).map(x=>`${esc(x.id)}〔${esc(x.factors.join('・')||'因子未収録')}〕`).join(' ／ ');
+ const warning=(a.warnings||[]).length?`<p class="notice warn"><b>権利の準備：</b>${esc(a.warnings.join('／'))}</p>`:'';
+ return `<details class="a21-flow" open><summary>v94｜最終保存案の再検査：${a.ok?'血統と締め肌の一次条件を再確認':'要再確認'}（ゲーム内未確認）</summary>
+ <p><b>採用した指定3頭：</b>${anchors||'未確認'}。登録因子 ${esc(a.anchorFactorKinds??'未確認')}種類、最終血統 ${esc(a.finalRows)}/31枠、追加仕込みを含む記録工程 ${esc(a.stagesChecked)}件。</p>
+ <p><b>締め肌（工程${esc(a.closingStep??'未確認')}）：</b>探索時 完璧${esc(a.expectedPerfect)}／超完璧${esc(a.expectedSuperPerfect)} → <b>最終連結後 完璧${esc(a.actualPerfect)}／超完璧${esc(a.actualSuperPerfect)}</b>。ここでの「成立」は公開血統データからの一次判定です。</p>
+ <p class="muted">登録所持馬の予定種付けは延べ${esc(a.plannedPublicUses)}回です。所持馬でも権利数0は探索対象から除外していません。</p>
+ ${warning}${a.errors?.length?`<p class="notice warn">要修正：${esc(a.errors.join('／'))}</p>`:''}
+ <p class="muted">${esc(a.caveat)}</p></details>`;
+}
 // v93 | Candidate selection evidence. This is a scoped bounded-search receipt,
 // not a game-verified strength ranking or a claim of exhaustive optimality.
 function mild93Audit(trials,selectedTrial,selectedCandidate,goal,choice,fast){
@@ -3531,12 +3575,12 @@ function mild93Audit(trials,selectedTrial,selectedCandidate,goal,choice,fast){
 }
 function mild93AuditHtml(plan){
  const a=plan?.mild93;if(!a)return '';
- const row=(x,first)=>`<tr><td>${first?'<b>採用</b>':'代案'}</td><td>${esc(x.anchor)}<br><small>${esc((x.variants||[]).join('・'))}</small><br><small>登録因子 ${esc(x.anchorFactorKinds??'未確認')}種類：${(x.factorRows||[]).map(r=>esc((r.factors||[]).join('・')||'未収録')).join(' ／ ')}</small></td><td>${esc(x.routeLabel)}</td><td>${esc(x.theory)}</td><td>${esc(x.additionalBirths)}</td><td>${esc(x.independentCrosses??'未計算')}</td></tr>`;
+ const row=(x,first)=>`<tr><td>${first?'<b>採用基礎案</b>':'別の基礎案'}</td><td>${esc(x.anchor)}<br><small>${esc((x.variants||[]).join('・'))}</small><br><small>登録因子 ${esc(x.anchorFactorKinds??'未確認')}種類：${(x.factorRows||[]).map(r=>esc((r.factors||[]).join('・')||'未収録')).join(' ／ ')}</small></td><td>${esc(x.routeLabel)}</td><td>${esc(x.theory)}</td><td>${esc(x.additionalBirths)}</td><td>${esc(x.independentCrosses??'未計算')}</td></tr>`;
  const c=a.chosen;
- return `<details class="a21-flow" open><summary>v93｜マイルド候補を比較：31枠を確認できた基礎案${esc(a.reviewed)}件</summary>
+ return `<details class="a21-flow"><summary>v93｜一次基礎案の比較：31枠を確認できた候補${esc(a.reviewed)}件</summary>
  <p class="muted">DDS ${esc(a.validRoutes?.dds||0)}件／DSS ${esc(a.validRoutes?.maternal||0)}件／旧ルート ${esc(a.validRoutes?.paternal||0)}件。${a.fast?'高速限定探索':'詳細探索'}で、選んだ中心種牡馬・異因名・締め肌理論・準備回数を確認します。</p>
  <div style="overflow-x:auto"><table class="detailtbl"><thead><tr><th>位置</th><th>中心種牡馬・異因名3頭</th><th>経路</th><th>締め肌</th><th>追加準備</th><th>記録済み独立クロス</th></tr></thead><tbody>${c?row(c,true):''}${(a.alternatives||[]).map(x=>row(x,false)).join('')||'<tr><td colspan="6">比較できる別案なし</td></tr>'}</tbody></table></div>
- <p class="muted">${esc(a.scope)} ${esc(a.caveat)} この一覧は<b>最終的な強さの順位ではありません</b>。採用案を含む一次候補のみの記録であり、代案の研究用相対評価が高くても最終採用とは限りません。</p></details>`;
+ <p class="muted">${esc(a.scope)} ${esc(a.caveat)} この一覧は<b>最終保存プランの評価結果ではありません</b>。一次候補の比較後に名牝・補助Xが差し替えられるため、最終案はv94の再検査欄で確認してください。</p></details>`;
 }
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
@@ -3586,6 +3630,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild79CacheHtml(plan)}
  ${mild85ExtraHtml(plan)}
  ${mild87GlobalHtml(plan)}
+ ${mild94ReleaseHtml(plan)}
  ${mild93AuditHtml(plan)}
  ${mild88CoverageHtml(plan)}
  ${mild89CoverageHtml(plan)}
@@ -4031,10 +4076,15 @@ function auto21Create(){
    // Build all nine offspring in memory first. A missing parent must not
    // leave an attractive-looking partial production plan in persistent data.
    if(mild58Trial){
-    // The established variable-stage saver records the preparation's mother,
-    // father and every descendant. It persists atomically; no partial edits.
-    const created=hard23Save(draft,mild58Trial,goal,{tested:mild58.tested},{mode:'mild'});
-    if(created.error){out.innerHTML=`<div class="notice warn">母系1代仕込みの保存に失敗：${esc(created.error)}</div>`;return;}
+    // v94: The 10-step branch must also pass the post-assembly release gate
+    // BEFORE any localStorage commit. Stage in memory and roll back on error.
+    mildRollback={plans:state.plans.slice(),homebreds:state.homebreds.slice()};
+    stagingAuto21=true;
+    let created;
+    try{created=hard23Save(draft,mild58Trial,goal,{tested:mild58.tested},{mode:'mild'});}
+    finally{stagingAuto21=false;}
+    if(created.error){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;
+     out.innerHTML=`<div class="notice warn">母系1代仕込みの保存前検査に失敗：${esc(created.error)}</div>`;return;}
     saved=getPlan(created.id);pedigree=mild58Trial.final;
     parents={sire:mild58Trial.finalSire,mare:mild58Trial.finalMare,stages:10,limited:mild58.limited,
      searchNote:'v5.8：工程6の名牝に1代仕込み。工程8の超完璧・完璧が確認でき、研究指数も下がらない候補のみ選択。ゲーム内成立・産駒能力は未確認。'};
@@ -4089,15 +4139,6 @@ function auto21Create(){
       anchorFactorKinds:inspection.anchorFactorKinds,
       distinctVariants:inspection.distinctVariants,
       fullSiblingChecked:false,gameVerified:false};
-     // Replacing a prerequisite with a real horse must NOT inherit the
-     // research trial's closing theory without rechecking the actual mating.
-     if(!problems.length&&isMaternalDDS67(draft)){
-      const close=chain09Parents(draft,2);
-      const current=currentParentTheory68()?.inspect?.(close?.ped);
-      if(!close.ready||!current||current.blocked||
-       current.perfect!==base.theory66?.perfect||current.superPerfect!==base.theory66?.superPerfect)
-       problems.push('実馬を連結した締め肌の完璧・超完璧条件が元の採用案と一致しません');
-     }
     }
    }catch(error){problems.push(error.message||'仮連結処理に失敗');}
    finally{stagingAuto21=false;}
@@ -4144,7 +4185,25 @@ function auto21Create(){
    draft.mildAcceptance51=mild84Acceptance||{version:52,status:"全9工程の親子血統と一次条件検査通過（ゲーム内未確認）",gameVerified:false};
    }
   }
-  if(mode==='mild')saved.mild93=mild93Audit(viableAnchorTrials,initial,base,goal,routeChoice,fast);
+  if(mode==='mild'){
+   const ending=chain09Parents(saved,9),closingStep=chain09ClosureStep(saved),closing=chain09Parents(saved,closingStep);
+   const gate=window.DabimasMildGate51?.inspect(saved,ending?.ped,state.homebreds,{
+    flowGuard:window.DabimasFlowGuard41,reuseApi:window.DabimasCoreReuse76||window.DabimasReuse50,
+    validation:window.DabimasResearchValidation38,lineage:window.DabimasMildLineage52,
+    stageResolver:n=>chain09Parents(saved,n)});
+   const expected=mild58Trial?{perfect:mild58.end?.perfect,superPerfect:mild58.end?.superPerfect,blocked:false}:base.theory66;
+   const actual=currentParentTheory68()?.inspect?.(closing?.ped)||null;
+   const check=window.DabimasMildRelease94?.assess({plan:saved,pedigree:ending?.ped,gate,
+    closing:{...closing,step:closingStep,theory:actual},expected,
+    stages:mild94MatingStages(saved),inventory:state.owned});
+   if(!check?.ok){
+    if(mildRollback){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;}
+    out.innerHTML=`<div class="notice warn"><b>v94 最終保存前検査で停止：</b>${esc(check?.errors?.slice(0,5).join('／')||'検査モジュールが利用できません')}。今回のプランと仮馬は取り消し、既存保存データは変更しません。</div>`;
+    return;
+   }
+   saved.mild94=check;
+   saved.mild93=mild93Audit(viableAnchorTrials,initial,base,goal,routeChoice,fast);
+  }
   const chosenQuality=auto35Quality(pedigree,saved);
   const evidence37=auto37Evidence(pedigree,saved);
   saved.autoDesign21={createdAt:nowISO(),mode,goal,race,autoAnchor45:{enabled:autoPick||familyPick,selectionMode:selectionInfo.mode,requestedFamily:selectionInfo.family||null,

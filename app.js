@@ -1827,7 +1827,8 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
    rescueTrigger=bestTheoryGrade===3?'第1枠で超完璧候補を確認（追加不要）':
     bestTheoryGrade===2?'第1枠で完璧候補のみ（超完璧を追加探索）':'第1枠で完成候補なし（追加探索）';
   }
-  if(!inv.shouldInspect90(recipeIndex,bestTheoryGrade,primaryLimit,rescueLimit))break;
+  if(!(typeof inv.shouldInspect90==='function'?inv.shouldInspect90(recipeIndex,bestTheoryGrade,primaryLimit,rescueLimit):
+   (recipeIndex>=0&&recipeIndex<primaryLimit+rescueLimit&&(recipeIndex<primaryLimit||bestTheoryGrade<3))))break;
   if(results.length>=completeLimit&&bestTheoryGrade===3)break;
   const recipe=inverse.candidates[recipeIndex];
   if(recipeIndex>=primaryLimit)rescueInspected++;
@@ -1895,7 +1896,8 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
     reject88.completeCandidates++;
     const grade=opt66TheoryRank(trial);
     bestTheoryGrade=Math.max(bestTheoryGrade,grade);
-    const retained=inv.retainStrongest90(results,trial,completeLimit,opt66TheoryRank);
+    const retained=typeof inv.retainStrongest90==='function'?inv.retainStrongest90(results,trial,completeLimit,opt66TheoryRank):
+     [...results,trial].sort((a,b)=>opt66TheoryRank(b)-opt66TheoryRank(a)).slice(0,completeLimit);
     results.splice(0,results.length,...retained);
     break;
    }

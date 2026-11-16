@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),read=n=>fs.readFileSync(path.join(root,n),'utf8');
+const src=read('app.js'),html=read('index.html'),sw=read('sw.js');
+assert.match(src,/typeof inv\.shouldInspect90==='function'/);
+assert.match(src,/recipeIndex<primaryLimit\+rescueLimit/);
+assert.match(src,/typeof inv\.retainStrongest90==='function'/);
+assert.match(html,/research-inverse-mild-v69\.js\?v=100/);
+assert.match(html,/app\.js\?v=100/);
+assert.match(html,/｜v100｜取得済み種牡馬/);
+assert.match(sw,/dbms-v100-1/);
+assert(!sw.includes("if(!dest){e.respondWith(caches.match"),'scripts must be network-first');
+const budget=(index,grade,primary,rescue)=>index>=0&&index<primary+rescue&&(index<primary||grade<3);
+assert(budget(100,2,100,60));assert(!budget(100,3,100,60));assert(!budget(160,0,100,60));
+const rank=x=>x.grade;
+const prior=[{grade:2},{grade:1}];const ret=[...prior,{grade:3}].sort((a,b)=>rank(b)-rank(a)).slice(0,2);
+assert.deepEqual(ret.map(x=>x.grade),[3,2]);assert.deepEqual(prior.map(x=>x.grade),[2,1]);
+console.log('PASS v100 old-module compatibility, network-first SW, bounded rescue and replacement');

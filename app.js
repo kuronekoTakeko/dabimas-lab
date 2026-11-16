@@ -3879,17 +3879,32 @@ function evidence37Html(ped,plan){
 function auto21Create(){
  const out=$('auto21Result'),run=$('auto21Run');
  const selection=$('auto21Horse').value;
- const selectionInfo=window.DabimasFamilySearch46?.resolve(auto21Candidates,selection,24,6);
+ let selectionInfo=window.DabimasFamilySearch46?.resolve(auto21Candidates,selection,24,6);
  const autoPick=selectionInfo?.mode==='auto';
  const familyPick=selectionInfo?.mode==='family';
  let selected=null;
  if(!selectionInfo?.pool?.length){out.innerHTML='<div class="notice warn">取得済みの至高候補を先に確認してください。</div>';return;}
  if(!master.length){out.innerHTML='<div class="notice warn">血統の自動生成には公開マスターが必要です。「データ管理」からCSVを読み込んでください。</div>';return;}
  const goal=$('auto21Goal').value,mode=$('auto21Mode').value;
+ // v99: Prevent a misleading 'complete' design when imported mare pedigrees
+ // or the chosen stallion are absent. Other unmatched owned IDs remain
+ // registered and eligible as soon as their real public data is imported.
+ const coverage99=mode==='mild'?window.DabimasMildCoverage99?.inspect?.({
+  owned:state.owned,master,sexOf:horseSex,selected:selectionInfo.pool.flatMap(x=>x?.set||[])
+ }):null;
+ if(mode==='mild'&&!coverage99){out.innerHTML='<div class="notice warn">v99のCSV診断が読み込まれていません。再読み込みしてください。</div>';return;}
+ if(coverage99&&!coverage99.canRun){out.innerHTML=`<div class="notice warn"><b>v99｜実データ不足のため設計を開始できません。</b> ${esc(coverage99.errors.join('／'))}。データ管理で公開CSVを更新してください。所持情報・保存プランは変更しません。</div>`;return;}
+ if(coverage99){
+  const recorded=new Set(master.map(r=>key(r.id)));
+  selectionInfo={...selectionInfo,pool:selectionInfo.pool.filter(x=>(x.set||[]).every(r=>recorded.has(key(r.id))))};
+  if(!selectionInfo.pool.length){out.innerHTML='<div class="notice warn">選択した起点候補の血統が公開CSVに収録されていません。所持情報は維持しています。</div>';return;}
+ }
+ const coverageBanner99=coverage99?`<div class="notice"><b>v99｜探索前の公開データ診断</b>　所持${coverage99.ownedCount}頭／CSV一致${coverage99.matched}頭／祖先・因子収録${coverage99.usable}頭（未収録${coverage99.missing.length}・不完全${coverage99.incomplete.length}）。公開繁殖牝馬${coverage99.mares}頭（祖先15枠収録${coverage99.completeMares}頭）。権利0：${coverage99.zeroRights}頭（候補から除外しません）。${coverage99.warnings.length?esc(coverage99.warnings.join('／'))+'。':''}<br>${esc(coverage99.caveat)}</div>`:'';
+
  const routeChoice=$('auto21Route')?.value||'maternal-auto';
  const race=$('auto21Race').value;
  const fast=mode==='mild'&&($('auto21Fast')?.checked!==false);
- run.disabled=true;out.innerHTML='<p class="notice">名牝と取得済み種牡馬から血統を試算しています…</p>';
+ run.disabled=true;out.innerHTML=coverageBanner99+'<p class="notice">名牝と取得済み種牡馬から血統を試算しています…</p>';
  // Allow the progress text to paint before the CPU-only bounded search.
  setTimeout(async ()=>{
  const yieldToBrowser=()=>new Promise(resolve=>setTimeout(resolve,0));
@@ -4438,7 +4453,7 @@ function auto21Create(){
   if(mode==='mild')mildCommitted=true;
   auto21LastPlanId=saved.id;
   renderSavedPlans();
-  out.innerHTML=((autoPick||familyPick)?`<div class="notice"><b>v4.9 異因名・祖先配置の比較：</b>${esc(selectionInfo.family||'全馬名')}の一次候補${selectionInfo.available}組から${anchorTried}組・計${placementSearches}配置を名牝6頭・補助Xと合わせて比較し、${esc(selected.base)}（${esc(selected.set.map(r=>r.variant||r.id).join('・'))}）を採用。${mode==='hard'?`本気型は異因名・祖先配置を横断して${hardCompared}案を追加仕込みまで比較。`: ''}成立はゲーム内未確認、全血統の完全網羅探索でもありません。</div>`:'')+auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');
+  out.innerHTML=coverageBanner99+((autoPick||familyPick)?`<div class="notice"><b>v4.9 異因名・祖先配置の比較：</b>${esc(selectionInfo.family||'全馬名')}の一次候補${selectionInfo.available}組から${anchorTried}組・計${placementSearches}配置を名牝6頭・補助Xと合わせて比較し、${esc(selected.base)}（${esc(selected.set.map(r=>r.variant||r.id).join('・'))}）を採用。${mode==='hard'?`本気型は異因名・祖先配置を横断して${hardCompared}案を追加仕込みまで比較。`: ''}成立はゲーム内未確認、全血統の完全網羅探索でもありません。</div>`:'')+auto21Result(saved,pedigree,goal,mode,parents)+(errors.length?`<div class="notice warn">血統仮連結の一部が未完了：${esc(errors.join('、'))}。保存プランを開いて確認してください。</div>`:'');
   out.querySelector('#auto21OpenPlan').onclick=()=>{switchTab('library');showPlanEditor(saved.id);};
  }catch(e){
   // A late exception before the final commit must not leave staged mild records

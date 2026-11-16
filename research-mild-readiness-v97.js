@@ -50,7 +50,12 @@
   if(!finalFingerprint)errors.push('最終産駒の血統31枠が未完成・矛盾');
   if(!closingFingerprint)errors.push('締め肌を生産する交配の血統31枠が未完成・矛盾');
   if(release?.ok!==true)errors.push('保存直前の配合理論・至高一次判定を確認できません');
-  if(!siblings||siblings.version!==95||siblings.blocked)errors.push('既知の全兄弟姉妹チェック未完了、または衝突');
+  if(!siblings||siblings.version!==95)errors.push('既知の全兄弟姉妹チェックを実行できません（v95モジュールの読込・バージョンを確認）');
+  else if(siblings.blocked){
+   const details=(Array.isArray(siblings.conflicts)?siblings.conflicts:[]).map(c=>
+    String(c.anchor||'対象馬')+'／'+String(c.sibling||'全兄弟姉妹')+'（'+String(c.path||'位置不明')+'）');
+   errors.push('既知の全兄弟姉妹の衝突：'+(details.length?details.join('・'):'衝突情報が欠落（v95監査結果を確認）'));
+  }
   const plannedGoal=String(original.goal||''),plannedRace=String(original.race||'');
   const actualGoal=String(goal??plan?.goal??''),actualRace=String(race??plan?.target??'').replace(/^公式BC想定[：:]\s*/, '');
   if(!plannedGoal||plannedGoal!==actualGoal)errors.push('能力方針が自動設計時から変更されています（再探索が必要）');

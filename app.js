@@ -3648,9 +3648,18 @@ function mild97LiveReport(plan,compareSaved=true){
  }
  const final=chain09Parents(plan,9)?.ped,closing=chain09Parents(plan,chain09ClosureStep(plan))?.ped;
  const sibling=window.DabimasMildSiblings95?.inspect?.({plan,pedigree:final})||null;
- return api.assess({plan,matings,finalPed:final,closingPed:closing,
+ // Never silently fall back to the saved result: check the LIVE final pedigree.
+ // A different verdict at v94 and v97 must be diagnosed, not overridden.
+ const siblingVerdictChanged=plan?.mild95?.version===95&&sibling?.version===95&&
+   plan.mild95.blocked!==sibling.blocked;
+ const report=api.assess({plan,matings,finalPed:final,closingPed:closing,
   release:plan?.mild94,siblings:sibling,owned:state.owned,
   stored:compareSaved?plan?.mild97:null,requireSaved:compareSaved,goal:plan?.goal,race:plan?.target});
+ if(siblingVerdictChanged){
+  report.ok=false;
+  report.errors.unshift('v94保存前とv97再計算で全兄弟姉妹の判定が変化しました。親馬または血統の再連結を確認してください');
+ }
+ return report;
 }
 // v98: all mating pedigrees (including grafts) must remain unchanged after saving.
 function mild98LiveReport(plan,compareSaved=true){

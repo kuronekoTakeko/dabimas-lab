@@ -1,0 +1,26 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const api=require('../research-mild-readiness-v97.js');
+const paths=['S'];let layer=['S'];for(let d=2;d<=5;d++){layer=layer.flatMap(x=>['S'+x,'D'+x]);paths.push(...layer);}
+const ped={known:31,rows:paths.map((p,i)=>({path:p,name:'馬'+i, factors:[]})),conflicts:[]};
+const plan={steps:Array.from({length:9},()=>({})),autoDesign21:{mode:'mild',goal:'speed',race:'芝1200m'},goal:'speed',target:'公式BC想定：芝1200m'};
+const matings=Array.from({length:9},(_,i)=>({kind:'core',id:'C:'+(i+1),number:i+1,sireId:'X',mareId:'Y',sireType:'public',mareType:'public',ready:true,pedigreeKnown:31,problems:[]}));
+const common={plan,matings,finalPed:ped,closingPed:ped,release:{ok:true},owned:{x:{owned:true,rights:0}}};
+assert(api.assess({...common,siblings:{version:95,blocked:false}}).ok);
+const missing=api.assess({...common,siblings:null});
+assert(!missing.ok);assert.match(missing.errors.join('/'),/実行できません/);
+const blocked=api.assess({...common,siblings:{version:95,blocked:true,conflicts:[{anchor:'オルフェーヴル',sibling:'ドリームジャーニー',path:'SDS'}]}});
+assert(!blocked.ok);assert.match(blocked.errors.join('/'),/オルフェーヴル／ドリームジャーニー（SDS）/);
+const unknown=api.assess({...common,siblings:{version:95,blocked:true,conflicts:[]}});
+assert(!unknown.ok);assert.match(unknown.errors.join('/'),/衝突情報が欠落/);
+const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+assert(app.includes('siblingVerdictChanged'));
+assert(app.includes('report.ok=false;'));
+const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
+assert(index.includes('app.js?v=101')&&index.includes('research-mild-readiness-v97.js?v=101'));
+const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
+assert(sw.includes('dbms-v101-1'));
+console.log('PASS v101: distinct unavailability / known collision / missing collision detail / v94-v97 verdict-drift fail closed / cache bump');

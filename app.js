@@ -4404,6 +4404,13 @@ function auto21Create(){
     stageResolver:n=>chain09Parents(saved,n)});
    const expected=mild58Trial?{perfect:mild58.end?.perfect,superPerfect:mild58.end?.superPerfect,blocked:false}:base.theory66;
    const actual=currentParentTheory68()?.inspect?.(closing?.ped)||null;
+   // v102 deployment guard: the historical v101 differential package omitted
+   // research-mild-siblings-v95.js. Never interpret a missing auditor as PASS.
+   if(typeof window.DabimasMildSiblings95?.inspect!=='function'){
+    if(mildRollback){state.plans=mildRollback.plans;state.homebreds=mildRollback.homebreds;}
+    out.innerHTML='<div class="notice warn"><b>v102 必須モジュール未読込：</b>research-mild-siblings-v95.js が読み込めません。GitHubのリポジトリ直下にファイルが存在するか確認してください。全兄弟姉妹の検査は省略せず、今回の新規プランは保存しません。</div>';
+    return;
+   }
    const siblingAudit=window.DabimasMildSiblings95?.inspect?.({plan:saved,pedigree:ending?.ped});
    const check=window.DabimasMildRelease94?.assess({plan:saved,pedigree:ending?.ped,gate,
     closing:{...closing,step:closingStep,theory:actual},expected,

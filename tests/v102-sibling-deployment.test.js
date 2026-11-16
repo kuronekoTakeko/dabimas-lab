@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'); const fs=require('node:fs'); const vm=require('node:vm'); const path=require('node:path'); const base=path.resolve(__dirname,'..'); const read=n=>fs.readFileSync(path.join(base,n),'utf8');
+const html=read('index.html'), app=read('app.js'), sw=read('sw.js');
+assert.match(html,/research-mild-siblings-v95\.js\?v=102/); assert.match(html,/app\.js\?v=102/); assert.match(html,/v102/);
+assert.match(sw,/dbms-v102-1/); assert.match(app,/v102 必須モジュール未読込/);
+const sandbox={window:{},globalThis:{}};vm.runInNewContext(read('research-mild-siblings-v95.js'),sandbox);
+const api=sandbox.window.DabimasMildSiblings95;assert.equal(typeof api.inspect,'function');
+const clean=api.inspect({plan:{source:{members:[{name:'オルフェーヴル-天靭-'}]}},pedigree:{rows:[{name:'サンデーサイレンス',path:'SS'}]}});
+assert.equal(clean.version,95);assert.equal(clean.blocked,false); assert.equal(clean.exhaustive,false);
+const blocked=api.inspect({plan:{source:{members:[{name:'オルフェーヴル-天靭-'}]}},pedigree:{rows:[{name:'ドリームジャーニー-闘覇-',path:'DSS'}]}});
+assert.equal(blocked.blocked,true);assert.equal(blocked.conflicts[0].path,'DSS');
+console.log('PASS: v102 sibling asset / script reference / cache / guard / no-hit & known-collision');

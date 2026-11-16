@@ -3428,6 +3428,17 @@ function external48Snapshot(plan,ped,sire,mare){
  const s=parentPedigree20(sire),d=parentPedigree20(mare);
  return api.make({sire,mare,foalRows:ped.rows,sireRows:s.rows,mareRows:d.rows,planTitle:plan.title,anchorSlots:plan.routeDraft?.slots||{}});
 }
+function external103Html(plan){
+ const api=window.DabimasExternalReview48;
+ if(!api?.auditEvidence||!plan?.externalReview48)return '';
+ const r=api.auditEvidence(plan.externalReview48);
+ return `<details class="a21-flow"><summary>v103｜外部照合用31枠・異因名・因子の根拠監査</summary>
+ <p class="muted">登録祖先 ${r.registeredSlots}/31枠／最終産駒の因子未収録 ${r.unknownFactors.length}枠／異因名未収録 ${r.unknownVariants.length}枠。<b>31/31はゲーム内検証済みを意味しません。</b></p>
+ ${r.anchors.map(a=>`<p class="muted">${esc(a.key)}（${esc(a.target)}）：${esc(a.status)} ／ ${esc(a.rowName||'未収録')} ${esc(a.rowVariant||'未確認')}</p>`).join('')}
+ <p class="muted">父母双方に記録された同名祖先：${r.sharedNames.length}種類（有効な独立クロスとは限りません）。${esc(r.sharedNames.map(a=>a.name).join('、')||'記録上なし')}。</p>
+ ${r.issues.length?`<p class="notice warn">要確認：${esc(r.issues.join('／'))}</p>`:''}
+ <p class="muted">因子未収録位置：${esc(r.unknownFactors.join('、')||'なし')}。異因名未収録位置：${esc(r.unknownVariants.join('、')||'なし')}。異因名未収録は通常祖先にもあり、すべてが配合不成立を意味するものではありません。外部照合・ゲーム内成立は未確認です。</p></details>`;
+}
 function external48Download(plan){
  const api=window.DabimasExternalReview48,report=plan?.externalReview48;
  if(!api||!report){alert('このプランには外部照合用の血統情報がありません。v4.8以降に自動生成したプランで利用してください。');return;}
@@ -3801,6 +3812,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild97ReadinessHtml(plan)}
  ${mild56TheoryHtml(plan)}
  ${cross36Html(ped)}
+ ${external103Html(plan)}
  ${evidence37Html(ped,plan)}
  <p class="muted"><b>v3.5 候補選択基準：</b>祖先の欠損・衝突など、客観的な血統構造の不備が少ない候補を優先し、同等なら従来の研究用評価で比較します。因子未収録は因子なしと判定しません。<b>ゲーム内の至高成立・能力優劣は未検証です。</b></p>
  ${plan.mild66?`<div class="notice"><b>${isMaternalDDS67(plan)?'v6.9｜DDS8枠逆算ルート':'v6.6｜母側3代目の別ルート'}：</b>最終祖先 ${isMaternalDDS67(plan)?'DDS':'DSS'}／SSSS／SDSSS。実際の9工程を全て再連結し、近親回避・31枠・異因名と因子を照合。締め肌は工程2で、超完璧${esc(plan.mild66.evaluation?.superPerfect||'未確認')}／完璧${esc(plan.mild66.evaluation?.perfect||'未確認')}（部分的親系統）。<b>成立確定ではありません。</b>${isMaternalDDS67(plan)?'取得済み種牡馬→必要時1代仕込み→母系を逆算。9基本工程＋必要な追加準備のみです。':'名牝7枠の上限付き探索です。'}</div>`:''}

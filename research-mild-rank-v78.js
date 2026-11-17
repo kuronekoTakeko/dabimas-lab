@@ -4,6 +4,7 @@
  */
 (function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.DabimasMildRank78=api;})(typeof window!=='undefined'?window:globalThis,function(){'use strict';
  const safe=v=>Number.isFinite(Number(v))?Number(v):0;
+ const nitro=()=>typeof globalThis!=='undefined'?globalThis.DabimasMildNitro107:null;
  function grade(t){return t?.theory66?.blocked?0:t?.theory66?.superPerfect==='成立'?8:t?.theory66?.perfect==='成立'?7:0;}
  // A single extra preparation is acceptable ONLY when the full 31-slot
  // evidence shows an additional documented independent factor cross without
@@ -40,9 +41,13 @@
   // all candidates have been checked. This produces a stable ranking and
   // prevents candidate-by-candidate preference cycles.
   const tier=r=>safe(r.candidate?.additionalBirths)===0?1:
-   safe(r.candidate?.additionalBirths)===1&&r.oneExtra85?.approved?0:2;
+   safe(r.candidate?.additionalBirths)===1&&(r.nitro107?.approved||r.oneExtra85?.approved)?0:2;
   const tx=tier(a),ty=tier(b);if(tx!==ty)return tx-ty;
+  // Validated nitro improvement may justify one extra mating; do not
+  // let raw mating count erase documented stage gains.
+  if(tx===0&&ty===1)return -1;if(ty===0&&tx===1)return 1;
   const births=safe(x.additionalBirths)-safe(y.additionalBirths);if(births)return births;
+  const n=nitro();if(n?.compare){const d=n.compare(x,y,goal);if(d)return d;}
   if(typeof qualityCompare==='function'&&a.quality&&b.quality){
    const q=qualityCompare(a.quality,b.quality);if(q)return q;
   }

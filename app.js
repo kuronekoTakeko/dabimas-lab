@@ -413,6 +413,14 @@ function mild89CoverageHtml(plan){
  <p class="muted">中心種牡馬 ${esc(d.centerId||'未確認')}。${esc(d.caveat||'ゲーム内未確認。')}</p>
  </details>`;
 }
+function mild107NitroHtml(plan){
+ const x=plan?.mildNitro107;if(!x)return '';
+ const counts=x.counts||{},stages=x.stages||{};
+ return `<details class="a21-flow"><summary>v107｜マイルド型・短速長ニトロ段階（研究上の指標）</summary>
+ <p class="muted">指定タイプ：${esc(x.goal||'balance')}／短 ${esc(counts['短']??'未確認')}個（段階 ${esc(stages['短']??'未確認')}）・速 ${esc(counts['速']??'未確認')}個（段階 ${esc(stages['速']??'未確認')}）・長 ${esc(counts['長']??'未確認')}個（段階 ${esc(stages['長']??'未確認')}）。研究順位指数 ${esc(x.researchIndex??'未確認')}。</p>
+ <p class="muted">因子未収録 ${esc(x.missingFactorSlots??'未確認')}枠。短 4/6/8/9/10、速 4/8/12/16/20、長 3/6/9 の段階を採用しています。<b>プレイヤー研究による仮説であり、公式確定やゲーム内SP/ST・成立を意味しません。</b> 短はSPとSTの両面に関係する可能性があるため、指数をゲーム内能力に換算しません。追加工程の採否は理論・既知クロス・安全性と併せて判断します。</p>
+ </details>`;
+}
 function mild78EvidenceHtml(plan){
  const x=plan?.mild78;if(!x)return '';
  return `<details class="a21-flow"><summary>v7.8｜最終31枠の因子・独立クロス重視の比較</summary>
@@ -889,7 +897,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3869,6 +3877,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild104Html(plan)}
  ${mild88CoverageHtml(plan)}
  ${mild89CoverageHtml(plan)}
+ ${mild107NitroHtml(plan)}
  ${mild78EvidenceHtml(plan)}
  ${mild77TopologyHtml(plan)}
  ${plan.mild67?`<div class="notice"><b>v8.5｜中心種牡馬から締め肌DDS逆算：</b> ${plan.mild67.centerParentLines?.values?.length===2?`固定親系統 ${esc(plan.mild67.centerParentLines.values.join('・'))}（公開CSV由来、ゲーム内未確認）。`:''}工程1：選択した至高3代目の直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。追加準備は原則1工程まで、2工程案は採用対象外。ゲーム内成立確定ではありません。</div>`:''}
@@ -4026,6 +4035,7 @@ function auto21Create(){
      }
      for(const item of ranked){if((item.candidate.additionalBirths||0)!==1||!item.candidate.xPrep||item.candidate.marePrep)continue;
       const base=baselines.get(rank78.grade(item.candidate));
+      item.nitro107=base&&window.DabimasMildNitro107?.oneExtra?window.DabimasMildNitro107.oneExtra(item.candidate,base.candidate,{goal,finish:window.DabimasMildFinish610}):null;
       item.oneExtra85=base?rank78.oneExtraEvidence(item.candidate,base.candidate,{goal,finish:window.DabimasMildFinish610}):
        {version:85,approved:false,compared:false,gameVerified:false,reason:'同じ理論の9工程候補を今回の探索範囲で確認できない'};
      }
@@ -4240,6 +4250,7 @@ function auto21Create(){
   if(mode==='mild'&&base.variant96)draft.mild96={...base.variant96};
   if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildRank78){
    draft.mild78=window.DabimasMildRank78.snapshot(base,goal,window.DabimasMildFinish610);
+   if(window.DabimasMildNitro107?.inspect)draft.mildNitro107=window.DabimasMildNitro107.inspect(base,goal);
    const choice=ranked[0];
    if(mildGlobal87?.stats)draft.mild87={...mildGlobal87.stats,
     selectedFromGlobal:!!mildGlobal87.winner&&mildGlobal87.winner.trial===initial,

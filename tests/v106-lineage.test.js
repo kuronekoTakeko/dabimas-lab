@@ -1,0 +1,23 @@
+'use strict';const assert=require('node:assert/strict');
+const api=require('../research-lineage-options-v106.js');
+const P={Ro:'Royal Charger',Ne:'Nearctic',Ns:'Nasrullah',Sw:'Swynford',Ha:'Hampton'};
+const theory={canonical:x=>P[x]||Object.values(P).includes(x)&&x||null,lookup:()=>null};
+const horse=(id,paths,factors=[])=>({id,factors,ancestry:[...Object.entries(paths).map(([path,code])=>({path,parentSystem:P[code]})),...Array.from({length:15-Object.keys(paths).length},(_,i)=>({path:'Z'+i,horse:'unknown'+i}))]});
+// direct sire matching four distinct systems, one unknown sire, one invalid set
+const direct=horse('直接',{'SSDS':'Ro','SDDS':'Ne','DSDS':'Ns','DDDS':'Sw','S':'Ha','SDS':'Ro','DS':'Ne','DDS':'Sw'},['速','短']);
+const incomplete=horse('不明',{'SSDS':'Ro','SDDS':'Ne','DSDS':'Ns'},[]);
+const wrong=horse('不一致',{'SSDS':'Ro','SDDS':'Ne','DSDS':'Ns','DDDS':'Ha'},[]);
+let out=api.inspect({sires:[direct,incomplete,wrong],mares:[],theory});
+assert.equal(out.stats.directMatches,1);assert.equal(out.stats.unknownDirect,1);assert.equal(out.stats.notMatchingDirect,1);
+assert.equal(out.rows[0].fatherId,'直接');
+const prepDad=horse('父',{'SDS':'Ro','DDS':'Ne','S':'Ha','DS':'Ns'},['速']);
+const prepMum=horse('エンブレイスマイン',{'SDS':'Ns','DDS':'Sw','S':'Ro','DS':'Ha'},['短']);
+out=api.inspect({sires:[prepDad],mares:[prepMum],theory,goal:'speed'});
+assert.equal(out.stats.preparedInspected,1);assert.equal(out.stats.preparedMatches,1);
+assert.equal(out.rows[0].motherId,'エンブレイスマイン');assert.equal(out.rows[0].route,'自家製＋1工程');
+assert.equal(out.rows[0].sp,2);assert.equal(out.rows[0].interestingKnownDistinct,3);
+const no=api.inspect({sires:[prepDad],mares:[horse('未知',{'SDS':'Ns'})],theory});
+assert.equal(no.stats.unknownPrepared,1);assert.equal(no.stats.preparedMatches,0);
+const disabled=api.inspect({sires:[direct],theory,required:['Ro','Ne','Ns','Ns']});
+assert.ok(disabled.error);
+console.log('v106 lineage: PASS direct, prepared, missing, mismatch, duplicate check');

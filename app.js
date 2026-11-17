@@ -4526,11 +4526,23 @@ function auto21Create(){
  finally{run.disabled=false;}
  },25);
 }
+function lineage106Run(){
+ const target=$('lineage106Result'),api=window.DabimasLineageOptions106;
+ if(!target||!api)return;
+ if(!master.length||!parentRegistry68?.observed){target.textContent='pa親系統付き公開CSVが未取込です。データ管理から読み込んでください。所持登録だけでは判定できません。';return;}
+ const owned=maleRows().filter(r=>isOwned(r)),mares=mareRows(),goal=$('auto21Goal')?.value||'speed';
+ const report=api.inspect({sires:owned,mares,theory:currentParentTheory68(),required:['Ro','Ne','Ns','Sw'],goal,limit:25});
+ if(report.error){target.textContent=report.error;return;}
+ const s=report.stats;
+ const row=r=>`<tr><td>${esc(r.route)}</td><td>${esc(r.fatherId)}</td><td>${esc(r.motherId||'—')}</td><td>${esc(r.sp)} / ${esc(r.st)}</td><td>${esc(r.interestingKnownDistinct)}/4${r.interestingMissing?'（欠'+esc(r.interestingMissing)+'）':''}</td></tr>`;
+ target.innerHTML=`<p><b>一致 ${s.totalMatches}案</b>（直接 ${s.directMatches}／自家製1代 ${s.preparedMatches}）。所持登録 ${s.ownedTotal}頭、祖先15枠あり ${s.ownedWithPedigree}頭、公開牝馬 ${s.maresWithPedigree}頭。</p><p>検査：直接 ${s.directInspected}頭・1代仕込み ${s.preparedInspected}組。親系統不足：直接 ${s.unknownDirect}頭・仕込み ${s.unknownPrepared}組。見事系統の種類不一致：直接 ${s.notMatchingDirect}頭・仕込み ${s.notMatchingPrepared}組。</p><p class="muted">速・走・短 / 長・底・中 は父母の本人因子の参考本数（子の因子継承や能力予測ではありません）。現在の能力方針で参考順に表示、上位${s.showing}案。先に見事4系統だけをチェックしています。</p>${report.rows.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>ルート</th><th>所持父</th><th>母（仕込み）</th><th>SP/ST参考</th><th>面白の既知</th></tr></thead><tbody>${report.rows.map(row).join('')}</tbody></table></div>`:'<p>現在の公開CSVで4系統一致を確認できた候補はありません（データ不足による未確認候補は除外できません）。</p>'}<p class="muted">${esc(report.note)} 最終産駒のクロス・系統・親子関係・近親条件の検査を省略して成立と表示することはありません。</p>`;
+}
 function setupAuto21(){
  const run=$('auto21Run');if(!run)return;
  const race=$('auto21Race');race.innerHTML=AUTO21_RACES.map(([value,label])=>`<option value="${esc(value)}" ${value==='芝1600m'?'selected':''}>${esc(label)}</option>`).join('');
  $('auto21Goal').addEventListener('change',auto21RefreshCandidates);
  run.addEventListener('click',auto21Create);
+ $('lineage106Run')?.addEventListener('click',lineage106Run);
  auto21RefreshCandidates();
 }
 

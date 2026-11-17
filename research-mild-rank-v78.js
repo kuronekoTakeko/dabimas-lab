@@ -46,21 +46,29 @@
   // Validated nitro improvement may justify one extra mating; do not
   // let raw mating count erase documented stage gains.
   if(tx===0&&ty===1)return -1;if(ty===0&&tx===1)return 1;
-  const births=safe(x.additionalBirths)-safe(y.additionalBirths);if(births)return births;
+  // v109: Within the SAME theory and preparation-evidence tier, assess
+  // documented final-foal evidence BEFORE using the number of matings as a
+  // tie-break. The tier above already prevents an unapproved extra mating
+  // from beating a comparable direct candidate merely on raw factor totals.
+  // Factor counts have no claimed SP/ST conversion; compare recorded nitro
+  // stages only when annotation coverage is comparable.
   const n=nitro();if(n?.compare){const d=n.compare(x,y,goal);if(d)return d;}
+  const mx=finish?.metric?.(x,goal)||null,my=finish?.metric?.(y,goal)||null;
+  if(mx&&my){
+   // Avoid upgrading a candidate with worsened documented short-cross risk.
+   const axRisk=safe(mx.shortCrossRisk),byRisk=safe(my.shortCrossRisk);
+   if(axRisk!==byRisk)return axRisk-byRisk;
+   if(mx.independentCrossEvidence!==my.independentCrossEvidence)
+    return safe(my.independentCrossEvidence)-safe(mx.independentCrossEvidence);
+   if(mx.independentCrossEvidence>0&&my.independentCrossEvidence>0&&mx.crossFactorEvidence!==my.crossFactorEvidence)
+    return safe(my.crossFactorEvidence)-safe(mx.crossFactorEvidence);
+   if(mx.score!==my.score)return safe(my.score)-safe(mx.score);
+  }
   if(typeof qualityCompare==='function'&&a.quality&&b.quality){
    const q=qualityCompare(a.quality,b.quality);if(q)return q;
   }
-  const mx=finish?.metric?.(x,goal)||null,my=finish?.metric?.(y,goal)||null;
-  if(mx&&my){
-   // A documented, independent, nonconflicting factor cross is stronger
-   // evidence than merely counting raw same-name or unresolved cross hits.
-   if(mx.independentCrossEvidence!==my.independentCrossEvidence)
-    return my.independentCrossEvidence-mx.independentCrossEvidence;
-   if(mx.independentCrossEvidence>0&&my.independentCrossEvidence>0&&mx.crossFactorEvidence!==my.crossFactorEvidence)
-    return my.crossFactorEvidence-mx.crossFactorEvidence;
-   if(mx.score!==my.score)return my.score-mx.score;
-  }
+  // Same evidential quality: prefer fewer preparation matings.
+  const births=safe(x.additionalBirths)-safe(y.additionalBirths);if(births)return births;
   if(typeof evidenceCompare==='function'&&a.evidence&&b.evidence){
    const e=evidenceCompare(a.evidence,b.evidence);if(e)return e;
   }
@@ -68,14 +76,14 @@
  }
  function snapshot(t,goal='balance',finish=null){
   const m=finish?.metric?.(t,goal)||null;
-  return {version:78,gameVerified:false,goal,grade:grade(t),additionalBirths:safe(t?.additionalBirths),
+  return {version:109,gameVerified:false,goal,grade:grade(t),additionalBirths:safe(t?.additionalBirths),
    confirmedIndependentCrosses:m?.independentCrossEvidence??null,
    independentCrossCandidates:m?.independentCrossCandidates??null,
    knownCrossFactorIndex:m?.crossFactorEvidence??null,
    factorRowsRecorded:m?.ancestorFactorsRecorded??null,
    lineageFamilies:m?.childLineDiversity??null,
    researchScore:m?.score??null,
-   caveat:'締め肌理論を先に比較。同じ理論でも、追加1工程が独立クロスの記録済み因子を増やし、評価・危険度・情報量に悪化がない時だけ採用する限定規則。SP/ST予測・効果倍率・ゲーム内成立の保証なし。'};
+   caveat:'締め肌の完璧／超完璧は独立評価。同じ理論・追加工程の根拠段階では最終産駒の記録済みニトロ段階と独立クロスを比較し、実質同程度なら少工程を優先。SP/ST予測・効果倍率・ゲーム内成立の保証なし。'};
  }
  return Object.freeze({grade,oneExtraEvidence,compare,snapshot});
 });

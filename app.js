@@ -395,13 +395,13 @@ function mild87GlobalHtml(plan){
  </details>`;
 }
 function mild108CompareHtml(plan){
- const d=plan?.mild87;if(!d||d.version!==108)return '';
+ const d=plan?.mild87;if(!d||![108,109].includes(d.version))return '';
  const reps=Array.isArray(d.representatives)?d.representatives:[];
- const lines=reps.map(r=>`<li>比較順位${esc(r.rankPosition)}：${esc(r.closingSire||'未確認')}${r.preparedSireFather?`（仕込み父：${esc(r.preparedSireFather)} × ${esc(r.preparedSireMare||'未確認')}）`:''} ／ ${esc(r.grade)}候補 ／ 追加${esc(r.additionalBirths)}工程 ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')} ／ 因子未収録${esc(r.missing??'?')}枠</li>`).join('');
+ const lines=reps.map(r=>`<li>比較順位${esc(r.rankPosition)}：${esc(r.closingSire||'未確認')}${r.preparedSireFather?`（仕込み父：${esc(r.preparedSireFather)} × ${esc(r.preparedSireMare||'未確認')}）`:''} ／ ${esc(r.grade)}候補 ／ 追加${esc(r.additionalBirths)}工程 ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')} ／ 因子未収録${esc(r.missing??'?')}枠 ／ 段階指標${esc(r.stageIndex??'?')}（短${esc(r.stageShort??'?')}・速${esc(r.stageFast??'?')}・長${esc(r.stageLong??'?')}段階） ／ 独立クロス根拠${esc(r.independentCrossEvidence??'?')} ／ 短距離リスク指標${esc(r.shortCrossRisk??'?')}</li>`).join('');
  const reasons=(d.extraRejectedReasons||[]).map(x=>`${esc(x.reason)}：${esc(x.count)}件`).join('、');
- return `<details class="a21-flow"><summary>v108｜採用理由と別父候補の比較（限定探索）</summary>
+ return `<details class="a21-flow"><summary>v109｜肌作り理論と最終至高の比較（限定探索）</summary>
  <p class="muted">最終31枠・締め肌理論を通過したDDS候補 ${esc(d.distinct||0)}件、締め肌父のグループ ${esc(d.fatherFamilies||0)}種類。超完璧候補 ${esc(d.gradeCounts?.superPerfect??0)}件／完璧候補 ${esc(d.gradeCounts?.perfect??0)}件（ゲーム内未確認）。追加準備 0工程 ${esc(d.birthCounts?.[0]??0)}件・1工程 ${esc(d.birthCounts?.[1]??0)}件・2工程 ${esc(d.birthCounts?.[2]??0)}件。ニトロ段階改善を全DDS内の最良0工程案と比較し承認 ${esc(d.oneExtraNitroApproved??0)}件。</p>
- <p class="muted"><b>父馬グループ別の比較上位（最大6種類）：</b> この一覧は採用可能性の研究記録であり、ゲーム内の成立証明ではありません。</p>
+ <p class="muted"><b>比較方針：</b>${esc(d.rankingPolicy||'締め肌理論を優先し、最終至高の研究根拠と工程数を比較。')} ※研究上の相対指標であり、能力予測値ではありません。</p><p class="muted"><b>父馬グループ別の比較上位（最大6種類）：</b> この一覧は採用可能性の研究記録であり、ゲーム内の成立証明ではありません。</p>
  ${lines?`<ol>${lines}</ol>`:'<p class="muted">比較できる別父候補がありません。</p>'}
  <p class="muted">1工程追加が優先されなかった主な理由：${reasons||'比較対象なし、または明確な理由の記録なし'}。</p>
  <p class="muted"><b>注意：</b>探索には上限があります。ここにない馬の配合が不可能とは言えません。因子未収録の枠は0因子とは扱わず、クロス効果・SP/ST・至高成立はゲーム内未確認です。種側・肌側各＋1工程を網羅したことも意味しません。</p>

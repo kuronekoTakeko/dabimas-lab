@@ -79,23 +79,23 @@
   const representatives=[],familiesSeen=new Set();
   for(const row of rows){const family=familyKey(row);if(familiesSeen.has(family))continue;
    familiesSeen.add(family);
-   const c=row.rank.candidate,m=nitro?.inspect?.(c,goal)||null;
+   const c=row.rank.candidate,m=nitro?.inspect?.(c,goal)||null,fin=finish?.metric?.(c,goal)||null;
    representatives.push({family,closingSire:c.xId||c.xPrep?.fatherId||'未確認',
     preparedSireFather:c.xPrep?.fatherId||null,preparedSireMare:c.xPrep?.motherId||null,
     baseMare:c.marePrep?.motherId||c.choices?.[1]||null,
     grade:ranker.grade(c)===8?'超完璧':'完璧',additionalBirths:safe(c.additionalBirths),
     short:m?.counts?.['短']??null,fast:m?.counts?.['速']??null,long:m?.counts?.['長']??null,
-    missing:m?.missingFactorSlots??null,rankPosition:rows.indexOf(row)+1,
+    missing:m?.missingFactorSlots??null,stageIndex:m?.researchIndex??null,stageShort:m?.stages?.['短']??null,stageFast:m?.stages?.['速']??null,stageLong:m?.stages?.['長']??null,independentCrossEvidence:fin?.independentCrossEvidence??null,shortCrossRisk:fin?.shortCrossRisk??null,rankPosition:rows.indexOf(row)+1,
     status:'記録済み血統・限定探索／ゲーム内未確認'});
    if(representatives.length>=6)break;
   }
-  return {version:108,winner,stats:{version:108,gameVerified:false,eligible:rows.length,distinct:seen.size,
+  return {version:109,winner,stats:{version:109,gameVerified:false,eligible:rows.length,distinct:seen.size,
    skipped,duplicates,gradesWithDirect:[...directByGrade.keys()].sort(),oneExtraCompared:compared,
    oneExtraApproved:approved,oneExtraNitroApproved:nitroApproved,oneExtraWithoutDirect:noReference,
    fatherFamilies:familyCounts.size,birthCounts,gradeCounts,representatives,
    extraRejectedReasons:Object.entries(reasons).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([reason,count])=>({reason,count})),
    winningGrade:ranker.grade(winner.rank.candidate),winningAdditionalBirths:safe(winner.rank.candidate.additionalBirths),
-   winningBase:winner.trial.anchor?.base||'',source:'同一クリック内で確認できたDDS・31枠・締め肌理論だけの限定横断比較。ゲーム内未確認。'}};
+   winningBase:winner.trial.anchor?.base||'',rankingPolicy:'肌作りの超完璧・完璧を区別し、同一理論と追加仕込みの承認条件が同じ場合は最終産駒のニトロ段階・独立クロス・リスクを工程数より先に比較。評価が同等なら少工程。',source:'同一クリック内で確認できたDDS・31枠・締め肌理論だけの限定横断比較。ゲーム内未確認。'}};
  }
  return Object.freeze({select,identity});
 });

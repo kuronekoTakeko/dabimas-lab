@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict');
+const inv=require('../research-inverse-mild-v69.js');
+const c=(name,family,grade,births=0)=>({name,closingSireFamily105:family,grade,additionalBirths:births});
+const rank=x=>x.grade;
+let list=[];
+for(const item of [c('A1','Narita',3),c('A2','Narita',3),c('A3','Narita',3),c('A4','Narita',3),c('B1','Other',3)])list=inv.retainDiverse105(list,item,4,rank);
+assert.equal(list.length,4);
+assert(list.some(x=>x.closingSireFamily105==='Other'),'同一理論・工程数の別父は残す');
+assert.equal(list[0].name,'A1');
+const strict=inv.retainDiverse105([c('top','A',3)],c('weak','B',2),1,rank);
+assert.equal(strict[0].name,'top','別父を理由に理論を降格させない');
+const births=inv.retainDiverse105([c('direct','A',3,0)],c('extra','B',3,1),1,rank);
+assert.equal(births[0].name,'direct','別父を理由に追加工程を増やさない');
+assert.deepEqual(inv.retainDiverse105([],c('X','A',3),0,rank),[]);
+assert.equal(typeof inv.shouldInspect90,'function');
+console.log('v105 selection diversity: PASS');

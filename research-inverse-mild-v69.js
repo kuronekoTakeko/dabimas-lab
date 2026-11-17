@@ -145,6 +145,39 @@
   const score=typeof rank==='function'?rank:()=>0;
   return [...(previous||[]),candidate].sort((a,b)=>(Number(score(b))||0)-(Number(score(a))||0)).slice(0,limit);
  }
+ // v105: competing complete pedigrees must not lose to four earlier
+ // same-father recipes on a tie. Preserve theory grade and birth-count
+ // priority; reserve a place for a different father within equal tier.
+ // Caller still performs the full 31-slot quality ranking afterwards.
+ function retainDiverse105(previous,candidate,cap,gradeOf,familyOf){
+  const limit=Math.max(0,Math.trunc(Number(cap)||0));if(!limit)return [];
+  const grade=typeof gradeOf==='function'?gradeOf:()=>0;
+  const family=typeof familyOf==='function'?familyOf:x=>x?.closingSireFamily105||x?.xId||'';
+  const all=[...(previous||[]),candidate];
+  const groups=new Map();
+  for(let index=0;index<all.length;index++){
+   const x=all[index],tier=(Number(grade(x))||0)+'|'+(Number(x?.additionalBirths)||0);
+   if(!groups.has(tier))groups.set(tier,[]);
+   groups.get(tier).push({x,index,family:String(family(x)||'未確認')});
+  }
+  const tiers=[...groups.keys()].sort((a,b)=>{
+   const [ag,ab]=a.split('|').map(Number),[bg,bb]=b.split('|').map(Number);
+   return bg-ag||ab-bb;
+  });
+  const kept=[];
+  for(const tier of tiers){
+   const items=groups.get(tier),selectedFamilies=new Set();
+   // Choose first by original order, then one from every other sire family.
+   for(const item of items){if(kept.length>=limit)break;
+    if(!selectedFamilies.has(item.family)){kept.push(item.x);selectedFamilies.add(item.family);}
+   }
+   for(const item of items){if(kept.length>=limit)break;
+    if(!kept.includes(item.x))kept.push(item.x);
+   }
+   if(kept.length>=limit)break;
+  }
+  return kept;
+ }
  function shortlist(finalists,{limit=100,maxAdditionalBirths=2}={}){
   const direct=[],oneSire=[],other=[],seen=new Set();
   const budget=Math.max(0,Math.min(2,Math.trunc(Number(maxAdditionalBirths)||0)));
@@ -212,5 +245,5 @@
   return {candidates:picked.candidates,stats:{...stats,...picked.stats,fixedMareLines:[...fixed],
    ranked:finalists.length,returned:picked.candidates.length}};
  }
- return Object.freeze({FIXED,INTERESTING,MATCHING,diversifyLane,shortlist,shouldInspect89,shouldInspect90,retainStrongest90,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
+ return Object.freeze({FIXED,INTERESTING,MATCHING,diversifyLane,shortlist,shouldInspect89,shouldInspect90,retainStrongest90,retainDiverse105,lineAt,ownLine,fixedFromAnchor,signatures,preparedSignatures,describe,baseKey,preparedBaseKey,matchingBaseKeys,mareMatches,compare,search});
 });

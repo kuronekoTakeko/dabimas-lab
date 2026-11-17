@@ -1,0 +1,18 @@
+'use strict';
+const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+const dir=path.join(__dirname,'..');
+const app=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
+assert(app.includes('inv.retainDiverse105(results,trial,completeLimit'));
+assert(app.includes('candidateFatherFamilies105.add('));
+assert(app.includes('fatherFamiliesFinal105:'));
+assert(!app.includes('if(results.length>=completeLimit&&bestTheoryGrade===3)break;'));
+assert(app.includes('v102 必須モジュール未読込'));
+assert(app.includes('v98 全工程血統照合で停止'));
+assert(app.includes('v97 生産前の再検証で停止'));
+assert(html.includes('research-inverse-mild-v69.js?v=105'));
+assert(html.includes('app.js?v=105'));
+assert(html.indexOf('research-inverse-mild-v69.js?v=105')<html.indexOf('app.js?v=105'));
+assert(sw.includes('dbms-v105-1'));
+console.log('v105 integration checks: PASS');

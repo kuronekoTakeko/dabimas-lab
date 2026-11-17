@@ -409,6 +409,7 @@ function mild89CoverageHtml(plan){
  return `<details class="a21-flow"><summary>${d.version===90?'v9.0｜超完璧優先の第2検査枠・網羅性監査':'v8.9｜候補ゼロを再調査する第2検査枠・網羅性監査'}</summary>
  <p class="muted">一次逆算レシピ ${esc(d.precheckRecipes??'未確認')}案、比較候補リスト ${esc(d.offered??'未確認')}案、31枠を実際に詳細検査 ${esc(d.inspected??'未確認')}案（第2枠 ${esc(d.rescueInspected??0)}案）、31枠完成 ${esc(d.completeCandidates??0)}案。検査リスト内で未実施 ${esc(d.notReviewed??0)}案、比較候補リスト外 ${esc(d.outsideShortlist??0)}案。</p>
  <p class="muted">${d.version===90?`追加検査を行う条件：${esc(d.rescueTrigger||'未確認')}。詳細検査済みの完璧候補${esc(d.perfectCandidates??0)}件・超完璧候補${esc(d.superPerfectCandidates??0)}件（公開血統の一次条件、ゲーム内未確認）。` : ''}結果：${esc(d.stopReason||'未確認')}。${d.exhaustive?'この時点の公開データ上の事前レシピは検査範囲内です。':'探索上限・早期終了があるため、候補の不存在は証明していません。'} 9工程と追加1工程の採否は別の横断比較で決定します。</p>
+ ${d.fatherFamiliesInspected105!=null?`<p class="muted"><b>v105｜締め肌父の候補分散：</b>詳細検査した父馬系統 ${esc(d.fatherFamiliesInspected105)}種類／31枠完成した父馬系統 ${esc(d.fatherFamiliesCompleted105)}種類／最終比較へ残った父馬系統 ${esc(d.fatherFamiliesFinal105)}種類。完成した別父候補：${esc((d.fatherExamples105||[]).join('、')||'なし')}。この集計は選択した配置の限定探索のみで、別父の完璧・超完璧成立や能力優位を意味しません。</p>`:''}
  <p class="muted">中心種牡馬 ${esc(d.centerId||'未確認')}。${esc(d.caveat||'ゲーム内未確認。')}</p>
  </details>`;
 }
@@ -1810,6 +1811,9 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const foal=(n,pedigree,sire,sex=api.definitions[n-1]?.sex||'male')=>({id:'__trial69_'+n,name:'逆算仮馬'+n,sex,ancestry:pedigree.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,line:r.line,factors:[...(r.factors||[])],factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),factors:[],lineage:sire.lineage||'',distance:sex==='male'?'仮馬':'',isHomebred:true});
  const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length;
  const results=[],seen=new Set();
+ // v105: track only successful complete pedigrees, not unverified eight-line prechecks.
+ const completeFatherFamilies105=new Set();
+ const candidateFatherFamilies105=new Set();
  const primaryLimit=scope==='meihin_fast'?100:260;
  const rescueLimit=scope==='meihin_fast'?60:120;
  const offered=inverse.candidates.length;
@@ -1829,8 +1833,9 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   }
   if(!(typeof inv.shouldInspect90==='function'?inv.shouldInspect90(recipeIndex,bestTheoryGrade,primaryLimit,rescueLimit):
    (recipeIndex>=0&&recipeIndex<primaryLimit+rescueLimit&&(recipeIndex<primaryLimit||bestTheoryGrade<3))))break;
-  if(results.length>=completeLimit&&bestTheoryGrade===3)break;
+  // v105: filling the retention cap is NOT a reason to skip later fathers.
   const recipe=inverse.candidates[recipeIndex];
+  candidateFatherFamilies105.add(String(recipe.sirePrep?.fatherId||recipe.sireId||'未確認'));
   if(recipeIndex>=primaryLimit)rescueInspected++;
   reject88.recipesTried++;
   const father=recipe.sirePrep?findParentHorse(recipe.sirePrep.fatherId):findParentHorse(recipe.sireId);
@@ -1889,6 +1894,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
    trial.maternal67={closingStep:2,gameVerified:false,ownedSire:!xPrep,preparedMare:!!marePrep,sourceEight:recipe.distinct};
    trial.xSearchCount=inverse.stats.ownedEightEligible+inverse.stats.preparedEightEligible;
    trial.additionalBirths=recipe.additionalBirths;
+   trial.closingSireFamily105=String(recipe.sirePrep?.fatherId||recipe.sireId||'未確認');
    return trial;
   };
   for(let salt=0;salt<2;salt++){
@@ -1896,8 +1902,11 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
     reject88.completeCandidates++;
     const grade=opt66TheoryRank(trial);
     bestTheoryGrade=Math.max(bestTheoryGrade,grade);
-    const retained=typeof inv.retainStrongest90==='function'?inv.retainStrongest90(results,trial,completeLimit,opt66TheoryRank):
-     [...results,trial].sort((a,b)=>opt66TheoryRank(b)-opt66TheoryRank(a)).slice(0,completeLimit);
+    completeFatherFamilies105.add(trial.closingSireFamily105);
+    const retained=typeof inv.retainDiverse105==='function'?
+     inv.retainDiverse105(results,trial,completeLimit,opt66TheoryRank,x=>x.closingSireFamily105):
+     (typeof inv.retainStrongest90==='function'?inv.retainStrongest90(results,trial,completeLimit,opt66TheoryRank):
+      [...results,trial].sort((a,b)=>opt66TheoryRank(b)-opt66TheoryRank(a)).slice(0,completeLimit));
     results.splice(0,results.length,...retained);
     break;
    }
@@ -1929,7 +1938,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
      replacement.prepSireTheory=starting.prepSireTheory||null;
      replacement.additionalBirths=starting.additionalBirths;
      replacement.maternal67=starting.maternal67;
-     replacement.xSearchCount=starting.xSearchCount;
+     replacement.xSearchCount=starting.xSearchCount;replacement.closingSireFamily105=starting.closingSireFamily105;
      return replacement;
     }});
    if(refinement?.audit){results[i]=refinement.winner;
@@ -1962,7 +1971,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
      candidate.prepSireTheory=original.prepSireTheory||null;
      candidate.additionalBirths=original.additionalBirths;
      candidate.maternal67=original.maternal67;
-     candidate.xSearchCount=original.xSearchCount;
+     candidate.xSearchCount=original.xSearchCount;candidate.closingSireFamily105=original.closingSireFamily105;
      candidate.finish610=original.finish610||null;
      return candidate;
     }});
@@ -2010,7 +2019,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
       superPerfect:preparedVerdict?.superPerfect||'未確認',gameVerified:false};
      newTrial.additionalBirths=original.additionalBirths;
      newTrial.maternal67=original.maternal67;
-     newTrial.xSearchCount=original.xSearchCount;
+     newTrial.xSearchCount=original.xSearchCount;newTrial.closingSireFamily105=original.closingSireFamily105;
      newTrial.finish610=original.finish610||null;
      newTrial.efficiency71=original.efficiency71||null;
      return newTrial;
@@ -2037,7 +2046,13 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const coverage89={version:90,gameVerified:false,primaryLimit,rescueLimit,
   rescueTrigger,gradeAtPrimaryEnd,bestTheoryGrade,perfectCandidates,superPerfectCandidates,completeLimit,
   precheckRecipes:inverse.stats.ranked||0,offered,inspected:reject88.recipesTried,
-  rescueInspected,completeCandidates:reject88.completeCandidates,notReviewed,
+  rescueInspected,completeCandidates:reject88.completeCandidates,
+  fatherFamiliesInspected105:candidateFatherFamilies105.size,
+  fatherFamiliesCompleted105:completeFatherFamilies105.size,
+  fatherFamiliesFinal105:new Set(finalists.map(x=>x.closingSireFamily105||x.xId||'')).size,
+  fatherExamples105:[...completeFatherFamilies105].slice(0,8),
+  retentionPolicy105:'同じ理論・追加工程数の範囲で別の締め肌父を比較枠に残す（探索上限あり）',
+  notReviewed,
   outsideShortlist,exhaustive:outsideShortlist===0&&notReviewed===0,
   stopReason:results.length?(rescueInspected?'第2枠まで比較して完成候補を発見':'第1検査枠で完成候補を発見'):
    (outsideShortlist+notReviewed?'限定探索内に完成候補なし':'公開データ上の今回の全事前レシピを調査'),

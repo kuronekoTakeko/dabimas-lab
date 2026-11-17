@@ -394,6 +394,19 @@ function mild87GlobalHtml(plan){
  <p class="muted">これは同一クリック内の限定的な候補比較であり、候補ゼロや対照不在は「不可能」を意味しません。最終31枠の独立クロス・因子記録・危険度を照合した研究上の順位で、ゲーム内での至高・完璧・超完璧成立や産駒SP/STの保証ではありません。</p>
  </details>`;
 }
+function mild108CompareHtml(plan){
+ const d=plan?.mild87;if(!d||d.version!==108)return '';
+ const reps=Array.isArray(d.representatives)?d.representatives:[];
+ const lines=reps.map(r=>`<li>比較順位${esc(r.rankPosition)}：${esc(r.closingSire||'未確認')}${r.preparedSireFather?`（仕込み父：${esc(r.preparedSireFather)} × ${esc(r.preparedSireMare||'未確認')}）`:''} ／ ${esc(r.grade)}候補 ／ 追加${esc(r.additionalBirths)}工程 ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')} ／ 因子未収録${esc(r.missing??'?')}枠</li>`).join('');
+ const reasons=(d.extraRejectedReasons||[]).map(x=>`${esc(x.reason)}：${esc(x.count)}件`).join('、');
+ return `<details class="a21-flow"><summary>v108｜採用理由と別父候補の比較（限定探索）</summary>
+ <p class="muted">最終31枠・締め肌理論を通過したDDS候補 ${esc(d.distinct||0)}件、締め肌父のグループ ${esc(d.fatherFamilies||0)}種類。超完璧候補 ${esc(d.gradeCounts?.superPerfect??0)}件／完璧候補 ${esc(d.gradeCounts?.perfect??0)}件（ゲーム内未確認）。追加準備 0工程 ${esc(d.birthCounts?.[0]??0)}件・1工程 ${esc(d.birthCounts?.[1]??0)}件・2工程 ${esc(d.birthCounts?.[2]??0)}件。ニトロ段階改善を全DDS内の最良0工程案と比較し承認 ${esc(d.oneExtraNitroApproved??0)}件。</p>
+ <p class="muted"><b>父馬グループ別の比較上位（最大6種類）：</b> この一覧は採用可能性の研究記録であり、ゲーム内の成立証明ではありません。</p>
+ ${lines?`<ol>${lines}</ol>`:'<p class="muted">比較できる別父候補がありません。</p>'}
+ <p class="muted">1工程追加が優先されなかった主な理由：${reasons||'比較対象なし、または明確な理由の記録なし'}。</p>
+ <p class="muted"><b>注意：</b>探索には上限があります。ここにない馬の配合が不可能とは言えません。因子未収録の枠は0因子とは扱わず、クロス効果・SP/ST・至高成立はゲーム内未確認です。種側・肌側各＋1工程を網羅したことも意味しません。</p>
+ </details>`;
+}
 function mild88CoverageHtml(plan){
  const d=plan?.mild88;if(!d)return '';
  const a=d.inverse||{};
@@ -897,7 +910,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3872,6 +3885,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild79CacheHtml(plan)}
  ${mild85ExtraHtml(plan)}
  ${mild87GlobalHtml(plan)}
+ ${mild108CompareHtml(plan)}
  ${mild94ReleaseHtml(plan)}${mild96VariantHtml(plan)}
  ${mild93AuditHtml(plan)}
  ${mild104Html(plan)}

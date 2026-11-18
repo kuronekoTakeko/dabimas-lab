@@ -973,7 +973,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3859,6 +3859,39 @@ function mild116FlowHtml(plan){
  ${alerts.length?`<p class="notice warn">${esc(alerts.slice(0,8).join('／'))}</p>`:''}
  <div class="pedigree-scroll"><table class="detailtbl"><thead><tr><th>実施順</th><th>父</th><th>母</th><th>産駒の状態</th></tr></thead><tbody>${rows}</tbody></table></div>
  <p class="muted">${esc(report.caveat)} ゲーム内の成立確認前に種付け権利を消費しないでください。</p></details>`;
+}
+// v117: read-only coverage audit, separate planned pedigree from produced horses.
+function mild117RealismHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const api=window.DabimasMildRealism117;
+ if(!api?.inspect)return '<p class="notice warn">v117実データ監査モジュールを読み込めません。</p>';
+ const stages=[];
+ for(const [i,p] of mild69PrepStages(plan).entries()){
+  stages.push({kind:'prep',id:'P:'+p.kind,label:'準備'+(i+1),sireId:p.info?.fatherId,mareId:p.info?.motherId,
+   outputId:p.info?.foalId||p.foal?.id||'',outputMode:p.foal?.mode||''});
+ }
+ for(const [i,p] of (plan?.hard23?.preparations||[]).entries()){
+  const f=state.homebreds.find(h=>key(h.id)===key(p.foalId||p.outputId));
+  stages.push({kind:'prep',id:'P:hard:'+i,sireId:p.father,mareId:p.mother,outputId:p.foalId||p.outputId||'',outputMode:f?.mode||''});
+ }
+ for(let n=1;n<=9;n++){
+  const x=chain09Parents(plan,n),o=chain09Output(plan,n);
+  stages.push({kind:'core',id:'C:'+n,number:n,sireId:x?.sireId,mareId:x?.mareId,
+   outputId:o?.horse?.id||plan?.chain09?.outputs?.[n]||'',outputMode:o?.horse?.mode||'',reused:o?.reused===true});
+ }
+ const readiness=mild97LiveReport(plan,true),stageAudit=mild98LiveReport(plan,true);
+ const flow=window.DabimasMildFlowReview116?.inspect?.({plan,stages,readiness,stageAudit});
+ const result=api.inspect({plan,exportReport:plan.externalReview48,flow,readiness});
+ if(!result)return '';
+ const virtual=result.virtualPositions.slice(0,12).map(x=>x.path+'='+x.name).join('、');
+ const messages=result.problems.map(x=>'<li>'+esc(x)+'</li>').join('');
+ const todo=result.tasks.map(x=>'<li>'+esc(x)+'</li>').join('');
+ return `<details class="a21-flow" open><summary>v117｜実生産に向けた未確定データの棚卸し（ゲーム内未検証）</summary>
+ <p>祖先登録：${result.registeredSlots}/31枠 ／ <b>仮馬名の祖先枠：${result.virtualCount}</b> ／ 因子未収録：${result.unknownFactorCount}枠</p>
+ ${virtual?`<p class="muted">仮馬名の位置（最大12件）：${esc(virtual)}</p>`:''}
+ ${messages?`<ul>${messages}</ul>`:''}
+ <p><b>次に確認すること</b></p><ol>${todo}</ol>
+ <p class="muted">${esc(result.caveat)} 保有・保存データの変更はありません。</p></details>`;
 }
 function mild97ReadinessHtml(plan){
  const report=mild97LiveReport(plan,true);if(!report)return '';

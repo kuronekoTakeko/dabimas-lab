@@ -973,7 +973,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3892,6 +3892,33 @@ function mild117RealismHtml(plan){
  ${messages?`<ul>${messages}</ul>`:''}
  <p><b>次に確認すること</b></p><ol>${todo}</ol>
  <p class="muted">${esc(result.caveat)} 保有・保存データの変更はありません。</p></details>`;
+}
+// v118: live current-device IDs/rights and planned parent graph (read-only).
+function mild118RealdataHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const api=window.DabimasMildRealdata118;
+ if(!api?.inspect)return '<p class="notice warn">v118実登録監査を読み込めません。所持データ・工程は未照合です。</p>';
+ const stages=[];
+ for(const [i,p] of mild69PrepStages(plan).entries())stages.push({kind:'prep',id:'P:'+p.kind,label:'準備'+(i+1),sireId:p.info?.fatherId,mareId:p.info?.motherId,outputId:p.info?.foalId||p.foal?.id||''});
+ for(const [i,p] of (plan?.hard23?.preparations||[]).entries())stages.push({kind:'prep',id:'P:hard:'+i,label:'準備（拡張）'+(i+1),sireId:p.father,mareId:p.mother,outputId:p.foalId||p.outputId||''});
+ for(let n=1;n<=9;n++){const parents=chain09Parents(plan,n),out=chain09Output(plan,n);
+  stages.push({kind:'core',id:'C:'+n,label:'工程'+n,sireId:parents?.sireId,mareId:parents?.mareId,outputId:out?.horse?.id||plan?.chain09?.outputs?.[n]||''});
+ }
+ const a=api.inspect({plan,stages,owned:state.owned,master,homebreds:state.homebreds});
+ if(!a)return '';
+ const inventory=a.inventory,missing=inventory.unmatched.slice(0,8).map(x=>x.id).join('、');
+ const shortages=a.rightsToConfirm.map(x=>`${x.id}（予定${x.uses}回／登録${x.rights==null?'不明':x.rights+'回'}）`).join('、');
+ const problems=a.errors.slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');
+ const confirmations=a.unconfirmed.slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');
+ return `<details class="a21-flow" open><summary>v118｜現端末330頭・公開名牝・工程の実データ監査（読み取り専用）</summary>
+  <p>所持 ${inventory.acquired}頭（マスター完全一致 ${inventory.matched}頭／未収録 ${inventory.unmatched.length}頭）／権利0 ${inventory.zeroRights}頭／公開種牡馬 ${inventory.stallions}頭・繁殖牝馬 ${inventory.mares}頭。</p>
+  ${missing?`<p class="muted">公開血統未収録の所持馬：${esc(missing)}${inventory.unmatched.length>8?' ほか':''}。所持記録は残し、血統は捏造しません。</p>`:''}
+  <p>当プラン：基幹9工程＋準備${stages.length-9}工程／仮登録の産駒${a.virtualOutputs.length}件／公開牝馬${a.publicMares.length}種類／権利不足・未確認${a.rightsToConfirm.length}種類。</p>
+  ${shortages?`<p class="notice warn"><b>権利の確認・補充が必要：</b>${esc(shortages)}</p>`:''}
+  ${problems?`<p><b>工程の登録不一致</b></p><ul>${problems}</ul>`:''}
+  ${confirmations?`<p><b>資料・ゲーム側で未確認</b></p><ul>${confirmations}</ul>`:''}
+  ${a.proposedFirst?`<p>設計上の先頭工程：${esc(a.proposedFirst.label)} ─ ${esc(a.proposedFirst.sire)} × ${esc(a.proposedFirst.mare)}（在庫・理論成立は未確認）</p>`:''}
+  <p class="muted">${esc(a.caveat)} この監査は端末データを更新しません。</p></details>`;
 }
 function mild97ReadinessHtml(plan){
  const report=mild97LiveReport(plan,true);if(!report)return '';

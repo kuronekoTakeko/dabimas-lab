@@ -988,7 +988,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3969,6 +3969,26 @@ function mild124LiveHtml(plan){
  <p>最初の設計上の準備交配：<b>${esc(r.firstMating?.sire||'未指定')} × ${esc(r.firstMating?.mare||'未指定')}</b>（母馬の入手・ゲーム内理論未確認）。</p>
  ${notes?`<p class="notice warn">照合事項：</p><ul>${notes}</ul>`:''}
  <p class="muted">${esc(r.caveat)} 個人データや権利数は更新しません。</p></details>`;
+}
+// v125: present actual cross candidate positions and an honest decision gate.
+function mild125DecisionHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const api=window.DabimasMildDecision125;
+ if(!api?.assess)return '<p class="notice warn">v125判断シート未読込：判定は未実施です。</p>';
+ const x=api.assess({plan,homebreds:state.homebreds,master,
+  liveAudit:window.DabimasMildLiveAudit124,evidenceAudit:window.DabimasMildEvidence123});
+ if(!x)return '';
+ const line=x.crosses.slice(0,12).map(c=>`<li><b>${esc(c.name)}</b>：父側 ${esc(c.sire.map(v=>v.foalPath).join('・'))}／母側 ${esc(c.mare.map(v=>v.foalPath).join('・'))}。因名複数 ${c.differsByVariant?'あり':'記録上なし'}、因名未収録 ${c.missingIdentity}枠、因子未収録 ${c.missingFactors}枠（有効性未確認）</li>`).join('');
+ const todo=x.issues.map(i=>`<li>${esc(i)}</li>`).join('');
+ return `<details class="a21-flow"><summary>v125｜マイルド生産判断シート：${esc(x.phase)}（有効クロス・至高は未確定）</summary>
+ <p>工程：基幹9＋追加${esc(x.extraBirths??'未確認')}／締め肌：${esc(x.grade)}／現行血統 ${x.dataMatched?'整合':'要確認'}／最終31枠の因子未収録 ${esc(x.missingFactorSlots??'未確認')}枠。</p>
+ <p>至高の研究上の一次条件：<b>${x.recordedShikoBasis?'3×4×5の位置・因子6種類以上の登録一致':'位置・因子種類の再確認が必要'}</b>（記録${esc(x.distinctAnchorFactorTypes)}種類／ゲーム内成立未確認）。</p>
+ <p>登録因子の短・速・長：${esc(x.observedFactors['短']||0)}・${esc(x.observedFactors['速']||0)}・${esc(x.observedFactors['長']||0)}（能力予測ではありません）。</p>
+ <p><b>両側に現れる同名祖先 ${x.commonNameCrossCandidates}種類</b>。この数は有効クロスや独立クロスの本数ではありません。因子の記録が両側にある候補も、ゲーム内効果は未確認です。</p>
+ ${line?`<details><summary>クロス候補の祖先位置 ${x.crosses.length}種類を表示</summary><ul>${line}</ul></details>`:''}
+ <p>確認の起点：<b>${esc(x.firstMating?.sire||'未確認')} × ${esc(x.firstMating?.mare||'未確認')}</b>。ゲーム内理論・牝馬確保はこれから確認します。</p>
+ <p><b>実生産前に残る確認事項</b></p><ol>${todo}</ol>
+ <p class="muted">${esc(x.caveat)} 保存プラン・所持データ・権利数は変更しません。</p></details>`;
 }
 function mild119PreflightRun(){
  const target=$('mild119BroadResult'),btn=$('mild119BroadRun'),api=window.DabimasMildBroad119;

@@ -73,6 +73,6 @@ if(jsonFile&&king&&deep){const j=JSON.parse(fs.readFileSync(jsonFile,'utf8'));fo
 }
 test('v122アプリの資産参照',()=>{
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
- assert.match(html,/プランナー｜v124/);assert.match(html,/app.js\?v=124/);assert.match(sw,/dbms-v124-1/);
+ assert.match(html,/プランナー｜v125/);assert.match(html,/app.js\?v=125/);assert.match(sw,/dbms-v125-1/);
 });
 console.log(`v122 checks: ${total} PASS`);

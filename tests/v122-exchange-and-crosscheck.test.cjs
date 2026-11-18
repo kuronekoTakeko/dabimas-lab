@@ -58,7 +58,7 @@ if(jsonFile&&king&&deep){const j=JSON.parse(fs.readFileSync(jsonFile,'utf8'));fo
   const x=auditor.audit(fs.readFileSync(file,'utf8'),j);
   assert.equal(x.errors.length,0,x.errors.join('\n'));assert.equal(x.inheritance.matched,30);
   assert.equal(x.sectionAudit.foal.rows,31);assert(x.anchorSource.every(a=>a.found&&a.factorsIdentical));
-  assert.equal(x.uniquelyMatched,false,'旧バックアップの仮番号とは違うため完全一致を主張しない');
+  assert.equal(x.uniquelyMatched,true,'最新版JSONに保存された仮番号・タイトルと一致');
   assert.equal(x.gameVerified,false);
  });
 }
@@ -73,6 +73,6 @@ if(jsonFile&&king&&deep){const j=JSON.parse(fs.readFileSync(jsonFile,'utf8'));fo
 }
 test('v122アプリの資産参照',()=>{
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
- assert.match(html,/プランナー｜v123/);assert.match(html,/app.js\?v=123/);assert.match(sw,/dbms-v123-1/);
+ assert.match(html,/プランナー｜v124/);assert.match(html,/app.js\?v=124/);assert.match(sw,/dbms-v124-1/);
 });
 console.log(`v122 checks: ${total} PASS`);

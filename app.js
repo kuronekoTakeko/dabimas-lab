@@ -988,7 +988,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3955,6 +3955,20 @@ function mild123EvidenceHtml(plan){
  ${names?`<p class="muted">${names}</p>`:''}
  ${x.errors.length?`<p class="notice warn">照合問題：${esc(x.errors.join('／'))}</p>`:''}
  <p class="muted">${esc(x.caveat)} 実生産・至高成立は別途ゲーム内照合が必要です。</p></details>`;
+}
+// v124: LIVE crosscheck with the current plan-linked horse registrations (read-only).
+function mild124LiveHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const api=window.DabimasMildLiveAudit124;
+ if(!api?.assess)return '<p class="notice warn">v124現行登録監査を読み込めません。再照合は未実施です。</p>';
+ const r=api.assess({plan,homebreds:state.homebreds,master});
+ if(!r)return '';
+ const notes=[...r.errors,...r.unconfirmed].slice(0,8).map(x=>`<li>${esc(x)}</li>`).join('');
+ return `<details class="a21-flow" open><summary>v124｜現行プランと仮馬・93祖先枠の照合：${r.fullyReconciled?'登録上一致（ゲーム内未確認）':'要確認'}</summary>
+ <p>父母IDと工程 ${r.checkedParents}/${r.checkedStages}件 ／ 種・肌・最終産駒の祖先 ${r.registeredAncestorMatches}/${r.registeredAncestorsChecked||93}枠 ／ 自家製馬：仮${r.draftCount}件・実${r.realCount}件。</p>
+ <p>最初の設計上の準備交配：<b>${esc(r.firstMating?.sire||'未指定')} × ${esc(r.firstMating?.mare||'未指定')}</b>（母馬の入手・ゲーム内理論未確認）。</p>
+ ${notes?`<p class="notice warn">照合事項：</p><ul>${notes}</ul>`:''}
+ <p class="muted">${esc(r.caveat)} 個人データや権利数は更新しません。</p></details>`;
 }
 function mild119PreflightRun(){
  const target=$('mild119BroadResult'),btn=$('mild119BroadRun'),api=window.DabimasMildBroad119;

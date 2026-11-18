@@ -61,8 +61,8 @@ t('app import does not overwrite state, performs save before master swap, update
  assert.match(app,/if\(!\(await saveMaster\(newMaster\)\)\)throw/);
  assert.match(app,/master=newMaster;masterAudit86=dedup.audit/);
  assert.match(html,/research-master-update-v120\.js\?v=120/);
- assert.match(html,/app\.js\?v=123/);
- assert.match(sw,/dbms-v123-1/);
+ assert.match(html,/app\.js\?v=124/);
+ assert.match(sw,/dbms-v124-1/);
  assert.match(sw,/research-master-update-v120\.js/);
 });
 console.log('v120',tests,'PASS');

@@ -20,11 +20,11 @@ test('旧モードは対象外',()=>assert.equal(api.inspect({...base,plan:{auto
 const actual=process.env.DABIMAS_PORTABLE_JSON;
 if(actual&&fs.existsSync(actual))test('提供330頭の端末移行JSONで実数検査',()=>{
  const j=JSON.parse(fs.readFileSync(actual,'utf8'));const a=api.auditInventory({owned:j.personal.owned,master:j.publicMaster.records,homebreds:j.personal.homebreds});
- assert.equal(a.acquired,330);assert.equal(a.masterRecords,j.publicMaster.records.length);assert.equal(a.stallions,2482);assert.equal(a.mares,501);assert.equal(a.unmatched.length,4);assert.equal(a.draftHomebreds,614);
+ assert.equal(a.acquired,330);assert.equal(a.masterRecords,j.publicMaster.records.length);assert.equal(a.stallions,2482);assert.equal(a.mares,501);assert.equal(a.unmatched.length,4);assert.equal(a.draftHomebreds,j.personal.homebreds.length);
 });
 const root=path.join(__dirname,'..');const html=fs.readFileSync(root+'/index.html','utf8'),js=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');
 test('v118をアプリ・HTML・SWに接続',()=>{
  assert.match(html,/research-mild-realdata-v118\.js\?v=122/);assert.match(js,/mild118RealdataHtml\(p\)/);
- assert.match(sw,/research-mild-realdata-v118\.js/);assert.match(sw,/dbms-v123-1/);
+ assert.match(sw,/research-mild-realdata-v118\.js/);assert.match(sw,/dbms-v124-1/);
 });
 console.log('v118 tests: '+count+' PASS');

@@ -9,7 +9,7 @@ if(data&&deep&&other&&king){
  const report=cli.run(portable,inputs);
  test('最新3血統表：すべて31/31・親からの継承30/30',()=>{assert.equal(report.cases.length,3);for(const x of report.cases){assert.equal(x.foal.registered,31);assert.equal(x.inheritance.matched,30);assert.equal(x.errors.length,0,x.errors.join('\n'));}});
  test('すべての指定3頭は同一ID・因子で公開マスターと一致',()=>{for(const x of report.cases)assert(x.anchors.every(a=>a.positionOk&&a.masterOk));});
- test('旧端末移行JSONにない新規仮番号を完全一致と扱わない',()=>assert(report.cases.every(x=>!x.registeredPlanMatched)));
+ test('最新版端末移行JSONの新規3プランと血統表が一致',()=>assert(report.cases.every(x=>x.registeredPlanMatched)));
  test('未収録因子の差異：1200 19枠、2200 17枠',()=>{assert.equal(report.cases[0].foal.missingFactors,19);assert.equal(report.cases[1].foal.missingFactors,17);});
  test('記録済み短速長因子は1200と2200で同数',()=>{const A=report.cases[0].observedFactorCounts,B=report.cases[1].observedFactorCounts;for(const k of ['短','速','長'])assert.equal(A[k],B[k]);assert.deepEqual([A['短'],A['速'],A['長']],[2,5,5]);});
  test('同名両側祖先：1200 7種類、2200 5種類、3000 5種類',()=>assert.deepEqual(report.cases.map(x=>x.crossNames.length),[7,5,5]));
@@ -22,7 +22,7 @@ if(data&&deep&&other&&king){
  test('解析で個人の所持・プラン・マスターを一切変更しない',()=>{const before=JSON.stringify(portable);cli.run(portable,inputs);assert.equal(JSON.stringify(portable),before);});
 }
 test('v123 UI とキャッシュへのモジュール接続',()=>{const html=fs.readFileSync(root+'/index.html','utf8'),app=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');
- assert.match(html,/research-mild-evidence-v123\.js\?v=123/);assert.match(html,/app\.js\?v=123/);
- assert.match(app,/mild123EvidenceHtml\(p\)/);assert.match(sw,/dbms-v123-1/);assert.match(sw,/research-mild-evidence-v123\.js/);
+ assert.match(html,/research-mild-evidence-v123\.js\?v=123/);assert.match(html,/app\.js\?v=124/);
+ assert.match(app,/mild123EvidenceHtml\(p\)/);assert.match(sw,/dbms-v124-1/);assert.match(sw,/research-mild-evidence-v123\.js/);
 });
 console.log(`v123 new checks: ${passed} PASS`);

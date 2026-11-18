@@ -36,8 +36,8 @@ const duplicate=build();duplicate.matings[8].id='C:8';assert(!api.assess(duplica
 const snapshot=JSON.stringify(init);api.assess(init);assert.equal(JSON.stringify(init),snapshot,'read-only audit');
 const index=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8'),app=fs.readFileSync(path.join(root,'app.js'),'utf8');
 assert(index.indexOf('research-mild-readiness-v97.js?v=122')>0);
-assert(index.indexOf('research-mild-readiness-v97.js?v=122')<index.indexOf('app.js?v=123'));
-assert(sw.includes('research-mild-readiness-v97.js')&&sw.includes('dbms-v123-1'));
+assert(index.indexOf('research-mild-readiness-v97.js?v=122')<index.indexOf('app.js?v=124'));
+assert(sw.includes('research-mild-readiness-v97.js')&&sw.includes('dbms-v124-1'));
 assert(app.includes('saved.mild97=readiness;')&&app.includes('mild97ReadinessHtml(p)'));
 assert(app.includes('if(!readiness?.ok){')&&app.includes('state.plans=mildRollback.plans'));
 console.log('PASS v97: 31-slot + factors/variants and mating drift, old plans, goals, exact route, acquired-rights exchangeable, lost ownership, 9+preps, nonmutation, SW wiring, fail-closed save');

@@ -1641,7 +1641,13 @@ function opt10Trial(p,choices,xId,xCandidate=null,mareCandidates=null){
  // from raw factors that merely appear in a pedigree once. Same-lineage alone
  // does NOT make X optimal. Actual game nitro/SP/ST effects are not inferred.
  const effective=effectiveCrossFactors16(final.rows,p);
- const extraEffective=effective.crosses.filter(c=>key(c.name)!==baseName && !c.conflicts.length);
+ const extraRaw=effective.crosses.filter(c=>key(c.name)!==baseName && !c.conflicts.length);
+ // v126: Do not score repetitions inherited just because the required
+ // 3x4x5 anchor parents occur on both sides of the pedigree.
+ const extraOrigin126=window.DabimasMildCrossOrigin126?.filterAdditional?.({
+  rows:final.rows,anchors:anchorPositions66(p).map(([path,slot])=>({path,name:splitName(slots[slot]||'').name})),
+  candidates:extraRaw});
+ const extraEffective=extraOrigin126?.filtered||[]; // fail closed if script unavailable
  const extras={};for(const c of extraEffective)for(const [factor,n] of Object.entries(c.counts))extras[factor]=(extras[factor]||0)+n;
  const fc=f=>extras[f]||0;
  const crossScore=p.goal==='speed'?fc('走')*5+fc('中')*4+fc('短')*2+fc('速')*2+fc('長')
@@ -1653,7 +1659,7 @@ function opt10Trial(p,choices,xId,xCandidate=null,mareCandidates=null){
  const centerFocus=isMaternalDDS67(p)?window.DabimasInverseMild69?.fixedFromAnchor?.(
   routeSnapshotMember(slots.g3,p),currentParentTheory68())?.values?.[0]||null:'Royal Charger';
  return {diversity60:window.DabimasMildDiversity60?.summarize(final,currentParentTheory68(),
-  {anchors:Object.values(anchorPaths66(p)),focusParent:centerFocus})||null,choices:{...choices},xId,full:final,closingPed:selected[chain09ClosureStep(p)-1],finalSire:outputs[isMaternal66(p)?8:2],finalMare:outputs[isMaternal66(p)?2:8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
+  {anchors:Object.values(anchorPaths66(p)),focusParent:centerFocus})||null,choices:{...choices},xId,full:final,closingPed:selected[chain09ClosureStep(p)-1],finalSire:outputs[isMaternal66(p)?8:2],finalMare:outputs[isMaternal66(p)?2:8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraOrigin126,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
    xLineage:(map.get(key(xId))||{}).lineage||'',xResearchFactors:[...(map.get(key(xId))?.factors||[])],xSearchCount:0};
 }
 // v6.6: Seven public meihin dams + three owned Deep variants, nine REAL mating steps.
@@ -3951,7 +3957,7 @@ function mild123EvidenceHtml(plan){
  <p>登録血統：<b>${x.structural?'構造一致':'要再確認'}</b> ／ 父母継承 ${x.inherited.matched}/30枠 ／ 最終因子未収録 ${foal.missingFactors??'—'}枠 ／ 仮馬祖先 ${foal.virtualPositions?.length??0}枠。</p>
  <p>至高指定：${anchors}</p>
  <p>最終31枠の記録因子（未収録は含まない）：短 ${x.observedFactorCounts?.['短']||0}／速 ${x.observedFactorCounts?.['速']||0}／長 ${x.observedFactorCounts?.['長']||0}。ニトロ効果の保証ではありません。</p>
- <p><b>父母双方に現れる同名馬 ${x.sharedNames.length}種類</b>（うち両側に因子記録あり ${x.sharedFactorCoverage}種類）。これは有効・独立クロスの本数ではありません。</p>
+ <p><b>父母それぞれの5代血統で同名の祖先 ${x.sharedNames.length}種類</b>（うち両側に因子記録あり ${x.sharedFactorCoverage}種類）。この旧方式は最終産駒から見た6代目も含みます。<b>最終産駒5代以内の重複は下のv126監査を優先</b>してください。有効・独立クロスの本数ではありません。</p>
  ${names?`<p class="muted">${names}</p>`:''}
  ${x.errors.length?`<p class="notice warn">照合問題：${esc(x.errors.join('／'))}</p>`:''}
  <p class="muted">${esc(x.caveat)} 実生産・至高成立は別途ゲーム内照合が必要です。</p></details>`;
@@ -3978,14 +3984,16 @@ function mild125DecisionHtml(plan){
  const x=api.assess({plan,homebreds:state.homebreds,master,
   liveAudit:window.DabimasMildLiveAudit124,evidenceAudit:window.DabimasMildEvidence123});
  if(!x)return '';
- const line=x.crosses.slice(0,12).map(c=>`<li><b>${esc(c.name)}</b>：父側 ${esc(c.sire.map(v=>v.foalPath).join('・'))}／母側 ${esc(c.mare.map(v=>v.foalPath).join('・'))}。因名複数 ${c.differsByVariant?'あり':'記録上なし'}、因名未収録 ${c.missingIdentity}枠、因子未収録 ${c.missingFactors}枠（有効性未確認）</li>`).join('');
+ const origin=window.DabimasMildCrossOrigin126?.classify?.({report:plan.externalReview48})||null;
+ const line=(origin?.crosses||[]).map(c=>`<li><b>${esc(c.name)}</b>：${esc(c.label)}。最終産駒の父側 ${esc(c.sire.map(v=>v.foalPath).join('・'))}／母側 ${esc(c.mare.map(v=>v.foalPath).join('・'))}。因名複数 ${c.differsByVariant?'あり':'記録上なし'}、因名未収録 ${c.missingIdentity}枠、因子未収録 ${c.missingFactors}枠（有効性未確認）</li>`).join('');
  const todo=x.issues.map(i=>`<li>${esc(i)}</li>`).join('');
- return `<details class="a21-flow"><summary>v125｜マイルド生産判断シート：${esc(x.phase)}（有効クロス・至高は未確定）</summary>
+ return `<details class="a21-flow"><summary>v126｜マイルド生産判断・クロス由来監査：${esc(x.phase)}（有効クロス・至高は未確定）</summary>
  <p>工程：基幹9＋追加${esc(x.extraBirths??'未確認')}／締め肌：${esc(x.grade)}／現行血統 ${x.dataMatched?'整合':'要確認'}／最終31枠の因子未収録 ${esc(x.missingFactorSlots??'未確認')}枠。</p>
  <p>至高の研究上の一次条件：<b>${x.recordedShikoBasis?'3×4×5の位置・因子6種類以上の登録一致':'位置・因子種類の再確認が必要'}</b>（記録${esc(x.distinctAnchorFactorTypes)}種類／ゲーム内成立未確認）。</p>
  <p>登録因子の短・速・長：${esc(x.observedFactors['短']||0)}・${esc(x.observedFactors['速']||0)}・${esc(x.observedFactors['長']||0)}（能力予測ではありません）。</p>
- <p><b>両側に現れる同名祖先 ${x.commonNameCrossCandidates}種類</b>。この数は有効クロスや独立クロスの本数ではありません。因子の記録が両側にある候補も、ゲーム内効果は未確認です。</p>
- ${line?`<details><summary>クロス候補の祖先位置 ${x.crosses.length}種類を表示</summary><ul>${line}</ul></details>`:''}
+ <p><b>最終産駒5代以内で両側に現れる同名祖先 ${origin?.crosses?.length??'未確認'}種類</b>（至高指定馬 ${origin?.counts?.['shiko-anchor']??'未判定'}／指定馬からの継承 ${origin?.counts?.['anchor-descendant']??'未判定'}／指定馬の外側にも両側出現 ${origin?.counts?.['outside-both']??'未判定'}／片側出現 ${origin?.counts?.['outside-one']??'未判定'}）。<b>追加の独立・有効クロスは0本と断定も確定もしていません。</b></p>
+ <p class="muted">v126は最終産駒の5代31枠のみで重複の「由来」を整理します。父母各31枠の5代目は最終産駒では6代目なので除外します。アンカー外の同名馬も独立クロス確定にはならず、因子が未収録なら「因子なし」とは判断しません。</p>
+ ${line?`<details><summary>最終5代のクロス候補の祖先位置 ${origin?.crosses?.length??'未確認'}種類を表示</summary><ul>${line}</ul></details>`:''}
  <p>確認の起点：<b>${esc(x.firstMating?.sire||'未確認')} × ${esc(x.firstMating?.mare||'未確認')}</b>。ゲーム内理論・牝馬確保はこれから確認します。</p>
  <p><b>実生産前に残る確認事項</b></p><ol>${todo}</ol>
  <p class="muted">${esc(x.caveat)} 保存プラン・所持データ・権利数は変更しません。</p></details>`;

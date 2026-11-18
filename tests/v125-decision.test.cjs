@@ -23,5 +23,5 @@ if(data){
  check('取得済みの権利数は判定を変えない',()=>{const r=inspect(rows[1]);const owned=JSON.stringify(p.personal.owned);assert(r.dataMatched);assert.equal(JSON.stringify(p.personal.owned),owned);});
  check('全プラン・自家製馬・公開マスターを変更しない',()=>{const before=JSON.stringify(p);rows.forEach(x=>inspect(x));assert.equal(JSON.stringify(p),before);});
 }
-check('v125 JS参照・UI呼出・PWAキャッシュが連動',()=>{const html=fs.readFileSync(root+'/index.html','utf8'),app=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');assert.match(html,/research-mild-decision-v125\.js\?v=125/);assert.match(html,/app\.js\?v=125/);assert.match(app,/mild125DecisionHtml\(p\)/);assert.match(sw,/dbms-v125-1/);assert.match(sw,/research-mild-decision-v125\.js/);});
+check('v125 JS参照・UI呼出・PWAキャッシュが連動',()=>{const html=fs.readFileSync(root+'/index.html','utf8'),app=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');assert.match(html,/research-mild-decision-v125\.js\?v=125/);assert.match(html,/app\.js\?v=126/);assert.match(app,/mild125DecisionHtml\(p\)/);assert.match(sw,/dbms-v126-1/);assert.match(sw,/research-mild-decision-v125\.js/);});
 console.log('v125: '+ok+' checks PASS');

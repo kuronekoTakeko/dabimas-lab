@@ -973,7 +973,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3828,6 +3828,37 @@ function mild115HandoffHtml(plan){
  <p><b>血統構造・保存照合：</b>${r.structural?'登録上は再照合通過':'未通過・要確認'} ／ <b>至高の指定異因名：</b>${r.anchorComplete?'登録位置一致（外部未検証）':r.notationOnly?'年号表記のみ一致・ID未照合':'外部照合が必要'} ／ <b>ゲーム内成立：</b>未確認。</p>
  ${problems}${rights}<p><b>実戦準備で必要な確認：</b></p><ol>${list}</ol>
  <p class="muted">${esc(r.caveat)} 既存の保存プランや実馬記録は変更しません。</p></details>`;
+}
+// v116: do not infer that a linked virtual foal has already been produced.
+function mild116FlowHtml(plan){
+ const api=window.DabimasMildFlowReview116;
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ if(!api?.inspect)return '<p class="notice warn">v116工程確認モジュールが未読込です。生産完了とは扱いません。</p>';
+ const steps=[];
+ for(const [i,p] of mild69PrepStages(plan).entries()){
+  const f=p.foal;
+  steps.push({kind:'prep',id:'P:'+p.kind,label:'準備'+(i+1)+'：'+p.label,sireId:p.info?.fatherId,mareId:p.info?.motherId,
+   outputId:p.info?.foalId||f?.id||'',outputMode:f?.mode||'',reused:false});
+ }
+ for(const [i,p] of (plan?.hard23?.preparations||[]).entries()){
+  const f=state.homebreds.find(h=>key(h.id)===key(p.foalId||p.outputId));
+  steps.push({kind:'prep',id:'P:hard:'+i,label:'追加仕込み'+(i+1),sireId:p.father,mareId:p.mother,
+   outputId:p.foalId||p.outputId||'',outputMode:f?.mode||'',reused:false});
+ }
+ for(let n=1;n<=9;n++){
+  const pair=chain09Parents(plan,n),out=chain09Output(plan,n);
+  steps.push({kind:'core',id:'C:'+n,number:n,label:'工程'+n,sireId:pair?.sireId,mareId:pair?.mareId,
+   outputId:out?.horse?.id||plan?.chain09?.outputs?.[n]||'',outputMode:out?.horse?.mode||'',reused:out?.reused===true});
+ }
+ const report=api.inspect({plan,stages:steps,readiness:mild97LiveReport(plan,true),stageAudit:mild98LiveReport(plan,true)});
+ if(!report)return '';
+ const rows=report.rows.map(r=>`<tr><td>${esc(r.label)}</td><td>${esc(r.sireId||'未指定')}</td><td>${esc(r.mareId||'未指定')}</td><td>${esc(r.state)}${r.reused?'（再利用）':''}</td></tr>`).join('');
+ const alerts=report.errors.concat(report.warnings);
+ return `<details class="a21-flow"><summary>v116｜生産順と実馬・仮馬の照合（${report.ok?'登録上の参照は正常':'要確認'}）</summary>
+ <p>基本${report.coreCount}工程＋準備${report.prepCount}工程。実馬登録${report.realCount}件／仮馬${report.virtualCount}件／未連結${report.unlinkedCount}件。</p>
+ ${alerts.length?`<p class="notice warn">${esc(alerts.slice(0,8).join('／'))}</p>`:''}
+ <div class="pedigree-scroll"><table class="detailtbl"><thead><tr><th>実施順</th><th>父</th><th>母</th><th>産駒の状態</th></tr></thead><tbody>${rows}</tbody></table></div>
+ <p class="muted">${esc(report.caveat)} ゲーム内の成立確認前に種付け権利を消費しないでください。</p></details>`;
 }
 function mild97ReadinessHtml(plan){
  const report=mild97LiveReport(plan,true);if(!report)return '';

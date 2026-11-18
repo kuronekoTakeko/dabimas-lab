@@ -78,8 +78,16 @@
   const anchors=Object.entries(anchorPaths).map(([role,p])=>{
    const id=String(anchorIds[role]||''),row=anchorRows.get(p),current=byMaster.get(key(id));
    const found=row?String(row.name||'')+(row.variant?'-'+row.variant+'-':''):'';
+   // v119: A numeric release such as キングカメハメハ2012 is displayed
+   // as キングカメハメハ-2012- in 31-slot exports. Accept ONLY a documented
+   // year-suffix notation for the exact current master record. Do not merge
+   // a different era or a different factor-name variant by base name alone.
+   const yearNotation=!!current&&/^(?:19|20)\d{2}$/.test(String(row?.variant||''))&&
+    key(id)===key(String(row?.name||'')+String(row?.variant||''))&&
+    key(current.name)===key(row?.name)&&key(current.variant)===key(row?.variant);
    return {role,path:p,expected:id,observed:found,recordPresent:!!current,
-    sameRegisteredId:!!id&&!!found&&key(id)===key(found),factorCount:current?.factors?.length??null};
+    sameRegisteredId:!!id&&!!found&&!!current&&(key(id)===key(found)||yearNotation),
+    notationOnly:yearNotation&&key(id)!==key(found),factorCount:current?.factors?.length??null};
   });
   const distinctAnchors=anchors.every(x=>x.expected)&&new Set(anchors.map(x=>key(x.expected))).size===3;
   if(!distinctAnchors)unknown.push('至高指定3枠の異なる登録IDを確認できません');

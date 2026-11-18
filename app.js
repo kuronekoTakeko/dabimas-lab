@@ -55,6 +55,7 @@ if(!state.mareFavorites||typeof state.mareFavorites!=='object')state.mareFavorit
 if(!state.mareGrades||typeof state.mareGrades!=='object')state.mareGrades={};
 let master=[], map=new Map(),visible=40, currentTab='auto21', loading=false;
 let masterAudit86=null; // public master only; NEVER mutate user production data
+let masterUpdateSummary120=null; // source update audit, never a user save
 // v6.8: separate parent-system index from child lines and from user saves.
 // Rebuild only when a public master is imported/restored; old records stay valid.
 let parentRegistry68=null;
@@ -122,8 +123,8 @@ function chip(x,cls=''){return `<span class="chip ${cls}">${esc(x)}</span>`;}
 function updateHeader(){const rows=maleRows();const count=Object.values(state.owned).filter(v=>v?.owned).length;$('headStats').innerHTML=`<div class="counter"><b>${rows.length}</b>登録種牡馬</div><div class="counter"><b>${count}</b>所持チェック</div><div class="counter"><b>${rows.filter(r=>isOwned(r)&&r.factors.length>=3).length}</b>所持3因子</div><div class="counter"><b>${mareRows().length}</b>公開繁殖牝馬</div>`;
 $('masterBanner').innerHTML=master.length?`<div class="line between"><span><b>公開マスター：${master.length}頭</b><br><span class="muted">所持馬と同名・因名を自動照合しています。</span></span><button class="btn ghost small" id="gotoSettings">更新</button></div>`:`<b>マスターは未取込です。</b><p class="muted">この端末の所持チェックは${count}頭です。種牡馬・繁殖牝馬の全データを表示するには公開CSVを取り込んでください。</p><button class="btn" id="gotoSettings">公開マスターを読み込む</button>`;
 $('gotoSettings').onclick=()=>switchTab('settings');}
-function renderCatalog(){const q=normalize($('search').value).toLowerCase(),fo=$('ownedFilter').value,fc=$('factorFilter').value,so=$('sortFilter').value;let arr=maleRows().filter(r=>{if(fo==='yes'&&!isOwned(r)||fo==='no'&&isOwned(r)||fo==='unmatched'&&!(master.length&&r.isSeed))return false;if(fc!=='all'&&r.factors.length!==Number(fc))return false;return !q||normalize(r.id+' '+r.factors.join(' ')+' '+(r.lineage||'')).toLowerCase().includes(q);});arr.sort((a,b)=>so==='owned'?(Number(isOwned(b))-Number(isOwned(a))||a.id.localeCompare(b.id,'ja')):so==='factor'?b.factors.length-a.factors.length||a.id.localeCompare(b.id,'ja'):a.id.localeCompare(b.id,'ja'));$('catalogCount').textContent=`${arr.length}件中 ${Math.min(visible,arr.length)}件を表示`;const shown=arr.slice(0,visible);$('horseList').innerHTML=shown.length?shown.map(r=>{const owned=isOwned(r);return `<div class="horse"><input type="checkbox" data-owned="${esc(r.id)}" ${owned?'checked':''} aria-label="${esc(r.id)}を所持"><div class="horse-main"><div class="line"><strong>${esc(r.id)}</strong>${owned?chip('所持','owned'):''}${master.length&&r.isSeed?chip('未照合','warn'):''}</div><div class="chips">${r.factors.length?r.factors.map(f=>chip(f)).join(''):chip('因子未登録','nofac')} ${r.lineage?chip(r.lineage):''}</div></div><div class="right" style="text-align:right"><button class="btn ghost small" data-detail="${esc(r.id)}">詳細</button></div></div>`;}).join(''):'<div class="empty">該当する馬がありません。検索条件を変えてください。</div>';$('more').classList.toggle('hidden',arr.length<=visible);}
-function showDetail(id){const r=map.get(key(id));if(!r)return;$('dialogTitle').textContent=r.id;let t=`<div class="metrics">${(r.factors||[]).map(f=>chip(f)).join('')}${r.lineage?chip(r.lineage):''}${isOwned(r)?chip('所持','owned'):''}</div>`;
+function renderCatalog(){const q=normalize($('search').value).toLowerCase(),fo=$('ownedFilter').value,fc=$('factorFilter').value,so=$('sortFilter').value;let arr=maleRows().filter(r=>{if(fo==='yes'&&!isOwned(r)||fo==='no'&&isOwned(r)||fo==='unmatched'&&!(master.length&&r.isSeed))return false;if(fc!=='all'&&r.factors.length!==Number(fc))return false;return !q||normalize(r.id+' '+r.factors.join(' ')+' '+(r.lineage||'')).toLowerCase().includes(q);});arr.sort((a,b)=>so==='owned'?(Number(isOwned(b))-Number(isOwned(a))||a.id.localeCompare(b.id,'ja')):so==='factor'?b.factors.length-a.factors.length||a.id.localeCompare(b.id,'ja'):a.id.localeCompare(b.id,'ja'));$('catalogCount').textContent=`${arr.length}件中 ${Math.min(visible,arr.length)}件を表示`;const shown=arr.slice(0,visible);$('horseList').innerHTML=shown.length?shown.map(r=>{const owned=isOwned(r);return `<div class="horse"><input type="checkbox" data-owned="${esc(r.id)}" ${owned?'checked':''} aria-label="${esc(r.id)}を所持"><div class="horse-main"><div class="line"><strong>${esc(r.id)}</strong>${owned?chip('所持','owned'):''}${master.length&&r.isSeed?chip('未照合','warn'):''}${r.sourceUnlisted120?chip('最新CSV未掲載','warn'):''}</div><div class="chips">${r.factors.length?r.factors.map(f=>chip(f)).join(''):chip('因子未登録','nofac')} ${r.lineage?chip(r.lineage):''}</div></div><div class="right" style="text-align:right"><button class="btn ghost small" data-detail="${esc(r.id)}">詳細</button></div></div>`;}).join(''):'<div class="empty">該当する馬がありません。検索条件を変えてください。</div>';$('more').classList.toggle('hidden',arr.length<=visible);}
+function showDetail(id){const r=map.get(key(id));if(!r)return;$('dialogTitle').textContent=r.id;let t=`<div class="metrics">${(r.factors||[]).map(f=>chip(f)).join('')}${r.lineage?chip(r.lineage):''}${isOwned(r)?chip('所持','owned'):''}${r.sourceUnlisted120?chip('最新CSV未掲載','warn'):''}</div>`;
 if(r.ancestry?.length){let lineMap={},fMap={};for(const a of r.ancestry){if(a.line)lineMap[a.line]=(lineMap[a.line]||0)+1;for(const f of (a.factors||[]))fMap[f]=(fMap[f]||0)+1;}
 t+=`<p class="muted"><b>登録血統の父系・母系祖先15枠</b>（この種牡馬の血統情報。完成産駒のニトロではありません）</p><div class="metrics">${Object.entries(fMap).sort((a,b)=>b[1]-a[1]).map(([f,n])=>chip(`${f} ×${n}`)).join('')}</div>`;
 t+=`<div class="metrics">${Object.entries(lineMap).filter(([l])=>SP_LINES.includes(l)||ST_LINES.includes(l)).map(([l,n])=>chip(`${l}: ${n}`)).join('')}</div>`;
@@ -150,7 +151,21 @@ function processCSV(txt){const parsed=parseCSV(txt);const hdr=parsed.shift()||[]
 function idb(){return new Promise((res,rej)=>{try{const req=indexedDB.open('dabimas_lab_v02',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('db'))req.result.createObjectStore('db');};req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);}catch(e){rej(e);}});}
 async function saveMaster(data){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('db','readwrite');t.objectStore('db').put(data,'master');t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});db.close();return true;}catch(e){return false;}}
 async function readMaster(){try{const db=await idb();const v=await new Promise((res,rej)=>{const t=db.transaction('db');const q=t.objectStore('db').get('master');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});db.close();return Array.isArray(v)?v:null;}catch(e){return null;}}
-async function setMaster(csv){let data=processCSV(csv);master=data;masterAudit86=null;buildMap();rebuildParentRegistry68();const saved=await saveMaster(master);$('importStatus').textContent=`マスター ${master.length}ID（元CSV ${data.length}行）を読み込みました。${saved?'この端末に保存済みです。':'端末への自動保存に失敗したため、再読込が必要です。'} ${parentRegistryNotice68()}`;renderAll();}
+async function setMaster(csv){
+ const raw=processCSV(csv);
+ const integrity=window.DabimasMasterIntegrity86;
+ const dedup=integrity?.reconcile?integrity.reconcile(raw):{records:raw,audit:null};
+ const update=window.DabimasMasterUpdate120;
+ if(!update?.compare)throw Error('公開データ更新の安全確認モジュールがありません。更新を中止しました。');
+ const compared=update.compare(master,dedup.records);
+ const newMaster=compared.merged;
+ // Save first. A failed IndexedDB write must not replace the displayed master.
+ if(!(await saveMaster(newMaster)))throw Error('公開マスターの保存に失敗しました。既存データを維持しました。');
+ master=newMaster;masterAudit86=dedup.audit;masterUpdateSummary120=compared.summary;
+ buildMap();rebuildParentRegistry68();renderAll();
+ const d=compared.summary;
+ $('importStatus').textContent=`v120｜公開CSV ${d.publishedCount}ID／更新後 ${master.length}ID。追加${d.added}・血統/因子等の変更${d.modifiedStructural}・属性のみ変更${d.modifiedAttributes}・今回CSV未掲載（保持）${d.notInLatest}。所持・権利・保存プラン・自家製馬は変更なし。${d.notInLatest?'最新版にない旧IDは未確認扱いで保持。':''} ${parentRegistryNotice68()}`;
+}
 async function loadWeb(){if(loading)return;loading=true;$('loadWebMaster').disabled=true;$('importStatus').textContent='公開CSVを読み込んでいます…';try{const r=await fetch(RAW_URL,{cache:'no-store'});if(!r.ok)throw Error(`HTTP ${r.status}`);await setMaster(await r.text());}catch(e){$('importStatus').textContent='Web取り込みに失敗しました（通信制限/CORSなど）：'+e.message+'。CSVを保存してファイル選択から読み込む方法も使えます。';}finally{loading=false;$('loadWebMaster').disabled=false;}}
 function dl(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function productionDataBackup(){return {version:13,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,mareGrades:state.mareGrades,homebreds:state.homebreds};}
@@ -552,7 +567,7 @@ function mild69PrepEditor(p){
 }
 function renderSavedPlans(){const all=Array.isArray(state.plans)?state.plans:[];const q=normalize($('planSearch')?.value||'').toLowerCase();const sf=$('planStatusFilter')?.value||'all';let arr=[...all].filter(p=>(sf==='all'||p.status===sf)&&(!q||normalize([p.title,p.target,p.note,(p.source?.members||[]).map(m=>m.id).join(' ')].join(' ')).toLowerCase().includes(q)));arr.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));$('savedPlanCount').textContent=`保存済み${all.length}件 ／ 表示${arr.length}件`;
 $('savedPlans').innerHTML=arr.length?arr.map(p=>{const extra=p.hard23?.preparations||p.prep17?.steps||[],preps=mild69PrepStages(p),n=(p.steps||[]).length+extra.length+preps.length,d=(p.steps||[]).filter(s=>s.done).length+extra.filter(s=>s.done).length+mild69PrepDone(p);return`<div class="card"><div class="plan-head"><div><strong>${esc(p.title)}</strong><div class="muted">${esc(p.target||'対象レース未設定')} ／ ${esc(p.status||'構想')}</div></div>${chip(`${d}/${n}工程`)}</div><p class="muted" style="margin:8px 0">${(p.source?.members||[]).map(m=>esc(m.id)).join('、')||'使用馬は未登録'}</p><div class="muted">更新：${esc(dateJP(p.updatedAt))} ／ ${p.source?.validated?'':'至高成立未検証'}</div><div class="plan-actions"><button class="btn small" data-open-plan="${esc(p.id)}">計画を開く・編集</button><button class="btn ghost small" data-duplicate-plan="${esc(p.id)}">複製</button><button class="btn danger small" data-delete-plan="${esc(p.id)}">削除</button></div></div>`}).join(''):'<div class="empty">保存された配合プランはありません。「自動設計」で条件を選び、配合プランを作成してください。</div>';
-
+ mild119RenderPortfolio();
 }
 
 
@@ -1096,6 +1111,8 @@ function closeEditor(){openPlanId=null;$('planEditor').classList.add('hidden');$
 $('candidates')?.addEventListener('click',e=>{const btn=e.target.closest('[data-save-candidate]');if(!btn)return;const c=getCandidates()[Number(btn.dataset.saveCandidate)];if(!c)return;const p=newPlan(c);state.plans.unshift(p);persist();switchTab('library');showPlanEditor(p.id);});
 if($('createPlan'))$('createPlan').onclick=()=>{const p=newPlan();state.plans.unshift(p);persist();renderSavedPlans();showPlanEditor(p.id);};
 $('planSearch').oninput=renderSavedPlans;$('planStatusFilter').onchange=renderSavedPlans;
+$('mild119Portfolio')?.addEventListener('change',e=>{if(e.target?.id==='mild119Race')mild119RenderPortfolio();});
+$('mild119Portfolio')?.addEventListener('click',e=>{const b=e.target.closest('[data-mild119-open]');if(b)showPlanEditor(b.dataset.mild119Open);});
 $('savedPlans').addEventListener('click',e=>{const open=e.target.closest('[data-open-plan]'),dup=e.target.closest('[data-duplicate-plan]'),del=e.target.closest('[data-delete-plan]');if(open){showPlanEditor(open.dataset.openPlan);return;}if(dup){const p=getPlan(dup.dataset.duplicatePlan);if(!p)return;const c=JSON.parse(JSON.stringify(p));c.id=uid();c.title+='（コピー）';c.createdAt=nowISO();c.updatedAt=c.createdAt;state.plans.unshift(c);persist();renderSavedPlans();return;}if(del){const p=getPlan(del.dataset.deletePlan);if(!p)return;if(!confirm('「'+p.title+'」を削除しますか？ この操作は元に戻せません。'))return;state.plans=state.plans.filter(x=>x.id!==p.id);persist();renderSavedPlans();}});
 $('planEditor').addEventListener('input',e=>{const p=getPlan(openPlanId);if(!p)return;const v=e.target;const mf=v.dataset.m69Field;
  if(mf&&p.mild67){const kind=v.closest('[data-m69-kind]')?.dataset.m69Kind;
@@ -1121,7 +1138,7 @@ function renderMares(){const panel=$('mareList');if(!panel)return;
  let rows=mareRows().filter(r=>(filter!=='saved'||state.mareFavorites[key(r.id)])&&(gradeFilter==='all'||(gradeFilter==='meihin'&&mareRank12(r).value==='名牝')||(gradeFilter==='unknown'&&mareRank12(r).value==='未確認'))&&(!q||key(r.id+' '+r.lineage).includes(q)));
  rows.sort((a,b)=>Number(!!state.mareFavorites[key(b.id)])-Number(!!state.mareFavorites[key(a.id)])||a.id.localeCompare(b.id,'ja'));
  $('mareCount').textContent=`繁殖牝馬：${rows.length}頭中 ${Math.min(mareLimit,rows.length)}頭表示（距離欄なしの公開データ）`;
- panel.innerHTML=rows.slice(0,mareLimit).map(r=>`<div class="mare-list-item"><div><strong>${esc(r.id)}</strong> ${state.mareFavorites[key(r.id)]?chip('研究候補に登録','owned'):''} ${chip(mareRank12(r).value,mareRank12(r).value==='名牝'?'owned':'')}<div class="muted">${esc(r.lineage||'子系統未登録')} ／ 祖先 ${r.ancestry?.length||0}枠</div></div><div class="mare-actions"><label class="mare-grade-label">ランク<select data-mare-grade12="${esc(r.id)}" title="ゲーム内で確認したランクを登録">
+ panel.innerHTML=rows.slice(0,mareLimit).map(r=>`<div class="mare-list-item"><div><strong>${esc(r.id)}</strong> ${state.mareFavorites[key(r.id)]?chip('研究候補に登録','owned'):''} ${r.sourceUnlisted120?chip('最新CSV未掲載','warn'):''} ${chip(mareRank12(r).value,mareRank12(r).value==='名牝'?'owned':'')}<div class="muted">${esc(r.lineage||'子系統未登録')} ／ 祖先 ${r.ancestry?.length||0}枠</div></div><div class="mare-actions"><label class="mare-grade-label">ランク<select data-mare-grade12="${esc(r.id)}" title="ゲーム内で確認したランクを登録">
  <option value="" ${!state.mareGrades[key(r.id)]?'selected':''}>${esc(mareRank12(r).source==='過去の公開リスト'?'名牝（参考）':'未確認（自動）')}</option>
  ${RANK12_CHOICES.map(grade=>`<option value="${esc(grade)}" ${state.mareGrades[key(r.id)]===grade?'selected':''}>${esc(grade)}</option>`).join('')}</select></label><button class="btn small ghost" data-mare-detail="${esc(r.id)}">血統</button><button class="btn small ${state.mareFavorites[key(r.id)]?'grey':'ghost'}" data-mare-fav="${esc(r.id)}">${state.mareFavorites[key(r.id)]?'候補から外す':'候補に追加'}</button></div></div>`).join('')||'<div class="empty">該当する繁殖牝馬はありません。公開CSVの取り込みを確認してください。</div>';
  $('mareMore').disabled=rows.length<=mareLimit;
@@ -3893,17 +3910,62 @@ function mild117RealismHtml(plan){
  <p><b>次に確認すること</b></p><ol>${todo}</ol>
  <p class="muted">${esc(result.caveat)} 保有・保存データの変更はありません。</p></details>`;
 }
-// v118: live current-device IDs/rights and planned parent graph (read-only).
-function mild118RealdataHtml(plan){
- if(plan?.autoDesign21?.mode!=='mild')return '';
- const api=window.DabimasMildRealdata118;
- if(!api?.inspect)return '<p class="notice warn">v118実登録監査を読み込めません。所持データ・工程は未照合です。</p>';
+// v119: Shared, read-only stage IDs for the current-device portfolio and plan details.
+function mild119StageRows(plan){
  const stages=[];
  for(const [i,p] of mild69PrepStages(plan).entries())stages.push({kind:'prep',id:'P:'+p.kind,label:'準備'+(i+1),sireId:p.info?.fatherId,mareId:p.info?.motherId,outputId:p.info?.foalId||p.foal?.id||''});
  for(const [i,p] of (plan?.hard23?.preparations||[]).entries())stages.push({kind:'prep',id:'P:hard:'+i,label:'準備（拡張）'+(i+1),sireId:p.father,mareId:p.mother,outputId:p.foalId||p.outputId||''});
  for(let n=1;n<=9;n++){const parents=chain09Parents(plan,n),out=chain09Output(plan,n);
   stages.push({kind:'core',id:'C:'+n,label:'工程'+n,sireId:parents?.sireId,mareId:parents?.mareId,outputId:out?.horse?.id||plan?.chain09?.outputs?.[n]||''});
  }
+ return stages;
+}
+// v119: Compare saved plans by verification/rights, not fabricated racing ability.
+function mild119RenderPortfolio(){
+ const target=$('mild119Portfolio'),api=window.DabimasMildPortfolio119;
+ if(!target)return;
+ if(!api?.inspect){target.innerHTML='<div class="notice warn">v119保存候補横断監査モジュール未読込です。</div>';return;}
+ const selected=target.querySelector('#mild119Race')?.value||'all';
+ const report=api.inspect({plans:state.plans,owned:state.owned,master,homebreds:state.homebreds,
+  buildStages:mild119StageRows,realdata:window.DabimasMildRealdata118});
+ const races=[...new Set(report.rows.map(x=>x.race).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+ const options=['<option value="all">全レース（準備負担順）</option>',...races.map(x=>`<option value="${esc(x)}" ${selected===x?'selected':''}>${esc(x)}</option>`)];
+ const shown=report.shortlist.filter(r=>selected==='all'||r.race===selected).slice(0,8);
+ const unit=r=>`<tr><td>${esc(r.race)}／${esc(r.goal||'未指定')}</td><td>${esc(r.title)}</td><td>${esc(r.route==='sireOnly'?'種側＋1':r.route==='both'?'両側＋1':r.route==='mareOnly'?'肌側＋1':r.route==='direct'?'追加なし':'不明')}</td><td>${r.shortageTypes}種類・${r.shortageTotal}回</td><td>${r.nitroStages?esc(JSON.stringify(r.nitroStages)):'未記録'}</td><td><button class="btn grey small" data-mild119-open="${esc(r.id)}">開く</button></td></tr>`;
+ target.innerHTML=`<div class="card"><h3>v119｜マイルド型・保存済み候補の横断監査</h3>
+ <p>マイルド型${report.total}件／保存時3検査あり${report.withSavedAudits}件／現端末での31枠・工程の登録照合通過${report.currentStructural}件／旧形式・再監査必要${report.unreviewed}件。工程構成の記録：追加なし${report.distribution.direct}／種側＋1 ${report.distribution.sireOnly}／肌側＋1 ${report.distribution.mareOnly}／両側＋1 ${report.distribution.both}／不明${report.distribution.unknown}。</p>
+ <p class="muted">保存案を「必要権利の確認が少ない順」に表示。実際のSP/STやBCの強さの順位ではありません。構造照合通過も、ゲーム内の至高成立を意味しません。</p>
+ <label>目標レースで絞る：<select id="mild119Race">${options.join('')}</select></label>
+ ${shown.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>対象</th><th>保存プラン</th><th>追加工程</th><th>権利不足</th><th>ニトロ段階（記録値）</th><th>詳細</th></tr></thead><tbody>${shown.map(unit).join('')}</tbody></table></div>`:'<p>この条件で横断監査を通過した保存プランはありません。未検証の旧プランは不成立とはみなしません。</p>'}
+ <p class="muted">${esc(report.caveat)} 全プランのデータは維持しています。</p></div>`;
+}
+function mild119PreflightRun(){
+ const target=$('mild119BroadResult'),btn=$('mild119BroadRun'),api=window.DabimasMildBroad119;
+ if(!target||!api?.inspect){if(target)target.textContent='探索モジュール未読込';return;}
+ if(!parentRegistry68?.observed){target.textContent='公開CSVの親系統記録がありません。先にデータ管理から公開マスターを取り込んでください。';return;}
+ const res=window.DabimasFamilySearch46?.resolve(auto21Candidates,$('auto21Horse')?.value,24,6);
+ const anchorId=res?.pool?.[0]?.set?.[0]?.id;
+ if(!anchorId){target.textContent='中心種牡馬の候補が特定できません。';return;}
+ btn.disabled=true;target.textContent='実際の所持馬と公開牝馬を一次照合しています。保存内容は変更しません。';
+ setTimeout(()=>{try{
+  const d=api.inspect({owned:state.owned,master,anchorId,mareRank:r=>mareRank12(r).value,
+   theory:currentParentTheory68(),inverse:window.DabimasInverseMild69,goal:$('auto21Goal')?.value||'speed',limit:160});
+  if(!d.ok){target.textContent='一次探索を実施できません：'+d.error;return;}
+  const row=(title,a)=>`<tr><td>${esc(title)}</td><td>${esc(a.stats?.ownedSires??'—')}頭</td><td>${esc(a.stats?.mares??'—')}頭</td><td>${esc(a.stats?.precheckedPrepared??'—')}組</td><td>${esc(a.stats?.ranked??'—')}案</td><td>${esc(a.stats?.returned??'—')}案</td></tr>`;
+  const r=d.expanded.stats||{},g=d.designated.stats||{};
+  target.innerHTML=`<p><b>起点：${esc(anchorId)}</b>／固定親系統 ${esc(d.sourceSummary.fixedParentSystems.join('＋'))}（公開記録のみ）</p>
+  <div style="overflow:auto"><table class="detailtbl"><thead><tr><th>一次探索範囲</th><th>所持父</th><th>公開牝馬</th><th>種側仕込み事前検査</th><th>一致の前段候補</th><th>抽出上限</th></tr></thead><tbody>${row('名牝登録のみ',d.designated)}${row('公開牝馬を全件確認',d.expanded)}</tbody></table></div>
+  <p>全公開牝馬の4ルート内訳：追加なし ${esc(r.availableDirect??0)}／種側＋1 ${esc(r.availableOptionalSires??0)}／肌側＋1 ${esc(r.availableOptionalMares??0)}／両側＋1 ${esc(r.availableBothPrepared??0)}（いずれも親系統の一次条件）。名牝登録のみの一次候補 ${esc(g.ranked??0)}案。</p>
+  <p class="notice warn"><b>最終31枠・至高成立は未検査です。</b> 名牝ランク未確認 ${d.sourceSummary.unconfirmedMares}頭を、実生産可能な名牝と扱いません。元の保存データは変更しません。</p>
+  <p class="muted">${esc(d.caveat)}</p>`;
+ }catch(e){target.textContent='一次照合エラー：'+e.message;}finally{btn.disabled=false;}},20);
+}
+// v118: live current-device IDs/rights and planned parent graph (read-only).
+function mild118RealdataHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const api=window.DabimasMildRealdata118;
+ if(!api?.inspect)return '<p class="notice warn">v118実登録監査を読み込めません。所持データ・工程は未照合です。</p>';
+ const stages=mild119StageRows(plan);
  const a=api.inspect({plan,stages,owned:state.owned,master,homebreds:state.homebreds});
  if(!a)return '';
  const inventory=a.inventory,missing=inventory.unmatched.slice(0,8).map(x=>x.id).join('、');
@@ -4740,6 +4802,7 @@ function setupAuto21(){
  $('auto21Goal').addEventListener('change',auto21RefreshCandidates);
  run.addEventListener('click',auto21Create);
  $('lineage106Run')?.addEventListener('click',lineage106Run);
+ $('mild119BroadRun')?.addEventListener('click',mild119PreflightRun);
  auto21RefreshCandidates();
 }
 

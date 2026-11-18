@@ -21,7 +21,7 @@
    }
    const anchorOk=current?.anchors?.length===3&&current.anchors.every(a=>a.sameRegisteredId&&a.recordPresent);
    const currentlyStructural=savedAudits===true&&current?.structuralRefsOk===true&&current?.saved31===true&&anchorOk===true;
-   const shortage=(current?.rightsToConfirm||[]).filter(x=>x.shortage===null||x.shortage>0);
+   const shortage=(current?.rightsToConfirm||[]).filter(x=>x.owned===false);
    const needed=shortage.reduce((s,x)=>s+(x.shortage||0),0);
    const code=p.mild97?.finalFingerprint||'';
    const dedupKey=code?JSON.stringify([p.autoDesign21?.race,p.goal,code]):'';
@@ -39,17 +39,16 @@
     saved31:current?.saved31===true,duplicateOf,gameVerified:false,productionAuthorized:false});
   }
   const filtered=rows.filter(r=>r.structural);
-  // Preparation ORDER only: fewer known missing rights, fewer additional births,
-  // no invented ability comparison or automatic breed recommendation.
-  filtered.sort((a,b)=>a.shortageTypes-b.shortageTypes||a.shortageTotal-b.shortageTotal||
-   (a.additionalBirths??99)-(b.additionalBirths??99)||String(a.race).localeCompare(String(b.race),'ja')||
+  // v122: acquired sires can exchange rights; their stored count must never
+  // influence candidate ordering. This is an EFFORT list, not a race ranking.
+  filtered.sort((a,b)=>(a.additionalBirths??99)-(b.additionalBirths??99)||String(a.race).localeCompare(String(b.race),'ja')||
    String(a.id).localeCompare(String(b.id),'ja'));
   return {version:119,total:rows.length,withSavedAudits:rows.filter(r=>r.stageAuditPresent).length,
    currentStructural:filtered.length,unreviewed:rows.filter(r=>!r.stageAuditPresent).length,
    currentIssues:rows.filter(r=>r.stageAuditPresent&&!r.structural).length,
    duplicateRecords:rows.filter(r=>r.duplicateOf).length,
-   distribution,rows,shortlist:filtered.slice(0,20),gameVerified:false,productionAuthorized:false,
-   caveat:'保存済み候補の現時点の「再確認作業が少ない順」です。初期探索の候補を生成し直した結果ではありません。権利不足0でも牝馬入手・ゲーム内至高・能力は未確認。ニトロ/クロスは根拠水準が異なるため横断スコアに換算しません。'};
+   distribution,rows,ordered:filtered,shortlist:filtered.slice(0,20),gameVerified:false,productionAuthorized:false,
+   caveat:'保存済み候補を追加工程の少ない順に並べた工程比較です。所持馬の権利はポイント交換を前提とし順位に用いません。牝馬入手・ゲーム内至高・能力は未確認。ニトロ/クロスは根拠水準が異なるため横断スコアに換算しません。'};
  }
  return Object.freeze({inspect,route});
 });

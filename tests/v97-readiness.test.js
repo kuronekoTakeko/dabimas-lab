@@ -1,0 +1,43 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),api=require('../research-mild-readiness-v97.js');
+const names=['S'];let p=['S'];for(let i=2;i<=5;i++){p=p.flatMap(x=>['S'+x,'D'+x]);names.push(...p)};
+assert.equal(names.length,31);
+const full=()=>({known:31,conflicts:[],rows:names.map((path,i)=>({path,name:'祖先-'+i,factors:i%2?['速','長']:[],factorVariant:i===12?'天靭':'',line:'ヘイルトゥリーズン系',parentSystem:'Royal Charger'}))});
+const newPlan=()=>({id:'plan',steps:Array.from({length:9},(_,i)=>({title:'工程'+(i+1)})),
+ autoDesign21:{mode:'mild',goal:'speed',race:'芝1200m'},goal:'speed',target:'公式BC想定：芝1200m'});
+const matings=()=>Array.from({length:9},(_,i)=>({kind:'core',number:i+1,id:'C:'+(i+1),label:'工程'+(i+1),
+ sireId:'所持種牡馬A',sireType:'public',mareId:'名牝'+(i%3),mareType:'public',ready:true,pedigreeKnown:31,problems:[]}));
+const build=()=>({plan:newPlan(),matings:matings(),finalPed:full(),closingPed:full(),
+ release:{ok:true},siblings:{version:95,blocked:false},owned:{'所持種牡馬a':{owned:true,rights:0}}});
+const init=build(),save=api.assess(init);
+assert(save.ok,save.errors.join(' / '));assert(!save.gameVerified);assert.equal(save.core,9);
+assert.equal(save.publicMares.length,3);assert.equal(save.publicSires[0].shortage,0);assert.equal(save.publicSires[0].recordedShortage,9);
+assert(!save.warnings.some(x=>x.includes('権利')), '権利0警告は不必要');
+assert.deepEqual(api.assess({...init,stored:save,requireSaved:true}).errors,[]);
+assert.match(api.assess({...init,requireSaved:true}).errors.join('／'),/旧版のプラン/);
+const changed=build();changed.matings[3].mareId='別名牝';
+assert.match(api.assess({...changed,stored:save,requireSaved:true}).errors.join('／'),/保存時の血統・父母/);
+const factorChanged=build();factorChanged.finalPed.rows[12].factors=['速','速','速'];
+assert.match(api.assess({...factorChanged,stored:save,requireSaved:true}).errors.join('／'),/保存時の血統/);
+const variantChanged=build();variantChanged.closingPed.rows[12].factorVariant='神速';
+assert.match(api.assess({...variantChanged,stored:save,requireSaved:true}).errors.join('／'),/保存時の血統/);
+const broken=build();broken.matings[7].pedigreeKnown=29;broken.matings[7].ready=false;
+assert(!api.assess(broken).ok);
+const noRights=build();noRights.owned={};assert(!api.assess(noRights).ok);
+const unknownMare=build();unknownMare.matings[1].mareType='unknown';assert(!api.assess(unknownMare).ok);
+const changedRace=build();changedRace.plan.target='公式BC想定：ダート1200m';assert.match(api.assess(changedRace).errors.join('/'),/目標レース/);
+const changedGoal=build();changedGoal.plan.goal='stamina';assert.match(api.assess(changedGoal).errors.join('/'),/能力方針/);
+const short=build();short.finalPed.rows.pop();assert(!api.assess(short).ok);
+const siblings=build();siblings.siblings.blocked=true;assert(!api.assess(siblings).ok);
+const extra=build();extra.matings.push({kind:'prep',id:'P:sire',label:'準備',sireId:'所持種牡馬A',mareId:'名牝0',sireType:'public',mareType:'public',ready:true,pedigreeKnown:31,problems:[]});
+assert.equal(api.assess(extra).preparations,1);assert.equal(api.assess(extra).publicSires[0].recordedShortage,10);assert.equal(api.assess(extra).publicSires[0].shortage,0);
+const duplicate=build();duplicate.matings[8].id='C:8';assert(!api.assess(duplicate).ok);
+const snapshot=JSON.stringify(init);api.assess(init);assert.equal(JSON.stringify(init),snapshot,'read-only audit');
+const index=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8'),app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+assert(index.indexOf('research-mild-readiness-v97.js?v=122')>0);
+assert(index.indexOf('research-mild-readiness-v97.js?v=122')<index.indexOf('app.js?v=122'));
+assert(sw.includes('research-mild-readiness-v97.js')&&sw.includes('dbms-v122-1'));
+assert(app.includes('saved.mild97=readiness;')&&app.includes('mild97ReadinessHtml(p)'));
+assert(app.includes('if(!readiness?.ok){')&&app.includes('state.plans=mildRollback.plans'));
+console.log('PASS v97: 31-slot + factors/variants and mating drift, old plans, goals, exact route, acquired-rights exchangeable, lost ownership, 9+preps, nonmutation, SW wiring, fail-closed save');

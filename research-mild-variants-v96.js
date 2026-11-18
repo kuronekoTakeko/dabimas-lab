@@ -34,10 +34,8 @@
   // called a confirmed in-game strength/bonus or an SP prediction.
   const af=factors(a.sire).length,bf=factors(b.sire).length;
   if(af!==bf)return bf-af;
-  // If no documented difference, fewer rights-shortage warnings help actual
-  // production. Rights zero still remains an eligible acquired candidate.
-  const ar=Number(a.rights)||0,br=Number(b.rights)||0;
-  if((ar>0)!==(br>0))return br>0?1:-1;
+  // v122: all acquired stallions have equivalent point-exchange access.
+  // Do not rank otherwise equal variants by the saved registration count.
   const ap=personalWeight(a.sire,goal),bp=personalWeight(b.sire,goal);
   if(ap!==bp)return bp-ap;
   return norm(a.sire.id).localeCompare(norm(b.sire.id),'ja');
@@ -63,7 +61,7 @@
    previous:originalSire.id,chosen:chosen.sire.id,changed:norm(chosen.sire.id)!==norm(originalSire.id),
    checked:considered.length,passed:accepted.length,considered,beforeMetric:before,afterMetric:after,
    gameVerified:false,completeSearch:false,
-   caveat:'公開登録血統15枠が完全に等しい取得済み異因名のみ比較。31枠・指定3馬・締め肌理論を各案で再計算。クロス証拠が同点なら本人因子数・権利の有無を研究上の優先順位に使用。ゲーム内の因子効果・産駒SP/STや最適解を保証しない。'}};
+   caveat:'公開登録血統15枠が完全に等しい取得済み異因名のみ比較。31枠・指定3馬・締め肌理論を各案で再計算。クロス証拠が同点なら本人因子数のみを先に比較し、登録権利数は優先順位に使用しません。ゲーム内の因子効果・産駒SP/STや最適解を保証しない。'}};
  }
  return Object.freeze({stem,signature,equivalent,personalWeight,comparison,optimize});
 });

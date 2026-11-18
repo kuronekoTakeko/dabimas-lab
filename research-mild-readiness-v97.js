@@ -64,11 +64,8 @@
   const current=digest([finalFingerprint,closingFingerprint,parentSignature,norm(plannedGoal),norm(plannedRace)]);
   if(requireSaved&&stored?.version!==97)errors.push('旧版のプラン：v97の保存時照合情報がありません（新しい自動設計で再検証してください）');
   if(stored?.version===97&&stored.fingerprint!==current)errors.push('保存時の血統・父母・目標条件から変更されています（再検証が必要）');
-  const demands=[...sireDemands.values()].map(r=>({...r,shortage:r.rights===null?null:Math.max(0,r.uses-r.rights)}));
-  for(const s of demands){
-   if(s.shortage>0)warnings.push(`${s.id}：予定${s.uses}回・登録権利${s.rights}回（不足${s.shortage}回）`);
-   else if(s.rights===null)warnings.push(`${s.id}：種付け権利残数が未確認`);
-  }
+  const demands=[...sireDemands.values()].map(r=>({...r,recordedShortage:r.rights===null?null:Math.max(0,r.uses-r.rights),shortage:r.owned?0:null,exchangeable:r.owned,planningRights:r.owned?Math.max(10,r.uses):0}));
+  // v122: recorded rights are not an acceptance criterion for acquired stallions.
   const mares=[...uniqueMares.values()].sort((a,b)=>a.id.localeCompare(b.id,'ja'));
   if(mares.length)warnings.push(`公開繁殖牝馬${mares.length}種類・延べ${mares.reduce((a,m)=>a+m.uses,0)}回：ゲーム内の確保・使用可否は未確認`);
   const failures=[...new Set(errors)],ok=failures.length===0;
@@ -77,7 +74,7 @@
    originalGoal:plannedGoal,originalRace:plannedRace,currentGoal:actualGoal,currentRace:actualRace,
    core:core.length,preparations:prep.length,plannedMatingCount:matings.length,
    publicSires:demands,publicMares:mares,gameVerified:false,actualFoalStatsVerified:false,
-   evidence:'保存時の配合と、今この端末で再構築した父母・31枠・理論一次判定・所持登録を照合。登録権利0は候補の除外条件ではありません。',
+   evidence:'保存時の配合と、今この端末で再構築した父母・31枠・理論一次判定・所持登録を照合。所持種牡馬は登録権利0でもポイント交換を前提に探索します。',
    limitations:'ゲーム内の至高・完璧・超完璧成立、種付け権利の実残数、公開牝馬の確保、自家製馬の実生産、SP/ST能力は保証しません。'};
  }
  return Object.freeze({pedigreeIdentity,assess});

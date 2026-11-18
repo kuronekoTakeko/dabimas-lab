@@ -24,10 +24,10 @@ function audit({stages=[],inventory={},resolve=null}={}){
   const rec=inventory[norm(r.id)]||null,owned=rec?.owned===true;
   const rights=owned&&rec&&rec.rights!==''&&rec.rights!==null&&rec.rights!==undefined&&Number.isSafeInteger(Number(rec.rights))&&Number(rec.rights)>=0?Number(rec.rights):null;
   const shortage=!owned?null:rights===null?null:Math.max(0,r.count-rights);
-  const status=!owned?'所持未確認':rights===null?'権利数未確認':shortage>0?'権利不足':'登録上は必要回数あり';
-  return {...r,owned,rights,shortage,status};
+  const status=!owned?'所持未確認':'取得済み・ポイント交換可能';
+  return {...r,owned,rights,recordedShortage:shortage,shortage:owned?0:null,planningAvailable:owned,status};
  }).sort((a,b)=>{const prior=x=>x.status==='権利不足'||x.status==='所持未確認'?0:x.status==='権利数未確認'?1:2;return prior(a)-prior(b)||a.id.localeCompare(b.id,'ja');});
- const insufficient=rows.filter(r=>r.status==='権利不足').length;
+ const insufficient=0; // all acquired stallions can exchange needed rights
  const notOwned=rows.filter(r=>r.status==='所持未確認').length;
  const unknown=rows.filter(r=>r.status==='権利数未確認').length;
  return {schema:80,rows,required:rows.reduce((s,r)=>s+r.count,0),insufficient,notOwned,unknown,unresolved,skipped,

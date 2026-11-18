@@ -15,16 +15,14 @@ function analyze({plan,inventory={},resolve=null,theory=null}={}){
   let status='要確認';
   if(pendingPrep){status='自家製種牡馬の生産・実測待ち';missing++;}
   else if(!owned){status='所持確認が必要';missing++;}
-  else if(rights===0){status='権利0：種付け前に補充が必要';zero++;}
-  else if(rights===null){status='権利数未確認';unknown++;}
-  else status='権利あり';
+  else status='取得済み・ポイント交換可能（登録権利'+(rights===null?'未確認':rights+'回')+'）';
   steps.push({step:n,sire,mare,owned,rights,status,registered:!!source});
  }
  const theoryStatus=theory?.superPerfect==='成立'?'超完璧（条件上）':theory?.perfect==='成立'?'完璧（条件上）':theory?.superPerfect==='未確認'||theory?.perfect==='未確認'?'未確認':'不成立または未判定';
  const first=steps.find(s=>s.step===1)||null;
  return {schema:63,steps,missing,zero,unknown,first,closingTheory:theoryStatus,
   breedingReady:missing===0&&zero===0&&unknown===0&&!!first&&!!mares[1],
-  gameVerified:false,notes:['所持・権利は現在のブラウザに登録された情報。消費済みの種付け分は計算しません。','途中配合理論と最終至高はゲーム画面で確認が必要です。']};
+  gameVerified:false,notes:['取得済みなら登録権利0でも探索・準備対象です。必要な権利はゲーム内ポイント交換を前提とし、保存済み権利数は変更しません。','途中配合理論と最終至高はゲーム画面で確認が必要です。']};
 }
 return Object.freeze({analyze});
 });

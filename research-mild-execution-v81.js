@@ -49,14 +49,14 @@
    if(s.sireType==='public'){
     const rec=inventory[norm(s.sireId)];owned=rec?.owned===true;
     rights=owned&&Number.isInteger(Number(rec?.rights))&&Number(rec.rights)>=0&&rec.rights!==''&&rec.rights!==null&&rec.rights!==undefined?Number(rec.rights):null;
-    sireStatus=!owned?'所持未確認':rights===null?'権利数未確認':rights===0?'権利0':'登録上は権利あり';
+    sireStatus=!owned?'所持未確認':'取得済み・ゲーム内ポイント交換可能（登録権利'+(rights===null?'未確認':rights+'回')+'）';
     if(!completed){
      const k=norm(s.sireId);if(!remainingRights.has(k))remainingRights.set(k,{sireId:s.sireId,needed:0,rights,owned});
      remainingRights.get(k).needed++;
     }
     if(!owned)blocks.push('公開種牡馬の所持登録がありません');
-    else if(rights===0)blocks.push('登録上の種付け権利が0回です');
-    else if(rights===null)warnings.push('公開種牡馬の権利数をゲーム内で確認してください');
+    // v122: owned horses remain preparable regardless of registered rights.
+    // The source count remains unchanged; users exchange rights in-game when needed.
    }else if(s.sireType==='homebred'){
     sireStatus=s.sireReal===true?'自家製牡馬の供用確認待ち':'自家製牡馬の実馬化待ち';
     if(!s.sireReal)blocks.push('父の自家製種牡馬が実馬登録されていません');
@@ -74,13 +74,14 @@
   }
   const all=[...nodes.values()],remaining=all.filter(x=>!x.completed),first=remaining.filter(x=>!x.pendingDeps.length),candidates=first.filter(x=>x.state==='先行準備候補');
   const inventoryRows=[...remainingRights.values()].map(r=>({...r,shortage:r.owned&&r.rights!==null?Math.max(0,r.needed-r.rights):null}));
-  const missingRights=inventoryRows.filter(r=>r.shortage>0),missingOwned=inventoryRows.filter(r=>!r.owned);
+  const missingRights=[]; // v122: recorded shortages are not breeding-plan blockers for acquired sires
+  const missingOwned=inventoryRows.filter(r=>!r.owned);
   return {schema:81,applicable:!errors.length&&all.length>0,errors,stages:all,
    total:all.length,completed:all.filter(x=>x.completed).length,remaining:remaining.length,
    first,candidates,waiting:remaining.filter(x=>x.pendingDeps.length).length,
    inventoryRows,missingRights,missingOwned,
    gameVerified:false,
-   note:'先行準備候補は生産の許可ではありません。繁殖牝馬の確保・種付け権利の実残数・配合理論・種牡馬の供用条件はゲーム内で別途確認してください。'};
+   note:'先行準備候補は生産の許可ではありません。取得済み種牡馬は必要に応じてポイントで権利交換する前提です。繁殖牝馬の確保・配合理論・自家製種牡馬の供用条件はゲーム内で別途確認してください。'};
  }
  return Object.freeze({assess});
 });

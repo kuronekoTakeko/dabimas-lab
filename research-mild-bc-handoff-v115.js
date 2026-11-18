@@ -16,8 +16,8 @@
   if(!externalAudit)problems.push('外部照合用の31枠監査が未実行');
   const publicSires=Array.isArray(readiness?.publicSires)?readiness.publicSires:[];
   const publicMares=Array.isArray(readiness?.publicMares)?readiness.publicMares:[];
-  const rights=publicSires.filter(s=>s.shortage>0||s.rights==null);
-  if(rights.length)actions.push('種付け権利をゲーム内で確認・補充（'+rights.length+'種類）');
+  const rights=publicSires.filter(s=>s.owned===false);
+  // v122: obtained sires are exchangeable; do not turn their recorded rights into a blocking action.
   if(publicMares.length)actions.push('公開繁殖牝馬を確保（'+publicMares.length+'種類・延べ'+publicMares.reduce((n,m)=>n+(Number(m.uses)||0),0)+'回）');
   const missingFactors=Array.isArray(externalAudit?.unknownFactors)?externalAudit.unknownFactors.length:null;
   if(missingFactors>0)actions.push('最終血統の因子未収録'+missingFactors+'枠を外部照合（0因子と扱わない）');

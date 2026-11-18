@@ -64,9 +64,8 @@
     errors.push(row.label+'：産駒の登録父母と工程指定が不一致');
    row.parents=parents;stageRows.push(row);
   }
-  const sireDemands=[...rights.values()].map(r=>({...r,shortage:r.rights==null?null:Math.max(0,r.uses-r.rights)}));
-  const short=Sire=>Sire.shortage===null||Sire.shortage>0;
-  const missingRights=sireDemands.filter(short);
+  const sireDemands=[...rights.values()].map(r=>({...r,recordedShortage:r.rights==null?null:Math.max(0,r.uses-r.rights),shortage:r.owned?0:null,planningRights:r.owned?Math.max(10,r.uses):0,exchangeable:r.owned}));
+  const missingRights=sireDemands.filter(r=>!r.owned); // v122: registered rights do not block owned horses
   const finalRows=plan?.externalReview48?.parts?.foal?.ancestors;
   const saved31=Array.isArray(finalRows)&&finalRows.length===31;
   if(!saved31)unknown.push('最終31枠の保存済み外部照合がありません');
@@ -97,7 +96,7 @@
    publicSires:sireDemands,rightsToConfirm:missingRights,publicMares:[...mareUses.values()],virtualOutputs,
    saved31,anchors,distinctAnchors,previousAuditsOk:plan?.mild94?.ok===true&&plan?.mild97?.ok===true&&plan?.mild98?.ok===true,
    proposedFirst:knownFirst[0]||null,structuralRefsOk:errors.length===0,canStartProduction:false,gameVerified:false,
-   caveat:'所持・公開マスター・生産工程の現在の参照確認です。権利0は探索除外としません。種付け前にゲーム内の必要権利と牝馬入手、配合理論を照合してください。仮登録は実生産の証明ではありません。'};
+   caveat:'所持・公開マスター・生産工程の現在の参照確認です。取得済み種牡馬はポイント交換可能として扱い、登録権利は変更しません。繁殖牝馬の確保・配合理論は別途照合してください。仮登録は実生産の証明ではありません。'};
  }
  return Object.freeze({auditInventory,inspect});
 });

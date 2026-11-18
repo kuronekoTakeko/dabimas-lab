@@ -3591,12 +3591,12 @@ function mild80ProductionDemand(plan){
  }
  const result=api.audit({stages,inventory:state.owned,resolve:id=>findParentHorse(id)});
  const issue=result.insufficient+result.notOwned+result.unknown;
- const rows=result.rows.map(x=>`<tr><td>${esc(x.id)}</td><td>${x.count}回</td><td>${esc(x.rights===null?'未確認':x.rights+'回')}</td><td>${esc(x.status)}${x.shortage>0?`（不足${x.shortage}回）`:''}</td></tr>`).join('');
+ const rows=result.rows.map(x=>`<tr><td>${esc(x.id)}</td><td>${x.count}回</td><td>${esc(x.rights===null?'未確認':x.rights+'回')}</td><td>${esc(x.status)}${x.recordedShortage>0?`（登録上の差${x.recordedShortage}回・交換前提）`:''}</td></tr>`).join('');
  const pending=result.unresolved.length?`<p class="muted">自家製・未指定の父馬 ${result.unresolved.length}工程：${esc(result.unresolved.map(x=>`${x.phase} ${x.sireId||''}：${x.reason}`).join('／'))}</p>`:'';
- return `<details class="a21-flow"><summary>v8.0｜必要種付け権利の合算：公開種牡馬${result.rows.length}頭・延べ${result.required}回／要確認${issue}頭</summary>
- <p class="muted">同じ種牡馬を別工程や準備工程でも使用する場合は必要回数を合計します。実馬を安全に再利用できた工程は除外します。現在の登録権利数との比較であり、種付けの実行可否やゲーム内権利の残数を保証しません。</p>
- <div style="overflow-x:auto"><table class="detailtbl"><thead><tr><th>起点種牡馬</th><th>予定</th><th>登録権利</th><th>判定</th></tr></thead><tbody>${rows||'<tr><td colspan="4">公開種牡馬の利用予定なし</td></tr>'}</tbody></table></div>
- ${pending}<p class="muted">記録のない権利数はゼロ扱いしません。所持0頭の新規端末では、種牡馬図鑑でご自身の所持チェックを登録してください。ゲーム内の至高・超完璧成立は別途確認が必要です。</p></details>`;
+ return `<details class="a21-flow"><summary>v122｜取得済み種牡馬の利用予定：公開種牡馬${result.rows.length}頭・延べ${result.required}回／未所持${result.notOwned}頭</summary>
+ <p class="muted">同じ種牡馬を別工程や準備工程でも使用する場合は必要回数を合計します。実馬を安全に再利用できた工程は除外します。取得済み種牡馬はゲーム内ポイント交換可能として扱います。登録権利は参考表示で、順位や実行前の判定には使用しません。ゲーム内の交換自体は自動実行しません。</p>
+ <div style="overflow-x:auto"><table class="detailtbl"><thead><tr><th>起点種牡馬</th><th>予定</th><th>登録権利（記録）</th><th>探索上の扱い</th></tr></thead><tbody>${rows||'<tr><td colspan="4">公開種牡馬の利用予定なし</td></tr>'}</tbody></table></div>
+ ${pending}<p class="muted">記録のない権利数はゼロ扱いせず、取得済みなら交換可能として扱います。所持0頭の新規端末では、種牡馬図鑑でご自身の所持チェックを登録してください。ゲーム内の至高・超完璧成立は別途確認が必要です。</p></details>`;
 }
 // v8.1: read-only start-order audit, not an automatic game-side mating action.
 // A 9-step draft is NEVER a produced horse. Strict 31-row signatures prevent
@@ -3646,14 +3646,14 @@ function mild81ExecutionHtml(plan){
  if(!r)return '';
  if(!r.applicable)return `<div class="notice warn">v8.1｜生産順の確認に失敗：${esc(r.errors.join('／')||'工程記録がありません')}</div>`;
  const pending=r.first.map(x=>`<li><b>${esc(x.label)}</b>：${esc(x.state)}<br><small>${esc(x.sireId||'父未指定')} × ${esc(x.mareId||'母未指定')}</small>${x.blocks.length?`<br><small>要確認：${esc(x.blocks.slice(0,3).join('／'))}</small>`:''}${x.warnings.length?`<br><small>注意：${esc(x.warnings.slice(0,2).join('／'))}</small>`:''}</li>`).join('');
- const rightShort=r.missingRights.map(x=>`${x.sireId}：残り予定${x.needed}回／登録${x.rights}回（不足${x.shortage}回）`);
+ const rightShort=[]; // v122: acquired sire rights are exchangeable, not blockers
  const missing=r.missingOwned.map(x=>x.sireId);
  return `<details class="a21-flow" open><summary>v8.1｜生産開始の準備リスト：実馬記録${r.completed}/${r.total}工程・残り${r.remaining}工程</summary>
  <p class="muted">ゲームで新たに生産するときの依存関係を確認します。<b>仮馬や手動の完了チェックは実際の生産済みとみなしません。</b> 現在、前工程が未完成で待機している工程は${r.waiting}件です。</p>
  <p><b>先に準備できる工程（${r.first.length}件）</b></p><ol>${pending||'<li>未完了の起点工程がありません。実馬記録と依存関係を再確認してください。</li>'}</ol>
  ${rightShort.length?`<p class="notice warn"><b>残り工程の種付け権利不足：</b>${esc(rightShort.join('／'))}</p>`:''}
  ${missing.length?`<p class="notice warn"><b>所持登録がない公開種牡馬：</b>${esc(missing.join('／'))}</p>`:''}
- <p class="muted">必要権利は<strong>未生産の工程のみ</strong>を合算した登録上の比較です。権利0の所持種牡馬も設計対象から外しません。公開繁殖牝馬の確保、権利の実残数、自家製種牡馬の供用、至高・超完璧のゲーム内成立は別途確認してください。自動で権利を消費したり、所持・実馬・保存プランを書き換えることはありません。</p></details>`;
+ <p class="muted">取得済み種牡馬は権利0でもゲーム内ポイントで交換可能として扱い、開始順を妨げません。元の権利数は変更しません。公開繁殖牝馬の確保、権利の実残数、自家製種牡馬の供用、至高・超完璧のゲーム内成立は別途確認してください。自動で権利を消費したり、所持・実馬・保存プランを書き換えることはありません。</p></details>`;
 }
 // v8.2: optional user-entered log. This does not auto-complete a step or edit
 // the inventory. Only verified real horses in v8.1 may unblock descendants.
@@ -3721,12 +3721,12 @@ function production63Html(plan){
  const prepStart=firstPrep?`最初の準備交配：<b>${esc(firstPrep.info.fatherId)} × ${esc(firstPrep.info.motherId)}</b> → ${firstPrep.sex}を生産（${firstPrep.target}に使用）。`:'',
   prepLists=mild69PrepStages(plan).map((x,i)=>`<li>準備${i+1}：${esc(x.info.fatherId)} × ${esc(x.info.motherId)} → ${esc(x.foal?.name||x.info.foalId||'未登録')}（${x.sex}）</li>`).join('');
  const list=data.steps.map(x=>`<li>工程${x.step}の起点種牡馬：${esc(x.sire)} ／ ${esc(x.status)}${x.rights!==null?`（現在${x.rights}回）`:''}</li>`).join('');
- return `<details class="a21-flow" open><summary>v6.3｜生産開始前の所持・種付け権利チェック</summary>
+ return `<details class="a21-flow" open><summary>v122｜生産開始前の所持・親馬チェック（権利数不問）</summary>
  <p class="muted">${prepStart|| (entry?`最初の交配候補：<b>${esc(entry.sire)} × ${esc(plan.chain09?.mares?.[1]||'母馬未指定')}</b>。`:'最初の交配は未確定です。')}
- ${data.zero?`権利数0の起点種牡馬${data.zero}件。種付け前に権利の補充を確認してください。`:''}
+ 
  ${data.missing?`所持未確認${data.missing}件。`:''}
- 締め肌の工程${chain09ClosureStep(plan)}：${esc(data.closingTheory)}。${data.breedingReady?'基幹工程の起点種牡馬の所持・権利は登録上確認できました。':'基幹工程の起点種牡馬の所持・権利に要確認項目があります。'}
- ただし、追加準備で使う種牡馬の権利数、同一権利の複数回使用・母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
+ 締め肌の工程${chain09ClosureStep(plan)}：${esc(data.closingTheory)}。${data.breedingReady?'基幹工程の所持馬を照合しました（権利数は不問）。':'基幹工程の起点種牡馬・実馬化に要確認項目があります。'}
+ 取得済みの権利数はポイント交換前提のため制約に用いません。母馬の入手・ゲーム内の配合理論は別途確認が必要です。</p>
  <ul>${prepLists}${list}</ul><p class="muted">締め肌の超完璧・完璧、最終至高はゲーム内で必ず確認してください。表示値は現在のブラウザの登録情報に基づきます。未確認の能力値を予想しません。</p></details>`;
 }
 // v94 | Build an explicit, read-only mating list from the FINAL saved plan.
@@ -3930,13 +3930,13 @@ function mild119RenderPortfolio(){
   buildStages:mild119StageRows,realdata:window.DabimasMildRealdata118});
  const races=[...new Set(report.rows.map(x=>x.race).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
  const options=['<option value="all">全レース（準備負担順）</option>',...races.map(x=>`<option value="${esc(x)}" ${selected===x?'selected':''}>${esc(x)}</option>`)];
- const shown=report.shortlist.filter(r=>selected==='all'||r.race===selected).slice(0,8);
- const unit=r=>`<tr><td>${esc(r.race)}／${esc(r.goal||'未指定')}</td><td>${esc(r.title)}</td><td>${esc(r.route==='sireOnly'?'種側＋1':r.route==='both'?'両側＋1':r.route==='mareOnly'?'肌側＋1':r.route==='direct'?'追加なし':'不明')}</td><td>${r.shortageTypes}種類・${r.shortageTotal}回</td><td>${r.nitroStages?esc(JSON.stringify(r.nitroStages)):'未記録'}</td><td><button class="btn grey small" data-mild119-open="${esc(r.id)}">開く</button></td></tr>`;
+ const shown=(report.ordered||report.shortlist).filter(r=>selected==='all'||r.race===selected).slice(0,8);
+ const unit=r=>`<tr><td>${esc(r.race)}／${esc(r.goal||'未指定')}</td><td>${esc(r.title)}</td><td>${esc(r.route==='sireOnly'?'種側＋1':r.route==='both'?'両側＋1':r.route==='mareOnly'?'肌側＋1':r.route==='direct'?'追加なし':'不明')}</td><td>${r.publicMareTypes===null?'未確認':r.publicMareTypes+'種類'}</td><td>${r.nitroStages?esc(JSON.stringify(r.nitroStages)):'未記録'}</td><td><button class="btn grey small" data-mild119-open="${esc(r.id)}">開く</button></td></tr>`;
  target.innerHTML=`<div class="card"><h3>v119｜マイルド型・保存済み候補の横断監査</h3>
  <p>マイルド型${report.total}件／保存時3検査あり${report.withSavedAudits}件／現端末での31枠・工程の登録照合通過${report.currentStructural}件／旧形式・再監査必要${report.unreviewed}件。工程構成の記録：追加なし${report.distribution.direct}／種側＋1 ${report.distribution.sireOnly}／肌側＋1 ${report.distribution.mareOnly}／両側＋1 ${report.distribution.both}／不明${report.distribution.unknown}。</p>
- <p class="muted">保存案を「必要権利の確認が少ない順」に表示。実際のSP/STやBCの強さの順位ではありません。構造照合通過も、ゲーム内の至高成立を意味しません。</p>
+ <p class="muted">保存案を「追加工程が少ない順」に表示。取得済み種牡馬の権利数はランキング・判定に使用しません。実際のSP/STやBCの強さの順位ではありません。構造照合通過も、ゲーム内の至高成立を意味しません。</p>
  <label>目標レースで絞る：<select id="mild119Race">${options.join('')}</select></label>
- ${shown.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>対象</th><th>保存プラン</th><th>追加工程</th><th>権利不足</th><th>ニトロ段階（記録値）</th><th>詳細</th></tr></thead><tbody>${shown.map(unit).join('')}</tbody></table></div>`:'<p>この条件で横断監査を通過した保存プランはありません。未検証の旧プランは不成立とはみなしません。</p>'}
+ ${shown.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>対象</th><th>保存プラン</th><th>追加工程</th><th>公開牝馬（種類）</th><th>ニトロ段階（記録値）</th><th>詳細</th></tr></thead><tbody>${shown.map(unit).join('')}</tbody></table></div>`:'<p>この条件で横断監査を通過した保存プランはありません。未検証の旧プランは不成立とはみなしません。</p>'}
  <p class="muted">${esc(report.caveat)} 全プランのデータは維持しています。</p></div>`;
 }
 function mild119PreflightRun(){
@@ -3973,10 +3973,10 @@ function mild118RealdataHtml(plan){
  const problems=a.errors.slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');
  const confirmations=a.unconfirmed.slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');
  return `<details class="a21-flow" open><summary>v118｜現端末330頭・公開名牝・工程の実データ監査（読み取り専用）</summary>
-  <p>所持 ${inventory.acquired}頭（マスター完全一致 ${inventory.matched}頭／未収録 ${inventory.unmatched.length}頭）／権利0 ${inventory.zeroRights}頭／公開種牡馬 ${inventory.stallions}頭・繁殖牝馬 ${inventory.mares}頭。</p>
+  <p>所持 ${inventory.acquired}頭（マスター完全一致 ${inventory.matched}頭／未収録 ${inventory.unmatched.length}頭）／公開種牡馬 ${inventory.stallions}頭・繁殖牝馬 ${inventory.mares}頭。取得済み権利0もポイント交換前提で候補に含めます（保存権利数は不変更）。</p>
   ${missing?`<p class="muted">公開血統未収録の所持馬：${esc(missing)}${inventory.unmatched.length>8?' ほか':''}。所持記録は残し、血統は捏造しません。</p>`:''}
-  <p>当プラン：基幹9工程＋準備${stages.length-9}工程／仮登録の産駒${a.virtualOutputs.length}件／公開牝馬${a.publicMares.length}種類／権利不足・未確認${a.rightsToConfirm.length}種類。</p>
-  ${shortages?`<p class="notice warn"><b>権利の確認・補充が必要：</b>${esc(shortages)}</p>`:''}
+  <p>当プラン：基幹9工程＋準備${stages.length-9}工程／仮登録の産駒${a.virtualOutputs.length}件／公開牝馬${a.publicMares.length}種類。取得済み種牡馬は交換前提です。</p>
+  ${shortages?`<p class="notice warn"><b>未所持・要確認の種牡馬：</b>${esc(shortages)}</p>`:''}
   ${problems?`<p><b>工程の登録不一致</b></p><ul>${problems}</ul>`:''}
   ${confirmations?`<p><b>資料・ゲーム側で未確認</b></p><ul>${confirmations}</ul>`:''}
   ${a.proposedFirst?`<p>設計上の先頭工程：${esc(a.proposedFirst.label)} ─ ${esc(a.proposedFirst.sire)} × ${esc(a.proposedFirst.mare)}（在庫・理論成立は未確認）</p>`:''}
@@ -3987,13 +3987,13 @@ function mild97ReadinessHtml(plan){
  const status=report.ok?'構造・保存内容を再照合済み（ゲーム内未確認）':'保存後の変更または未確認事項あり';
  const errors=report.errors.length?`<p class="notice warn"><b>再検証が必要：</b>${esc(report.errors.slice(0,5).join('／'))}${report.errors.length>5?'（ほか'+esc(report.errors.length-5)+'件）':''}</p>`:'';
  const mares=report.publicMares.map(m=>`<li>${esc(m.id)}：予定${esc(m.uses)}回（入手・在庫未確認）</li>`).join('');
- const rights=report.publicSires.filter(s=>s.shortage>0||s.rights===null).map(s=>
+ const rights=report.publicSires.filter(s=>!s.owned).map(s=>
   `<li>${esc(s.id)}：予定${esc(s.uses)}回／登録権利${esc(s.rights===null?'未確認':s.rights+'回')}${s.shortage>0?'（不足'+esc(s.shortage)+'回）':''}</li>`).join('');
  return `<details class="a21-flow" open><summary>v97｜生産前の再検証：${esc(status)}</summary>
   <p>設計条件：<b>${esc(report.currentRace||'未確認')}</b>／${esc(GOAL_LABELS[report.currentGoal]||report.currentGoal||'未確認')}。基幹${report.core}工程＋準備${report.preparations}工程、最終31枠と締め肌の血統を現在の登録から再計算しました。</p>
-  ${errors}${report.ok?'<p class="notice">登録上の父母・31枠・過去の保存内容は一致しています。次はゲーム内で実際の配合理論と必要権利を確認してください。</p>':''}
+  ${errors}${report.ok?'<p class="notice">登録上の父母・31枠・過去の保存内容は一致しています。次はゲーム内で実際の配合理論と繁殖牝馬の確保を確認してください。</p>':''}
   <details><summary>公開繁殖牝馬の確保・重複利用（${report.publicMares.length}種類）</summary><ul>${mares||'<li>公開牝馬の直接使用なし</li>'}</ul><p class="muted">公開CSVは牝馬を所有している証明ではありません。必要な数はゲーム内で確保してください。</p></details>
-  ${rights?`<p class="muted"><b>種付け権利に注意：</b></p><ul>${rights}</ul>`:''}
+  ${rights?`<p class="muted"><b>未所持の種牡馬に注意：</b></p><ul>${rights}</ul>`:''}
   <p class="muted">${esc(report.limitations)} 既存プランの親馬や距離を変更すると旧検証結果は無効になります。再び「作成決定」で設計してください。</p></details>`;
 }
 function mild96VariantHtml(plan){
@@ -4016,11 +4016,12 @@ function mild95SiblingHtml(plan){
 function mild94ReleaseHtml(plan){
  const a=plan?.mild94;if(!a)return '';
  const anchors=(a.anchors||[]).map(x=>`${esc(x.id)}〔${esc(x.factors.join('・')||'因子未収録')}〕`).join(' ／ ');
- const warning=(a.warnings||[]).length?`<p class="notice warn"><b>権利の準備：</b>${esc(a.warnings.join('／'))}</p>`:'';
+ const historicalOtherWarnings=(a.warnings||[]).filter(x=>!/登録権利|必要権利|種付け権利|権利数|不足[0-9０-９]+回/.test(x));
+ const warning=historicalOtherWarnings.length?`<p class="notice warn"><b>旧保存時の注意：</b>${esc(historicalOtherWarnings.join('／'))}</p>`:'';
  return `<details class="a21-flow" open><summary>v94｜最終保存案の再検査：${a.ok?'血統と締め肌の一次条件を再確認':'要再確認'}（ゲーム内未確認）</summary>
  <p><b>採用した指定3頭：</b>${anchors||'未確認'}。登録因子 ${esc(a.anchorFactorKinds??'未確認')}種類、最終血統 ${esc(a.finalRows)}/31枠、追加仕込みを含む記録工程 ${esc(a.stagesChecked)}件。</p>
  <p><b>締め肌（工程${esc(a.closingStep??'未確認')}）：</b>探索時 完璧${esc(a.expectedPerfect)}／超完璧${esc(a.expectedSuperPerfect)} → <b>最終連結後 完璧${esc(a.actualPerfect)}／超完璧${esc(a.actualSuperPerfect)}</b>。ここでの「成立」は公開血統データからの一次判定です。</p>
- <p class="muted">登録所持馬の予定種付けは延べ${esc(a.plannedPublicUses)}回です。所持馬でも権利数0は探索対象から除外していません。</p>
+ <p class="muted">登録所持馬の予定種付けは延べ${esc(a.plannedPublicUses)}回です。取得済み種牡馬はポイント交換前提で扱い、元の権利記録は変更しません。</p>
  ${warning}${a.errors?.length?`<p class="notice warn">要修正：${esc(a.errors.join('／'))}</p>`:''}
  <p class="muted">${esc(a.caveat)}</p></details>`;
 }

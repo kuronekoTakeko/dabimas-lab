@@ -7,7 +7,7 @@
  const norm=x=>String(x??'').normalize('NFKC').replace(/[\s\u3000]/g,'').replace(/[－―ｰ]/g,'-').toLowerCase();
  const yes='成立',unknown='未確認';
  const rank=x=>x?.blocked?0:x?.superPerfect===yes?3:x?.perfect===yes?2:0;
- function assess({plan,pedigree,gate,closing,expected,stages=[],inventory={}}={}){
+ function assess({plan,pedigree,gate,closing,expected,stages=[],inventory={},siblings}={}){
   const errors=[],warnings=[];
   const rows=Array.isArray(pedigree?.rows)?pedigree.rows:[];
   const paths=new Set(rows.map(x=>x?.path));
@@ -16,6 +16,8 @@
      pedigree?.conflicts?.length||pedigree?.transmission?.conflicts?.length||pedigree?.transmission?.invalid?.length)
     errors.push('最終31枠の血統が未完成または矛盾');
   if(!gate?.ok)errors.push('親子・異因名・6因子種類の独立検査に未通過：'+(gate?.errors||[]).slice(0,3).join('／'));
+  if(!siblings||siblings.version!==95)errors.push('全兄弟姉妹の既知事例チェックが実行できません');
+  else if(siblings.blocked)errors.push('既知の全兄弟姉妹に衝突：'+siblings.conflicts.map(x=>`${x.anchor}／${x.sibling}（${x.path}）`).join('・'));
   if(!closing?.ready||!closing?.ped||closing.ped.known!==31||closing.problems?.length)
     errors.push('締め肌の実際の交配と血統を再連結できません');
   if(!expected||rank(expected)<2)errors.push('採用元の締め肌完璧・超完璧の根拠がありません');
@@ -38,12 +40,11 @@
    if(rec.rights!==''&&rec.rights!==null&&rec.rights!==undefined&&Number.isSafeInteger(Number(rec.rights))&&Number(rec.rights)>=0)
     row.rights=Number(rec.rights);
   }
-  const required=[...demands.values()].map(r=>({...r,shortage:r.rights===null?null:Math.max(0,r.needed-r.rights)}));
-  for(const r of required){if(r.shortage>0)warnings.push(`${r.id}：予定${r.needed}回、登録権利${r.rights}回（不足${r.shortage}回）`);
-   else if(r.rights===null)warnings.push(`${r.id}：必要権利${r.needed}回、登録残数は未確認`);}
+  const required=[...demands.values()].map(r=>({...r,recordedShortage:r.rights===null?null:Math.max(0,r.needed-r.rights),shortage:0,exchangeable:true,planningRights:Math.max(10,r.needed)}));
+  // v122: acquired sire rights are exchangeable; preserve the original rights in the returned audit.
   const anchors=(plan?.source?.members||[]).map(x=>({id:String(x.id||''),factors:Array.isArray(x.factors)?[...x.factors]:[],variant:String(x.variant||'')}));
   return {version:94,ok:errors.length===0,errors,warnings,
-   route:plan?.routeDraft?.layout||'未確認',closingStep:closing?.step||null,
+   route:plan?.routeDraft?.layout||'未確認',closingStep:closing?.step||null,siblingScope:siblings?.status||'未確認',
    expectedPerfect:expected?.perfect||unknown,expectedSuperPerfect:expected?.superPerfect||unknown,
    actualPerfect:closing?.theory?.perfect||unknown,actualSuperPerfect:closing?.theory?.superPerfect||unknown,
    anchorFactorKinds:gate?.anchorFactorKinds??null,anchors,

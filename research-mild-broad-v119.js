@@ -46,7 +46,7 @@
    designated,expanded,rankMethod:'公開血統の因子から作る事前探索順。実際のSP/ST・配合理論の強さではない。',
    boundaries:{full31Checked:false,anchor345Checked:false,closingTheoryChecked:false,availableMaresChecked:false,inventoryRightsChecked:false,maxPerLineageKey:7,
     preliminaryOnly:true,exhaustive:false,allPrecheckGroups:expanded.stats?.ranked||0,shortlistLimit:params.limit},
-   caveat:'最新の所持登録と公開マスターによる4ルートの「親系統8枠」一次探索のみ。全500頭のうち名牝ランク未確認馬は実生産候補に昇格させません。親系統組ごとに候補を最大7件まで保持する限定探索です。31枠、至高3×4×5、締め肌の理論、クロス、子系統、必要権利、実SP/STを満たすとは限らず、生産許可・至高成立確定ではありません。'};
+   caveat:`最新の所持登録と公開マスターによる4ルートの「親系統8枠」一次探索のみ。全${mares.length}頭のうち名牝ランク未確認馬は実生産候補に昇格させません。親系統組ごとに候補を最大7件まで保持する限定探索です。31枠、至高3×4×5、締め肌の理論、クロス、子系統、必要権利、実SP/STを満たすとは限らず、生産許可・至高成立確定ではありません。`};
  }
  return Object.freeze({inspect,route});
 });

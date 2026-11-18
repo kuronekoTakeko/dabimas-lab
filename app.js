@@ -988,7 +988,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3938,6 +3938,23 @@ function mild119RenderPortfolio(){
  <label>目標レースで絞る：<select id="mild119Race">${options.join('')}</select></label>
  ${shown.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>対象</th><th>保存プラン</th><th>追加工程</th><th>公開牝馬（種類）</th><th>ニトロ段階（記録値）</th><th>詳細</th></tr></thead><tbody>${shown.map(unit).join('')}</tbody></table></div>`:'<p>この条件で横断監査を通過した保存プランはありません。未検証の旧プランは不成立とはみなしません。</p>'}
  <p class="muted">${esc(report.caveat)} 全プランのデータは維持しています。</p></div>`;
+}
+// v123: verify saved 31-slot evidence separately from effectiveness / game check.
+function mild123EvidenceHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild'||!plan.externalReview48)return '';
+ const api=window.DabimasMildEvidence123;
+ if(!api?.study)return '<p class="notice warn">v123血統根拠監査モジュール未読込。</p>';
+ const x=api.study(plan.externalReview48,master),foal=x.parts?.foal||{};
+ const names=x.sharedNames.slice(0,12).map(c=>esc(c.name)+'（種'+esc(c.sirePaths.join('・'))+'／肌'+esc(c.marePaths.join('・'))+'）').join('、');
+ const anchors=x.anchors.map(a=>`${esc(a.slot)}=${esc(a.path)}：${a.positionOk&&a.masterOk?'登録ID・因子一致':'要確認'}`).join('／');
+ return `<details class="a21-flow"><summary>v123｜31枠の根拠と有効クロス未判定を分離（読み取り専用）</summary>
+ <p>登録血統：<b>${x.structural?'構造一致':'要再確認'}</b> ／ 父母継承 ${x.inherited.matched}/30枠 ／ 最終因子未収録 ${foal.missingFactors??'—'}枠 ／ 仮馬祖先 ${foal.virtualPositions?.length??0}枠。</p>
+ <p>至高指定：${anchors}</p>
+ <p>最終31枠の記録因子（未収録は含まない）：短 ${x.observedFactorCounts?.['短']||0}／速 ${x.observedFactorCounts?.['速']||0}／長 ${x.observedFactorCounts?.['長']||0}。ニトロ効果の保証ではありません。</p>
+ <p><b>父母双方に現れる同名馬 ${x.sharedNames.length}種類</b>（うち両側に因子記録あり ${x.sharedFactorCoverage}種類）。これは有効・独立クロスの本数ではありません。</p>
+ ${names?`<p class="muted">${names}</p>`:''}
+ ${x.errors.length?`<p class="notice warn">照合問題：${esc(x.errors.join('／'))}</p>`:''}
+ <p class="muted">${esc(x.caveat)} 実生産・至高成立は別途ゲーム内照合が必要です。</p></details>`;
 }
 function mild119PreflightRun(){
  const target=$('mild119BroadResult'),btn=$('mild119BroadRun'),api=window.DabimasMildBroad119;

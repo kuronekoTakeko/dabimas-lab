@@ -395,12 +395,22 @@ function mild87GlobalHtml(plan){
  </details>`;
 }
 function mild108CompareHtml(plan){
- const d=plan?.mild87;if(!d||![108,109,111].includes(d.version))return '';
+ const d=plan?.mild87;if(!d||![108,109,111,112].includes(d.version))return '';
  const reps=Array.isArray(d.representatives)?d.representatives:[];
  const lines=reps.map(r=>`<li>比較順位${esc(r.rankPosition)}：${esc(r.closingSire||'未確認')}${r.preparedSireFather?`（仕込み父：${esc(r.preparedSireFather)} × ${esc(r.preparedSireMare||'未確認')}）`:''} ／ ${esc(r.grade)}候補 ／ 追加${esc(r.additionalBirths)}工程 ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')} ／ 因子未収録${esc(r.missing??'?')}枠 ／ 段階指標${esc(r.stageIndex??'?')}（短${esc(r.stageShort??'?')}・速${esc(r.stageFast??'?')}・長${esc(r.stageLong??'?')}段階） ／ 独立クロス根拠${esc(r.independentCrossEvidence??'?')} ／ 短距離リスク指標${esc(r.shortCrossRisk??'?')}</li>`).join('');
+ const matrix=d.gradeBirthMatrix||{},rc=d.routeCounts||{};
+ const theoryRows=[['superPerfect','超完璧'],['perfect','完璧']].map(([k,label])=>`<tr><th>${label}</th><td>${esc(matrix[k]?.[0]??'未記録')}</td><td>${esc(matrix[k]?.[1]??'未記録')}</td><td>${esc(matrix[k]?.[2]??'未記録')}</td></tr>`).join('');
+ const routeNames={direct:'追加なし',sireOnly:'種側だけ＋1',mareOnly:'肌側だけ＋1',both:'種肌それぞれ＋1'};
+ const samples=(d.gradeRouteExamples||[]).map(r=>`<li>${esc(r.grade==='superPerfect'?'超完璧':'完璧')}／${esc(routeNames[r.route]||r.route)}／全体${esc(r.rankPosition)}位：${esc(r.sire)}${r.sireFoundationMare?' × '+esc(r.sireFoundationMare):''} ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')}／因子未収録${esc(r.unknown??'?')}枠／独立クロス根拠${esc(r.independentCrossEvidence??'?')}</li>`).join('');
+ const comparableNote=(Number(d.twoExtraWithoutOne)||0)>0?`<p class="muted"><b>重要：</b>追加2工程${esc(d.twoExtraWithoutOne)}件は同じ理論の追加1工程対照が見つからず、改善の有無を比較できませんでした。「2工程が弱い」または「成立できない」という意味ではありません。</p>`:'';
  const reasons=(d.extraRejectedReasons||[]).map(x=>`${esc(x.reason)}：${esc(x.count)}件`).join('、');
- return `<details class="a21-flow"><summary>v111｜肌作り理論と最終至高の比較（限定探索）</summary>
+ return `<details class="a21-flow"><summary>v112｜理論×工程・最終至高の比較（限定探索）</summary>
  <p class="muted">最終31枠・締め肌理論を通過したDDS候補 ${esc(d.distinct||0)}件、締め肌父のグループ ${esc(d.fatherFamilies||0)}種類。超完璧候補 ${esc(d.gradeCounts?.superPerfect??0)}件／完璧候補 ${esc(d.gradeCounts?.perfect??0)}件（ゲーム内未確認）。追加準備 0工程 ${esc(d.birthCounts?.[0]??0)}件・1工程 ${esc(d.birthCounts?.[1]??0)}件・2工程 ${esc(d.birthCounts?.[2]??0)}件。ニトロ段階改善・追加1工程を承認 ${esc(d.oneExtraNitroApproved??0)}件。追加2工程を同理論の1工程案と比較 ${esc(d.twoExtraCompared??0)}件／改善承認 ${esc(d.twoExtraApproved??0)}件（対照なし ${esc(d.twoExtraWithoutOne??0)}件）。</p>
+ <p class="muted"><b>配合理論 × 追加準備工程数（完成血統・限定探索）：</b></p>
+ <table><thead><tr><th>肌作り理論</th><th>0工程</th><th>1工程</th><th>2工程</th></tr></thead><tbody>${theoryRows}</tbody></table>
+ <p class="muted">経路別件数：追加なし ${esc(rc.direct??'未記録')}件・種側だけ＋1 ${esc(rc.sireOnly??'未記録')}件・肌側だけ＋1 ${esc(rc.mareOnly??'未記録')}件・種肌それぞれ＋1 ${esc(rc.both??'未記録')}件。いずれも探索上限内の検査通過件数です。</p>
+ ${comparableNote}
+ ${samples?`<p class="muted"><b>理論・ルート別の代表例：</b>（各ルートの先頭1件。別候補の優劣の確証ではありません）</p><ol>${samples}</ol>`:''}
  <p class="muted"><b>比較方針：</b>${esc(d.rankingPolicy||'締め肌理論を優先し、最終至高の研究根拠と工程数を比較。')} ※研究上の相対指標であり、能力予測値ではありません。</p><p class="muted"><b>父馬グループ別の比較上位（最大6種類）：</b> この一覧は採用可能性の研究記録であり、ゲーム内の成立証明ではありません。</p>
  ${lines?`<ol>${lines}</ol>`:'<p class="muted">比較できる別父候補がありません。</p>'}
  <p class="muted">1工程追加が優先されなかった主な理由：${reasons||'比較対象なし、または明確な理由の記録なし'}。</p>

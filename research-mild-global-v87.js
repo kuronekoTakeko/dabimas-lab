@@ -12,7 +12,7 @@
   const set=(trial.anchor?.set||[]).map(x=>norm(x.id)).sort().join('|');
   const layout=['g3','g4','g5'].map(k=>norm(trial.draft?.routeDraft?.slots?.[k])).join('|');
   const choices=Object.entries(c.choices||{}).map(([n,id])=>[n,norm(id)]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
-  return JSON.stringify([set,layout,choices,norm(c.xId||c.xPrep?.fatherId),norm(c.marePrep?.fatherId),safe(c.additionalBirths)]);
+  return JSON.stringify([set,layout,choices,norm(c.xId),norm(c.xPrep?.fatherId),norm(c.xPrep?.motherId),norm(c.marePrep?.fatherId),norm(c.marePrep?.motherId),norm(c.mareId),safe(c.additionalBirths)]);
  }
  function select(trials,{ranker,finish,goal='balance',qualityCompare=null,evidenceCompare=null,fallback=null}={}){
   const invalid={version:87,winner:null,stats:{version:87,gameVerified:false,reason:'比較可能な最終31枠がありません',eligible:0,distinct:0}};
@@ -41,7 +41,7 @@
   let compared=0,approved=0,nitroApproved=0,noReference=0;
   const reasons={};
   for(const row of rows){const c=row.rank.candidate;
-   if(safe(c.additionalBirths)!==1||!c.xPrep||c.marePrep)continue;
+   if(safe(c.additionalBirths)!==1||!(!!c.xPrep!==!!c.marePrep))continue;
    const reference=directByGrade.get(ranker.grade(c));
    if(!reference){noReference++;
     reasons.noDirect=(reasons.noDirect||0)+1;
@@ -92,6 +92,32 @@
    if(births===0||births===1||births===2)birthCounts[births]++;else birthCounts.other++;
    if(ranker.grade(row.rank.candidate)===8)gradeCounts.superPerfect++;else gradeCounts.perfect++;
   }
+  // v112: separate theoretical grade from preparation count. A two-prep
+  // candidate without a SAME-grade one-prep comparator is unassessed, not
+  // a documented inferior pedigree. Keep all rows and record both axes.
+  const gradeBirthMatrix={superPerfect:{0:0,1:0,2:0},perfect:{0:0,1:0,2:0}};
+  const routeCounts={direct:0,sireOnly:0,mareOnly:0,both:0};
+  const routeGradeCounts={superPerfect:{direct:0,sireOnly:0,mareOnly:0,both:0},perfect:{direct:0,sireOnly:0,mareOnly:0,both:0}};
+  const exemplarIndex=new Map();
+  for(const row of rows){
+   const c=row.rank.candidate,g=ranker.grade(c)===8?'superPerfect':'perfect';
+   const births=safe(c.additionalBirths);
+   if(births>=0&&births<=2)gradeBirthMatrix[g][births]++;
+   const route=c.xPrep?(c.marePrep?'both':'sireOnly'):(c.marePrep?'mareOnly':'direct');
+   routeCounts[route]++;routeGradeCounts[g][route]++;
+   const key=g+'|'+route;
+   if(!exemplarIndex.has(key)){
+    const m=nitro?.inspect?.(c,goal)||null,fin=finish?.metric?.(c,goal)||null;
+    exemplarIndex.set(key,{grade:g,route,additionalBirths:births,
+     sire:c.xPrep?.fatherId||c.xId||'未確認',sireFoundationMare:c.xPrep?.motherId||null,
+     mareFoundationFather:c.marePrep?.fatherId||null,mareFoundationMare:c.marePrep?.motherId||null,
+     short:m?.counts?.['短']??null,fast:m?.counts?.['速']??null,long:m?.counts?.['長']??null,
+     unknown:m?.missingFactorSlots??null,stageIndex:m?.researchIndex??null,
+     independentCrossEvidence:fin?.independentCrossEvidence??null,
+     rankPosition:rows.indexOf(row)+1});
+   }
+  }
+  const gradeRouteExamples=[...exemplarIndex.values()].sort((a,b)=>a.rankPosition-b.rankPosition);
   // First ranked row of each father-family, for audit rather than an
   // instruction to breed. This grouping is not a completeness certificate.
   const representatives=[],familiesSeen=new Set();
@@ -107,14 +133,14 @@
     status:'記録済み血統・限定探索／ゲーム内未確認'});
    if(representatives.length>=6)break;
   }
-  return {version:111,winner,stats:{version:111,gameVerified:false,eligible:rows.length,distinct:seen.size,
+  return {version:112,winner,stats:{version:112,gameVerified:false,eligible:rows.length,distinct:seen.size,
    skipped,duplicates,gradesWithDirect:[...directByGrade.keys()].sort(),oneExtraCompared:compared,
    oneExtraApproved:approved,oneExtraNitroApproved:nitroApproved,oneExtraWithoutDirect:noReference,
    twoExtraCompared:twoCompared,twoExtraApproved:twoApproved,twoExtraWithoutOne:twoNoBaseline,
-   fatherFamilies:familyCounts.size,birthCounts,gradeCounts,representatives,
+   fatherFamilies:familyCounts.size,birthCounts,gradeCounts,gradeBirthMatrix,routeCounts,routeGradeCounts,gradeRouteExamples,representatives,
    extraRejectedReasons:Object.entries(reasons).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([reason,count])=>({reason,count})),
    winningGrade:ranker.grade(winner.rank.candidate),winningAdditionalBirths:safe(winner.rank.candidate.additionalBirths),
-   winningBase:winner.trial.anchor?.base||'',rankingPolicy:'肌作りの超完璧・完璧を区別し、同一理論と追加仕込みの承認条件が同じ場合は最終産駒のニトロ段階・独立クロス・リスクを工程数より先に比較。評価が同等なら少工程。',source:'同一クリック内で確認できたDDS・31枠・締め肌理論だけの限定横断比較。ゲーム内未確認。'}};
+   winningBase:winner.trial.anchor?.base||'',rankingPolicy:'肌作りの超完璧・完璧を区別し、同じ理論の比較対照不在は改善未評価とし、同一理論と追加仕込みの承認条件が同じ場合は最終産駒のニトロ段階・独立クロス・リスクを工程数より先に比較。評価が同等なら少工程。',source:'同一クリック内で確認できたDDS・31枠・締め肌理論だけの限定横断比較。ゲーム内未確認。'}};
  }
  return Object.freeze({select,identity});
 });

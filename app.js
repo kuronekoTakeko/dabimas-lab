@@ -3468,11 +3468,11 @@ function external103Html(plan){
  const api=window.DabimasExternalReview48;
  if(!api?.auditEvidence||!plan?.externalReview48)return '';
  const r=api.auditEvidence(plan.externalReview48);
- return `<details class="a21-flow"><summary>v103｜外部照合用31枠・異因名・因子の根拠監査</summary>
+ return `<details class="a21-flow"><summary>v110｜外部照合用31枠・異因名・因子の根拠監査</summary>
  <p class="muted">登録祖先 ${r.registeredSlots}/31枠／最終産駒の因子未収録 ${r.unknownFactors.length}枠／異因名未収録 ${r.unknownVariants.length}枠。<b>31/31はゲーム内検証済みを意味しません。</b></p>
  ${r.anchors.map(a=>`<p class="muted">${esc(a.key)}（${esc(a.target)}）：${esc(a.status)} ／ ${esc(a.rowName||'未収録')} ${esc(a.rowVariant||'未確認')}</p>`).join('')}
  <p class="muted">父母双方に記録された同名祖先：${r.sharedNames.length}種類（有効な独立クロスとは限りません）。${esc(r.sharedNames.map(a=>a.name).join('、')||'記録上なし')}。</p>
- ${r.issues.length?`<p class="notice warn">要確認：${esc(r.issues.join('／'))}</p>`:''}
+ ${r.anchors.some(a=>a.notationOnly)?'<p class="muted">年号付きIDは表示形式のみ一致。種牡馬マスターの個別IDとゲーム内成立は未照合です。</p>':''} ${r.issues.length?`<p class="notice warn">要確認：${esc(r.issues.join('／'))}</p>`:''}
  <p class="muted">因子未収録位置：${esc(r.unknownFactors.join('、')||'なし')}。異因名未収録位置：${esc(r.unknownVariants.join('、')||'なし')}。異因名未収録は通常祖先にもあり、すべてが配合不成立を意味するものではありません。外部照合・ゲーム内成立は未確認です。</p></details>`;
 }
 function mild104Html(plan){

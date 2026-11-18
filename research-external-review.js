@@ -12,20 +12,34 @@ function make({sire,mare,foalRows,sireRows,mareRows,planTitle,anchorSlots}={}){
  const parts={foal:snap({name:'最終産駒'},foalRows),sire:snap(sire,sireRows),mare:snap(mare,mareRows)};
  return {schema:'dabimas-crosscheck-v1',planTitle:norm(planTitle),parts,anchorSlots:anchorSlots||{},gameVerified:false,independentToolVerified:false};
 }
+// v110: Display-only identity equivalence for numbered releases. We NEVER
+// rewrite the stored master ID, nor infer a missing variant from an ancestor.
+// Example: master "キングカメハメハ2012" versus pedigree name "キングカメハメハ"
+// and explicitly recorded variant "2012". Different years never match.
+function anchorIdentity(expected,row){
+ const raw=norm(expected),name=norm(row?.name),variant=norm(row?.variant);
+ if(!raw||!name)return {sameName:false,sameVariant:false,notationOnly:false};
+ const standard=raw.match(/^(.*?)[-－]([^-－]+)[-－]?$/);
+ if(standard&&standard[1]&&standard[2]&&standard[1]===name){
+  return {sameName:true,sameVariant:!!variant&&variant===standard[2],notationOnly:false};
+ }
+ if(variant&&/^(?:19|20)\d{2}$/.test(variant)&&raw===name+variant){
+  return {sameName:true,sameVariant:true,notationOnly:true};
+ }
+ return {sameName:raw===name,sameVariant:false,notationOnly:false};
+}
 // v103: evidence-only audit of the exact saved export. No ability or game-theory predictions.
 function auditEvidence(report){
  const foal=report?.parts?.foal||{}, sire=report?.parts?.sire||{}, mare=report?.parts?.mare||{};
  const foalRows=new Map((foal.ancestors||[]).map(r=>[r.path,r]));
  const anchors=[],issues=[];
- const family=x=>norm(x).replace(/[-－][^-－]+[-－]$/,'').replace(/[-－][^-－]+$/,'');
  for(const [key,expected] of Object.entries(report?.anchorSlots||{})){
   const target=String(key).toLowerCase()==='g3'?'DDS':String(key).toLowerCase()==='g4'?'SSSS':String(key).toLowerCase()==='g5'?'SDSSS':'';
   if(!target)continue;
-  const row=foalRows.get(target),expectedName=family(expected),expectedVariant=(String(expected).match(/-([^-]+)-$/)||[])[1]||'';
-  const sameName=!!row?.name&&norm(row.name)===expectedName;
-  const sameVariant=!!expectedVariant&&norm(row?.variant)===norm(expectedVariant);
-  const status=!row?.name?'祖先未収録':!sameName?'馬名不一致':!sameVariant?'異因名不一致・未確認':'登録位置・異因名一致（外部未検証）';
-  anchors.push({key,target,expected,rowName:row?.name||'',rowVariant:row?.variant||'',status,positionMatched:sameName&&sameVariant});
+  const row=foalRows.get(target),identity=anchorIdentity(expected,row);
+  const {sameName,sameVariant,notationOnly}=identity;
+  const status=!row?.name?'祖先未収録':!sameName?'馬名不一致':!sameVariant?'異因名不一致・未確認':notationOnly?'年号付きIDの表示形式一致（マスターID未照合）':'登録位置・異因名一致（外部未検証）';
+  anchors.push({key,target,expected,rowName:row?.name||'',rowVariant:row?.variant||'',status,positionMatched:sameName&&sameVariant,notationOnly,masterIdVerified:false});
   if(!sameName||!sameVariant)issues.push(`${key}（${target}）：${status}`);
  }
  const unknownFactors=(foal.ancestors||[]).filter(r=>r.name&&!r.factors?.length).map(r=>r.path);
@@ -37,7 +51,7 @@ function auditEvidence(report){
  const sharedNames=[...sNames.keys()].filter(k=>dNames.has(k)).map(k=>({name:(sire.ancestors||[]).find(r=>norm(r.name)===k)?.name||k,sire:sNames.get(k),mare:dNames.get(k)}));
  if((foal.known||0)<31)issues.push(`最終産駒の祖先未収録：${31-(foal.known||0)}枠`);
  for(const part of [foal,sire,mare])if(part.conflicts?.length)issues.push(`同一位置の馬名衝突：${part.conflicts.join('、')}`);
- return {version:103,anchors,issues,unknownFactors,unknownVariants,sharedNames,
+ return {version:110,anchors,issues,unknownFactors,unknownVariants,sharedNames,
    registeredSlots:foal.known||0,gameVerified:false,independentToolVerified:false,
    caveat:'31/31は馬名の登録数であり、異因名・因子・親子関係や至高成立の検証済み数ではありません。'};
 }
@@ -51,10 +65,11 @@ function format(report){if(report?.schema!=='dabimas-crosscheck-v1')throw Error(
   lines.push('');
  }
  const audit=auditEvidence(report);
- lines.push('【v103｜登録血統の根拠監査（外部・ゲーム内未検証）】',
+ lines.push('【v110｜登録血統の根拠監査（外部・ゲーム内未検証）】',
   `祖先の登録：${audit.registeredSlots}/31枠 ／ 最終産駒・因子未収録 ${audit.unknownFactors.length}枠 ／ 異因名未収録 ${audit.unknownVariants.length}枠`,
   audit.caveat);
  for(const a of audit.anchors)lines.push(`${a.key}=${a.target}：${a.status} ／ 登録 ${a.rowName||'未収録'}-${a.rowVariant||'未確認'} ／ 指定 ${a.expected}`);
+ if(audit.anchors.some(a=>a.notationOnly))lines.push('注意：年号付きIDは表記形式のみ一致。元マスターIDとゲーム内成立は未照合です。');
  if(audit.issues.length)lines.push('要確認：'+audit.issues.join('／'));
  lines.push('父母双方に登場する同名祖先（有効な独立クロスとは限りません）：'+(audit.sharedNames.map(x=>x.name+`（種 ${x.sire.join('・')} ／ 肌 ${x.mare.join('・')}）`).join('、')||'記録上なし'));
  lines.push('最終産駒・因子未収録位置：'+(audit.unknownFactors.join('、')||'なし'),

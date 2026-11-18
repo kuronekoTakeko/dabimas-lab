@@ -449,11 +449,11 @@ function mild87GlobalHtml(plan){
 function mild108CompareHtml(plan){
  const d=plan?.mild87;if(!d||![108,109,111,112].includes(d.version))return '';
  const reps=Array.isArray(d.representatives)?d.representatives:[];
- const lines=reps.map(r=>`<li>比較順位${esc(r.rankPosition)}：${esc(r.closingSire||'未確認')}${r.preparedSireFather?`（仕込み父：${esc(r.preparedSireFather)} × ${esc(r.preparedSireMare||'未確認')}）`:''} ／ ${esc(r.grade)}候補 ／ 追加${esc(r.additionalBirths)}工程 ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')} ／ 因子未収録${esc(r.missing??'?')}枠 ／ 段階指標${esc(r.stageIndex??'?')}（短${esc(r.stageShort??'?')}・速${esc(r.stageFast??'?')}・長${esc(r.stageLong??'?')}段階） ／ 独立クロス根拠${esc(r.independentCrossEvidence??'?')} ／ 短距離リスク指標${esc(r.shortCrossRisk??'?')}</li>`).join('');
+ const lines=reps.map(r=>`<li>比較順位${esc(r.rankPosition)}：${esc(r.closingSire||'未確認')}${r.preparedSireFather?`（仕込み父：${esc(r.preparedSireFather)} × ${esc(r.preparedSireMare||'未確認')}）`:''} ／ ${esc(r.grade)}候補 ／ 追加${esc(r.additionalBirths)}工程 ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')} ／ 因子未収録${esc(r.missing??'?')}枠 ／ 段階指標${esc(r.stageIndex??'?')}（短${esc(r.stageShort??'?')}・速${esc(r.stageFast??'?')}・長${esc(r.stageLong??'?')}段階） ／ 独立クロス根拠${esc(r.independentCrossEvidence??'?')}（候補${esc(r.crossCandidateCount??'?')}・根拠未確認${esc(r.crossUnresolvedCount??'?')}） ／ 短距離リスク指標${esc(r.shortCrossRisk??'?')}</li>`).join('');
  const matrix=d.gradeBirthMatrix||{},rc=d.routeCounts||{};
  const theoryRows=[['superPerfect','超完璧'],['perfect','完璧']].map(([k,label])=>`<tr><th>${label}</th><td>${esc(matrix[k]?.[0]??'未記録')}</td><td>${esc(matrix[k]?.[1]??'未記録')}</td><td>${esc(matrix[k]?.[2]??'未記録')}</td></tr>`).join('');
  const routeNames={direct:'追加なし',sireOnly:'種側だけ＋1',mareOnly:'肌側だけ＋1',both:'種肌それぞれ＋1'};
- const samples=(d.gradeRouteExamples||[]).map(r=>`<li>${esc(r.grade==='superPerfect'?'超完璧':'完璧')}／${esc(routeNames[r.route]||r.route)}／全体${esc(r.rankPosition)}位：${esc(r.sire)}${r.sireFoundationMare?' × '+esc(r.sireFoundationMare):''} ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')}／因子未収録${esc(r.unknown??'?')}枠／独立クロス根拠${esc(r.independentCrossEvidence??'?')}</li>`).join('');
+ const samples=(d.gradeRouteExamples||[]).map(r=>`<li>${esc(r.grade==='superPerfect'?'超完璧':'完璧')}／${esc(routeNames[r.route]||r.route)}／全体${esc(r.rankPosition)}位：${esc(r.sire)}${r.sireFoundationMare?' × '+esc(r.sireFoundationMare):''} ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')}／因子未収録${esc(r.unknown??'?')}枠／独立クロス根拠${esc(r.independentCrossEvidence??'?')}（候補${esc(r.crossCandidateCount??'?')}・未確認${esc(r.crossUnresolvedCount??'?')}）</li>`).join('');
  const comparableNote=(Number(d.twoExtraWithoutOne)||0)>0?`<p class="muted"><b>重要：</b>追加2工程${esc(d.twoExtraWithoutOne)}件は同じ理論の追加1工程対照が見つからず、改善の有無を比較できませんでした。「2工程が弱い」または「成立できない」という意味ではありません。</p>`:'';
  const reasons=(d.extraRejectedReasons||[]).map(x=>`${esc(x.reason)}：${esc(x.count)}件`).join('、');
  return `<details class="a21-flow"><summary>v112｜理論×工程・最終至高の比較（限定探索）</summary>
@@ -463,6 +463,7 @@ function mild108CompareHtml(plan){
  <p class="muted">経路別件数：追加なし ${esc(rc.direct??'未記録')}件・種側だけ＋1 ${esc(rc.sireOnly??'未記録')}件・肌側だけ＋1 ${esc(rc.mareOnly??'未記録')}件・種肌それぞれ＋1 ${esc(rc.both??'未記録')}件。いずれも探索上限内の検査通過件数です。</p>
  ${comparableNote}
  ${samples?`<p class="muted"><b>理論・ルート別の代表例：</b>（各ルートの先頭1件。別候補の優劣の確証ではありません）</p><ol>${samples}</ol>`:''}
+ <p class="muted"><b>v114注意：</b>独立クロス根拠は記録データの照合結果です。根拠未確認のクロス候補の因子合計は最終順位の確定加点に使わず、未確認として残します。ゲーム内でクロス効果が確定したことを示しません。</p>
  <p class="muted"><b>比較方針：</b>${esc(d.rankingPolicy||'締め肌理論を優先し、最終至高の研究根拠と工程数を比較。')} ※研究上の相対指標であり、能力予測値ではありません。</p><p class="muted"><b>父馬グループ別の比較上位（最大6種類）：</b> この一覧は採用可能性の研究記録であり、ゲーム内の成立証明ではありません。</p>
  ${lines?`<ol>${lines}</ol>`:'<p class="muted">比較できる別父候補がありません。</p>'}
  <p class="muted">1工程追加が優先されなかった主な理由：${reasons||'比較対象なし、または明確な理由の記録なし'}。</p>

@@ -114,6 +114,8 @@
      short:m?.counts?.['短']??null,fast:m?.counts?.['速']??null,long:m?.counts?.['長']??null,
      unknown:m?.missingFactorSlots??null,stageIndex:m?.researchIndex??null,
      independentCrossEvidence:fin?.independentCrossEvidence??null,
+     crossCandidateCount:fin?.independentCrossCandidates??null,
+     crossUnresolvedCount:fin?.unresolvedCrossCandidates??null,
      rankPosition:rows.indexOf(row)+1});
    }
   }
@@ -129,7 +131,7 @@
     baseMare:c.marePrep?.motherId||c.choices?.[1]||null,
     grade:ranker.grade(c)===8?'超完璧':'完璧',additionalBirths:safe(c.additionalBirths),
     short:m?.counts?.['短']??null,fast:m?.counts?.['速']??null,long:m?.counts?.['長']??null,
-    missing:m?.missingFactorSlots??null,stageIndex:m?.researchIndex??null,stageShort:m?.stages?.['短']??null,stageFast:m?.stages?.['速']??null,stageLong:m?.stages?.['長']??null,independentCrossEvidence:fin?.independentCrossEvidence??null,shortCrossRisk:fin?.shortCrossRisk??null,rankPosition:rows.indexOf(row)+1,
+    missing:m?.missingFactorSlots??null,stageIndex:m?.researchIndex??null,stageShort:m?.stages?.['短']??null,stageFast:m?.stages?.['速']??null,stageLong:m?.stages?.['長']??null,independentCrossEvidence:fin?.independentCrossEvidence??null,crossCandidateCount:fin?.independentCrossCandidates??null,crossUnresolvedCount:fin?.unresolvedCrossCandidates??null,shortCrossRisk:fin?.shortCrossRisk??null,rankPosition:rows.indexOf(row)+1,
     status:'記録済み血統・限定探索／ゲーム内未確認'});
    if(representatives.length>=6)break;
   }

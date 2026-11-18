@@ -85,6 +85,8 @@
    confirmedIndependentCrosses:m?.independentCrossEvidence??null,
    independentCrossCandidates:m?.independentCrossCandidates??null,
    knownCrossFactorIndex:m?.crossFactorEvidence??null,
+   candidateCrossFactorIndex:m?.candidateCrossFactorIndex??null,
+   unresolvedCrossCandidates:m?.unresolvedCrossCandidates??null,
    factorRowsRecorded:m?.ancestorFactorsRecorded??null,
    lineageFamilies:m?.childLineDiversity??null,
    researchScore:m?.score??null,

@@ -1,0 +1,31 @@
+ダビマス配合研究所 v114｜最終至高クロス根拠の分離
+
+GitHub反映対象（リポジトリ直下）:
+  index.html
+  app.js
+  sw.js
+  research-mild-finish-v610.js
+  research-mild-rank-v78.js
+  research-mild-global-v87.js
+
+変更概要:
+- 父母共通の祖先があるだけでは、独立クロス・因子効果が記録済みとは扱わない。
+- クロスの候補件数、記録で裏付けられた独立クロス件数、根拠未確認件数を区別。
+- クロス候補の因子合計を、独立クロスの記録根拠が揃っていない状態で確定的な研究評価に加点しない。
+- 候補比較画面に内訳と注意書きを追加。ゲーム内成立・SP/STの予測ではない。
+- 既存の至高配置、完璧/超完璧の判定、配合工程、保存形式、v113端末移行を変更しない。
+
+注意:
+- 最終研究スコアが従来と変化し、候補順位が変わる可能性があります。
+- 登録済み因子・祖先情報の不足は解消していません。
+- v114でもゲーム内成立は未確認、実公開CSVでの完全探索は未実施です。
+- 更新前に330頭入りデータと保存プランを端末移行用JSONでバックアップしてください。
+
+実行検査:
+PASS node --check：5 JavaScript
+PASS tests/v114-cross-confidence.test.cjs：5件
+PASS tests/v113-portable.test.cjs：12 assertions
+PASS tests/v110-external-id.test.cjs
+PASS tests/v112-theory-route-audit.test.cjs
+未通過・未実施：旧v610テストの一部は未裏付け因子合計の加点を前提にしたため失敗。
+旧バージョン文字列固定テスト、ブラウザ実操作、実公開CSV全件探索、ゲーム内成立は未確認。

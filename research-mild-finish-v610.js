@@ -38,16 +38,25 @@
   // as cross-factor evidence. Raw ancestor factors have MUCH lower priority.
   const candidates=(t.extraEffective||[]).filter(x=>!x.conflicts?.length);
   const documented=candidates.filter(x=>x.counted?.length&&Object.values(x.counts||{}).some(v=>safeNumber(v)>0));
-  const crossed=Object.entries(t.extraFactorCounts||{}).reduce((sum,[f,n])=>sum+(w[f]||0)*safeNumber(n),0);
+  // Counts can be present even when the identity/independence of a cross is
+  // unresolved. Never present those candidate-factor counts as documented
+  // independent-cross effect evidence. Only fully documented cross sets can
+  // use the aggregate factor index as evidence (per-cross attribution is not
+  // available in this legacy data format).
+  const candidateCrossed=Object.entries(t.extraFactorCounts||{}).reduce((sum,[f,n])=>sum+(w[f]||0)*safeNumber(n),0);
+  const allDocumented=candidates.length>0&&documented.length===candidates.length;
+  const crossed=allDocumented?candidateCrossed:0;
+  const unresolvedCrossCandidates=Math.max(0,candidates.length-documented.length);
   const risk=safeNumber(t.risk),conflicts=safeNumber(t.conflictCount);
   const unverified=safeNumber(t.unresolvedCount);
   const score=4*crossed+3*documented.length+0.35*candidates.length+lineWeighted+0.16*observedFactors+
    0.65*childFamilies.size-5*risk-20*conflicts-Math.min(3,unverified)*0.12;
   return {score:Math.round(score*100)/100,grade:grade(t),additionalBirths:safeNumber(t.additionalBirths),
    independentCrossCandidates:candidates.length,independentCrossEvidence:documented.length,crossFactorEvidence:Math.round(crossed*100)/100,
+   candidateCrossFactorIndex:Math.round(candidateCrossed*100)/100,unresolvedCrossCandidates,crossEvidenceComplete:allDocumented,
    ancestorFactorsRecorded:observedFactorRows,lineageEvidence:Math.round(lineWeighted*100)/100,
    childLineDiversity:childFamilies.size,shortCrossRisk:risk,unresolvedCrosses:unverified,
-   source:'最終31枠（因子・独立クロス候補・子系統の研究用相対評価）',gameVerified:false};
+   source:'最終31枠（記録根拠のある独立クロス／候補因子を分離した研究用相対評価）',gameVerified:false};
  }
  function compare(a,b,goal='balance'){
   const x=metric(a,goal),y=metric(b,goal);

@@ -154,6 +154,58 @@ async function setMaster(csv){let data=processCSV(csv);master=data;masterAudit86
 async function loadWeb(){if(loading)return;loading=true;$('loadWebMaster').disabled=true;$('importStatus').textContent='公開CSVを読み込んでいます…';try{const r=await fetch(RAW_URL,{cache:'no-store'});if(!r.ok)throw Error(`HTTP ${r.status}`);await setMaster(await r.text());}catch(e){$('importStatus').textContent='Web取り込みに失敗しました（通信制限/CORSなど）：'+e.message+'。CSVを保存してファイル選択から読み込む方法も使えます。';}finally{loading=false;$('loadWebMaster').disabled=false;}}
 function dl(name,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function productionDataBackup(){return {version:13,owned:state.owned,added:state.added,genomes:state.genomes,plans:state.plans,mareFavorites:state.mareFavorites,mareGrades:state.mareGrades,homebreds:state.homebreds};}
+// v113: Portable snapshot intentionally includes BOTH browser personal data and
+// the public master cached in IndexedDB.  Export is user-initiated; no server sync.
+function portableSnapshot113(){
+ return {format:'dabimas-portable-v113',version:113,exportedAt:new Date().toISOString(),
+  personal:productionDataBackup(),publicMaster:{source:'imported-public-CSV',records:master}};
+}
+function validPortable113(obj){
+ if(!obj||obj.format!=='dabimas-portable-v113'||!obj.personal||!obj.publicMaster)throw Error('v113端末移行ファイルではありません。');
+ const p=obj.personal, a=obj.publicMaster.records;
+ if(!p.owned||typeof p.owned!=='object'||Array.isArray(p.owned)||
+  !Array.isArray(p.plans)||!Array.isArray(p.homebreds)||!Array.isArray(p.genomes)||
+  !Array.isArray(p.added)||!Array.isArray(a)||a.length>50000||
+  a.some(r=>!r||typeof r.id!=='string'||!r.id.trim()||!Array.isArray(r.ancestry)||!Array.isArray(r.factors)))
+  throw Error('バックアップの構造が不正です。既存データは変更しません。');
+ return p;
+}
+async function restorePortable113(obj){
+ let p=validPortable113(obj), incoming=obj.publicMaster.records;
+ const counts=`所持 ${Object.values(p.owned).filter(v=>v?.owned).length}頭、プラン ${p.plans.length}件、自家製馬 ${p.homebreds.length}頭、公開マスター ${incoming.length}件`;
+ const current=`現在の端末：所持 ${Object.values(state.owned).filter(v=>v?.owned).length}頭、プラン ${state.plans.length}件。`;
+ if(prompt('【端末移行・復元】\n'+current+'\n復元元：'+counts+'\n個人データをバックアップ時点の内容に置き換えます。公開マスターは既存IDを残して不足IDを追加します。\n必ず別端末側の最新ファイルを選んだことを確認してください。\n続ける場合は「復元」と入力してください。')!=='復元')return false;
+ // Always export a rescue snapshot before modifying either storage area.
+ dl('dabimas_before_portable_restore_'+new Date().toISOString().slice(0,10)+'.json',portableSnapshot113());
+ const oldState=state, oldMaster=master.slice(), oldAudit=masterAudit86;
+ const seen=new Set(master.map(r=>key(r.id)));
+ const newMaster=master.slice();for(const r of incoming){let k=key(r.id);if(!seen.has(k)){seen.add(k);newMaster.push(r);}}
+ const newState={...state,...p,owned:{...p.owned},plans:p.plans.slice(),homebreds:p.homebreds.slice(),genomes:p.genomes.slice(),added:p.added.slice(),
+  mareFavorites:{...(p.mareFavorites||{})},mareGrades:{...(p.mareGrades||{})}};
+ // Verify the browser can persist the personal snapshot before mutating IndexedDB.
+ try{localStorage.setItem(SAVE_KEY,JSON.stringify(newState));}
+ catch(e){throw Error('個人データの保存領域が不足しています。変更は取り消しました。');}
+ const masterSaved=await saveMaster(newMaster);
+ if(!masterSaved){
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(oldState));}catch(e){}
+  throw Error('公開マスターの保存に失敗しました。元の個人データを復元しました。');
+ }
+ state=newState;master=newMaster;masterAudit86=null;openPlanId=null;
+ buildMap();rebuildParentRegistry68();closeEditor();renderAll();
+ $('portableStatus113').textContent='端末移行が完了：'+counts+'。公開マスターは既存IDを維持し、不足分を追加しました。';
+ return true;
+}
+function clearPersonalForTest113(){
+ const message='【実機テスト用の全クリア】\n所持チェック・権利数、保存プラン、自家製馬、ゲノム記録を消去します。\n公開マスターの種牡馬・繁殖牝馬データ、登録追加馬、名牝ランクは残します。\n続ける場合は「全クリア」と入力してください。';
+ if(prompt(message)!=='全クリア')return false;
+ dl('dabimas_before_test_clear_'+new Date().toISOString().slice(0,10)+'.json',portableSnapshot113());
+ const previous=state;
+ state={...state,owned:{},plans:[],homebreds:[],genomes:[],mareFavorites:{}};
+ if(!persist()){state=previous;return false;}
+ openPlanId=null;buildMap();closeEditor();renderAll();
+ $('portableStatus113').textContent='実機テスト用の個人記録をクリアしました。公開マスター・追加登録馬・名牝ランクは維持しています。';
+ return true;
+}
 function clearProductionData(){
  // The public sire/mare master is stored separately in IndexedDB; never touch it.
  state.plans=[];state.homebreds=[];state.genomes=[];openPlanId=null;
@@ -4613,6 +4665,9 @@ $('mareMore').onclick=()=>{mareLimit+=35;renderMares();};
 $('mareList').onclick=e=>{const fav=e.target.closest('[data-mare-fav]'),detail=e.target.closest('[data-mare-detail]');if(fav){const id=fav.dataset.mareFav,k=key(id);if(state.mareFavorites[k])delete state.mareFavorites[k];else state.mareFavorites[k]=true;persist();renderMares();}else if(detail)mareDetail(detail.dataset.mareDetail);};
 $('pedAnalyze').onclick=renderPedigree;$('pedHorse').onkeydown=e=>{if(e.key==='Enter')renderPedigree();};$('pedDeep').onclick=()=>{$('pedHorse').value='ディープインパクト-央獅-';renderPedigree();};$('loadWebMaster').onclick=loadWeb;$('masterCsv').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await setMaster(await file.text());}catch(err){$('importStatus').textContent='CSV取込エラー: '+err.message;}e.target.value='';};
 $('exportInventory').onclick=()=>dl('dabimas_full_backup.json',productionDataBackup());
+$('exportPortable113').onclick=()=>{dl('dabimas_portable_all_v113_'+new Date().toISOString().slice(0,10)+'.json',portableSnapshot113());$('portableStatus113').textContent='端末移行用ファイルを保存しました。別PCでは同じ画面の「端末移行JSONを復元」を使用してください。';};
+$('importPortable113').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await restorePortable113(JSON.parse(await file.text()));}catch(err){$('portableStatus113').textContent='復元失敗：'+err.message;alert('復元できませんでした：'+err.message);}e.target.value='';};
+$('clearPersonal113').onclick=clearPersonalForTest113;
 $('importInventory').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const imported=importJSON(JSON.parse(await file.text()));if(imported)alert('読み込みました。所持・プラン件数をご確認ください。');}catch(err){alert('JSON取込失敗：'+err.message);}e.target.value='';};
 $('clearProductionData').onclick=requestProductionReset;
 $('saveGenome').onclick=()=>{const vals=['sp0','sp1','sp2','st0','st1','st2'].map(k=>$(k).value.trim());if(vals.some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)){alert('SP/STの最小・中央・最大を入力してください。');return;}const a=vals.map(Number);if(a[0]>a[1]||a[1]>a[2]||a[3]>a[4]||a[4]>a[5]){alert('最小 ≦ 中央 ≦ 最大の順序で入力してください。');return;}state.genomes.unshift({name:$('predName').value.trim(),sp0:a[0],sp1:a[1],sp2:a[2],st0:a[3],st1:a[4],st2:a[5],at:new Date().toLocaleDateString('ja-JP')});persist();$('genomeHistory').innerHTML=genomeRows();alert('ゲーム内解析値を保存しました。');};

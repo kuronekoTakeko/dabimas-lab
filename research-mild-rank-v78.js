@@ -40,8 +40,13 @@
   // Use one immutable baseline per theory grade, assigned by caller after
   // all candidates have been checked. This produces a stable ranking and
   // prevents candidate-by-candidate preference cycles.
-  const tier=r=>safe(r.candidate?.additionalBirths)===0?1:
-   safe(r.candidate?.additionalBirths)===1&&(r.nitro107?.approved||r.oneExtra85?.approved)?0:2;
+  const tier=r=>{
+   const births=safe(r.candidate?.additionalBirths);
+   if(births===0)return 1;
+   if(births===1)return r.nitro107?.approved||r.oneExtra85?.approved?0:2;
+   if(births===2)return r.twoExtra111?.approved?0:3;
+   return 4;
+  };
   const tx=tier(a),ty=tier(b);if(tx!==ty)return tx-ty;
   // Validated nitro improvement may justify one extra mating; do not
   // let raw mating count erase documented stage gains.

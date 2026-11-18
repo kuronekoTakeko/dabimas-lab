@@ -178,33 +178,39 @@
   }
   return kept;
  }
+ // v111: reserve bounded comparison slots for all FOUR optional routes.
+ // This is precheck sampling, not a promise of a better final pedigree.
  function shortlist(finalists,{limit=100,maxAdditionalBirths=2}={}){
-  const direct=[],oneSire=[],other=[],seen=new Set();
+  const lanes=[[],[],[],[]],seen=new Set();
   const budget=Math.max(0,Math.min(2,Math.trunc(Number(maxAdditionalBirths)||0)));
   let excludedOverBudget=0,duplicates=0;
   for(const c of finalists||[]){
-   if((Number(c.additionalBirths)||0)>budget){excludedOverBudget++;continue;}
-   const k=[c.sireId||c.sireName,c.baseMareId||c.baseName,c.distinct].join('|');
+   const births=Number(c.additionalBirths)||0;
+   if(births>budget){excludedOverBudget++;continue;}
+   const k=[c.sirePrep?.fatherId||c.sireId,c.sirePrep?.motherId||'',c.basePrep?.fatherId||'',c.basePrep?.motherId||c.baseMareId||'',c.distinct].join('|');
    if(seen.has(k)){duplicates++;continue;}seen.add(k);
-   if(c.additionalBirths===0)direct.push(c);
-   else if(c.additionalBirths===1&&c.sirePrep&&!c.basePrep)oneSire.push(c);
-   else other.push(c);
+   const lane=c.sirePrep?(c.basePrep?3:1):(c.basePrep?2:0);
+   lanes[lane].push(c);
   }
-  const d=diversifyLane(direct),s=diversifyLane(oneSire),o=diversifyLane(other);
-  const max=Math.max(0,Math.trunc(Number(limit)||0)),out=[];
-  let di=0,si=0,oi=0;
-  while(out.length<max&&(di<d.length||si<s.length||oi<o.length)){
-   for(let j=0;j<4&&di<d.length&&out.length<max;j++)out.push(d[di++]);
-   if(si<s.length&&out.length<max)out.push(s[si++]);
-   if(di>=d.length&&si>=s.length&&oi<o.length&&out.length<max)out.push(o[oi++]);
+  const ordered=lanes.map(diversifyLane),offsets=[0,0,0,0],out=[];
+  const max=Math.max(0,Math.trunc(Number(limit)||0));
+  // Direct, sire-only, mare-only, BOTH. Allow two-stage exploration even when
+  // zero/one-stage preliminaries overflow the shortlist, without removing the
+  // existing majority allocation to economical routes.
+  const allocation=[3,3,2,1];
+  while(out.length<max&&ordered.some((rows,i)=>offsets[i]<rows.length)){
+   for(let lane=0;lane<4;lane++){
+    for(let k=0;k<allocation[lane]&&out.length<max&&offsets[lane]<ordered[lane].length;k++)
+     out.push(ordered[lane][offsets[lane]++]);
+   }
   }
   const familyKey=c=>norm(c.sirePrep?.fatherId||c.sireId||c.sireName);
-  return {candidates:out,stats:{availableDirect:d.length,availableOptionalSires:s.length,
-   availableOther:o.length,directShortlist:di,optionalSireShortlist:si,otherShortlist:oi,
-   diverseSireFamilies:new Set(out.map(familyKey)).size,
-   excludedOverBudget,duplicateRecipes:duplicates,
-   maxAdditionalBirths:budget,limitReached:out.length===max&&d.length+s.length+o.length>out.length,
-   diversityPolicy:'父馬ごとに比較枠を分散し、8系統事前候補4件につき7系統候補1件を確保（最終31枠で再順位付け）',
+  return {candidates:out,stats:{availableDirect:ordered[0].length,availableOptionalSires:ordered[1].length,
+   availableOptionalMares:ordered[2].length,availableBothPrepared:ordered[3].length,
+   directShortlist:offsets[0],optionalSireShortlist:offsets[1],optionalMareShortlist:offsets[2],bothPreparedShortlist:offsets[3],
+   diverseSireFamilies:new Set(out.map(familyKey)).size,excludedOverBudget,duplicateRecipes:duplicates,
+   maxAdditionalBirths:budget,limitReached:out.length===max&&ordered.some((rows,i)=>offsets[i]<rows.length),
+   diversityPolicy:'0工程/種側1工程/肌側1工程/双方1工程を3:3:2:1で有限枠内比較。各枠は父系・8系統/7系統を分散（最終31枠で再検証）',
    gameVerified:false}};
  }
  function search({ownedSires=[],mares=[],theory,score,excludeNames=[],limit=100,maxPerKey=7,fixedMareLines=null,maxAdditionalBirths=2}={}){
@@ -235,9 +241,9 @@
   for(const entry of usableSires){const keys=matchingBaseKeys(entry.sig.matching,fixed);
     for(const k of keys){const direct=bases.direct.get(k)||[],prep=bases.prepared.get(k)||[];
       for(const b of direct){stats.directBaseMatches++;finalists.push({...entry,baseMareId:b.mareId,baseName:b.name,additionalBirths:entry.sirePrep?1:0,score:entry.sireScore+b.score});}
-      // Extra mare preparation is only a fallback per sire configuration;
-      // don't spend a birth if a matching public mare is already available.
-      if(direct.length===0)for(const b of prep){stats.preparedBaseMatches++;finalists.push({...entry,basePrep:{fatherId:b.fatherId,motherId:b.motherId},baseName:b.name,additionalBirths:(entry.sirePrep?1:0)+1,score:entry.sireScore+b.score});}
+      // Also compare one-generation foundation preparation even if a matching
+      // published mare exists; only validated final-pedigree gains may justify it.
+      if((Number(maxAdditionalBirths)||0)>0)for(const b of prep){stats.preparedBaseMatches++;finalists.push({...entry,basePrep:{fatherId:b.fatherId,motherId:b.motherId},baseName:b.name,additionalBirths:(entry.sirePrep?1:0)+1,score:entry.sireScore+b.score});}
     }
   }
   finalists.sort(compare);

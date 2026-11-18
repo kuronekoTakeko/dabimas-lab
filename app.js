@@ -395,16 +395,16 @@ function mild87GlobalHtml(plan){
  </details>`;
 }
 function mild108CompareHtml(plan){
- const d=plan?.mild87;if(!d||![108,109].includes(d.version))return '';
+ const d=plan?.mild87;if(!d||![108,109,111].includes(d.version))return '';
  const reps=Array.isArray(d.representatives)?d.representatives:[];
  const lines=reps.map(r=>`<li>比較順位${esc(r.rankPosition)}：${esc(r.closingSire||'未確認')}${r.preparedSireFather?`（仕込み父：${esc(r.preparedSireFather)} × ${esc(r.preparedSireMare||'未確認')}）`:''} ／ ${esc(r.grade)}候補 ／ 追加${esc(r.additionalBirths)}工程 ／ 短${esc(r.short??'?')}・速${esc(r.fast??'?')}・長${esc(r.long??'?')} ／ 因子未収録${esc(r.missing??'?')}枠 ／ 段階指標${esc(r.stageIndex??'?')}（短${esc(r.stageShort??'?')}・速${esc(r.stageFast??'?')}・長${esc(r.stageLong??'?')}段階） ／ 独立クロス根拠${esc(r.independentCrossEvidence??'?')} ／ 短距離リスク指標${esc(r.shortCrossRisk??'?')}</li>`).join('');
  const reasons=(d.extraRejectedReasons||[]).map(x=>`${esc(x.reason)}：${esc(x.count)}件`).join('、');
- return `<details class="a21-flow"><summary>v109｜肌作り理論と最終至高の比較（限定探索）</summary>
- <p class="muted">最終31枠・締め肌理論を通過したDDS候補 ${esc(d.distinct||0)}件、締め肌父のグループ ${esc(d.fatherFamilies||0)}種類。超完璧候補 ${esc(d.gradeCounts?.superPerfect??0)}件／完璧候補 ${esc(d.gradeCounts?.perfect??0)}件（ゲーム内未確認）。追加準備 0工程 ${esc(d.birthCounts?.[0]??0)}件・1工程 ${esc(d.birthCounts?.[1]??0)}件・2工程 ${esc(d.birthCounts?.[2]??0)}件。ニトロ段階改善を全DDS内の最良0工程案と比較し承認 ${esc(d.oneExtraNitroApproved??0)}件。</p>
+ return `<details class="a21-flow"><summary>v111｜肌作り理論と最終至高の比較（限定探索）</summary>
+ <p class="muted">最終31枠・締め肌理論を通過したDDS候補 ${esc(d.distinct||0)}件、締め肌父のグループ ${esc(d.fatherFamilies||0)}種類。超完璧候補 ${esc(d.gradeCounts?.superPerfect??0)}件／完璧候補 ${esc(d.gradeCounts?.perfect??0)}件（ゲーム内未確認）。追加準備 0工程 ${esc(d.birthCounts?.[0]??0)}件・1工程 ${esc(d.birthCounts?.[1]??0)}件・2工程 ${esc(d.birthCounts?.[2]??0)}件。ニトロ段階改善・追加1工程を承認 ${esc(d.oneExtraNitroApproved??0)}件。追加2工程を同理論の1工程案と比較 ${esc(d.twoExtraCompared??0)}件／改善承認 ${esc(d.twoExtraApproved??0)}件（対照なし ${esc(d.twoExtraWithoutOne??0)}件）。</p>
  <p class="muted"><b>比較方針：</b>${esc(d.rankingPolicy||'締め肌理論を優先し、最終至高の研究根拠と工程数を比較。')} ※研究上の相対指標であり、能力予測値ではありません。</p><p class="muted"><b>父馬グループ別の比較上位（最大6種類）：</b> この一覧は採用可能性の研究記録であり、ゲーム内の成立証明ではありません。</p>
  ${lines?`<ol>${lines}</ol>`:'<p class="muted">比較できる別父候補がありません。</p>'}
  <p class="muted">1工程追加が優先されなかった主な理由：${reasons||'比較対象なし、または明確な理由の記録なし'}。</p>
- <p class="muted"><b>注意：</b>探索には上限があります。ここにない馬の配合が不可能とは言えません。因子未収録の枠は0因子とは扱わず、クロス効果・SP/ST・至高成立はゲーム内未確認です。種側・肌側各＋1工程を網羅したことも意味しません。</p>
+ <p class="muted"><b>注意：</b>探索には上限があります。ここにない馬の配合が不可能とは言えません。因子未収録の枠は0因子とは扱わず、クロス効果・SP/ST・至高成立はゲーム内未確認です。種側・肌側各＋1工程は上限付きで比較し、全組み合わせを網羅した意味ではありません。</p>
  </details>`;
 }
 function mild88CoverageHtml(plan){
@@ -1813,7 +1813,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  // No persistent memo: importing a new CSV or changing acquired sires must
  // take effect on the very next search.
  const exclusions=Object.values(p.routeDraft.slots).map(id=>splitName(id).name);
- const memoKey=JSON.stringify([scope,p.goal||'balance',fixed.values,[...new Set(exclusions.map(x=>key(x)))].sort()]);
+ const memoKey=JSON.stringify([scope,p.goal||'balance',fixed.values,2,[...new Set(exclusions.map(x=>key(x)))].sort()]);
  let inverse=inverseMemo79?.get(memoKey);
  if(inverse){if(inverseStats79)inverseStats79.hits++;}
  else{
@@ -1823,7 +1823,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   const primaryLimit=scope==='meihin_fast'?100:260;
   const rescueLimit=scope==='meihin_fast'?60:120;
   inverse=inv.search({ownedSires:owned,mares,theory,score:factorScore,excludeNames:exclusions,
-   fixedMareLines:fixed.values,limit:primaryLimit+rescueLimit,maxAdditionalBirths:1});
+   fixedMareLines:fixed.values,limit:primaryLimit+rescueLimit,maxAdditionalBirths:2});
   inverseMemo79?.set(memoKey,inverse);
   if(inverseStats79)inverseStats79.misses++;
  }
@@ -2081,7 +2081,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  return {scope,results:finalists,tests,mares:mares.length,x:inverse.stats.ownedEightEligible,
   limited:!coverage89.exhaustive,coverage89,
   inverse69:{...inverse.stats,invalid,theoryRejected,rejectReasons88:reject88,coverage89},centerParentLines:{anchorId:center.id,values:[...fixed.values],missing:[],gameVerified:false},parentEvidence68:parentRegistry68.observed,
-  message:results.length?'':`8枠逆算では公開血統上の完璧・超完璧の一次条件を満たす完成9工程を見つけられませんでした。種牡馬1代仕込み事前候補${inverse.stats.preparedEightEligible}組・31枠詳細検査${reject88.recipesTried}案（2段目${rescueInspected}案）、検査枠外${outsideShortlist+notReviewed}案。マイルド型は追加準備を原則1代に限定しています。候補なしは配合不可能の証明ではありません。`};
+  message:results.length?'':`8枠逆算では公開血統上の完璧・超完璧の一次条件を満たす完成9工程を見つけられませんでした。種牡馬1代仕込み事前候補${inverse.stats.preparedEightEligible}組・31枠詳細検査${reject88.recipesTried}案（2段目${rescueInspected}案）、検査枠外${outsideShortlist+notReviewed}案。種側・肌側それぞれ1代までの限定探索です。候補なしは配合不可能の証明ではありません。`};
 }
 
 // Persist the optional one-birth father as a separate draft horse BEFORE the
@@ -3894,7 +3894,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${mild107NitroHtml(plan)}
  ${mild78EvidenceHtml(plan)}
  ${mild77TopologyHtml(plan)}
- ${plan.mild67?`<div class="notice"><b>v8.5｜中心種牡馬から締め肌DDS逆算：</b> ${plan.mild67.centerParentLines?.values?.length===2?`固定親系統 ${esc(plan.mild67.centerParentLines.values.join('・'))}（公開CSV由来、ゲーム内未確認）。`:''}工程1：選択した至高3代目の直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。追加準備は原則1工程まで、2工程案は採用対象外。ゲーム内成立確定ではありません。</div>`:''}
+ ${plan.mild67?`<div class="notice"><b>v8.5｜中心種牡馬から締め肌DDS逆算：</b> ${plan.mild67.centerParentLines?.values?.length===2?`固定親系統 ${esc(plan.mild67.centerParentLines.values.join('・'))}（公開CSV由来、ゲーム内未確認）。`:''}工程1：選択した至高3代目の直仔牝馬、工程2：${esc(plan.mild67.selectedSireId||'未指定')}と配合。超完璧${esc(plan.mild67.closingTheory?.superPerfect||'未確認')}／完璧${esc(plan.mild67.closingTheory?.perfect||'未確認')}。面白${esc(plan.mild67.closingTheory?.interestingDistinct??'未確認')}/8種類・見事${esc(plan.mild67.closingTheory?.matching||'未確認')}。追加の自家製種牡馬 ${plan.mild67.extraSireBirths}頭・基礎牝馬 ${plan.mild67.extraMareBirths||0}頭。親系統の根拠：${plan.mild67.parentDataObserved?'公開CSVのpa列を照合':'公式限定資料のみ（公開CSVの再取り込みを推奨）'}。見事不一致を早期除外した候補${plan.mild67.prunedMatching||0}組、面白7系統未達で除外した候補${plan.mild67.prunedInteresting||0}頭。v6.9逆算探索${plan.mild67.inverse69?.precheckedPrepared||0}件（上限付き）。種側・肌側で各最大1工程（合計2工程）を有限枠で比較。採用には最終31枠の検査が必要。ゲーム内成立確定ではありません。</div>`:''}
  ${plan.mild57?`<div class="notice"><b>v5.7 締め肌の途中配合理論優先：</b>超完璧 → 完璧 → 未確認 → 不成立の順で既存9工程の${esc(plan.mild57.tested)}候補を比較しました。開始：${esc(plan.mild57.start?.superPerfect)}／${esc(plan.mild57.start?.perfect)}、採用：超完璧${esc(plan.mild57.end?.superPerfect)}・完璧${esc(plan.mild57.end?.perfect)}。奇跡は探索対象外。<b>未確認は成立扱いしません。</b> 親系統は部分収録のため、候補が未確認のままになる場合があります。追加世代による自家製起点探索はv5.8で限定追加しました（採用条件あり）。</div>`:''}
  ${plan.mild58?`<div class="notice"><b>v5.8 マイルド・母系1代仕込み：</b>所持種牡馬${esc(plan.mild58.tested)}候補を工程6の前に追加する形で比較。${plan.mild58.chosenSireId?`採用：${esc(plan.mild58.chosenSireId)}（全${esc(plan.mild58.resultStages)}工程）。`:'途中配合理論の確実な改善と研究評価の維持を同時に満たす候補はなく、9工程のままです。'}超完璧・完璧のみ評価し、奇跡は除外。<b>ゲーム内成立・締め肌能力は未確認。</b>探索は上限付きです。</div>`:''}
  ${plan.mild55?`<div class="notice"><b>v5.5 マイルド型・複数枠の同時改善：</b>2枠変更${esc(plan.mild55.checked)}候補を照合（名牝ペア${esc(plan.mild55.marePairTrials)}／補助X＋名牝${esc(plan.mild55.xMareTrials)}）。${plan.mild55.improved?'研究上の評価が改善':'上位候補は従来案を維持'}。網羅探索・ゲーム内成立保証ではありません。</div>`:''}
@@ -4269,6 +4269,7 @@ function auto21Create(){
    if(mildGlobal87?.stats)draft.mild87={...mildGlobal87.stats,
     selectedFromGlobal:!!mildGlobal87.winner&&mildGlobal87.winner.trial===initial,
     selectedSire:base.xId||'',gameVerified:false};
+   draft.mild111={version:111,gameVerified:false,comparison:choice?.twoExtra111||null,additionalBirths:base.additionalBirths||0};
    draft.mild85={version:85,goal,additionalBirths:base.additionalBirths||0,
     preparedSire:!!base.xPrep,comparison:choice?.oneExtra85||null,
     prepTheory:base.prepSireTheory||null,gameVerified:false,

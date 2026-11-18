@@ -973,7 +973,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3811,6 +3811,23 @@ function mild98StageHtml(plan){
  return `<details class="a21-flow" open><summary>v98｜全${r.stages.length}工程の血統保存照合：${r.ok?'一致（ゲーム内未検証）':'要再設計'}</summary>
  ${r.errors.length?`<p class="notice warn">${esc(r.errors.slice(0,6).join('／'))}</p>`:'<p>基幹・準備工程ごとの父母・性別・31枠・因子・系統が保存時と一致しています。</p>'}
  ${r.warnings.length?`<p class="muted">${esc(r.warnings.join('／'))}</p>`:''}<p class="muted">${esc(r.caveat)}</p></details>`;
+}
+// v115: consolidate existing audits for a practical, read-only BC handoff.
+function mild115HandoffHtml(plan){
+ const api=window.DabimasMildBCHandoff115;
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ if(!api?.inspect)return '<p class="notice warn">v115の実戦チェックモジュールを読み込めません。生産前の判定は未確認です。</p>';
+ const readiness=mild97LiveReport(plan,true),stage=mild98LiveReport(plan,true);
+ const evidence=window.DabimasExternalReview48?.auditEvidence?.(plan.externalReview48)||null;
+ const r=api.inspect({plan,readiness,stageAudit:stage,externalAudit:evidence});
+ if(!r)return '';
+ const list=r.actions.map(x=>`<li>${esc(x)}</li>`).join('');
+ const problems=r.problems.length?`<p class="notice warn"><b>構造上の要確認：</b>${esc(r.problems.join('／'))}</p>`:'';
+ const rights=r.rights.length?`<p class="muted">不足・未確認の権利：${esc(r.rights.map(x=>x.id+'（必要'+x.uses+'回／登録'+(x.rights==null?'未確認':x.rights+'回')+'）').join('、'))}</p>`:'';
+ return `<details class="a21-flow" open><summary>v115｜公式BC向け・生産着手前の確認表（未認証）</summary>
+ <p><b>血統構造・保存照合：</b>${r.structural?'登録上は再照合通過':'未通過・要確認'} ／ <b>至高の指定異因名：</b>${r.anchorComplete?'登録位置一致（外部未検証）':r.notationOnly?'年号表記のみ一致・ID未照合':'外部照合が必要'} ／ <b>ゲーム内成立：</b>未確認。</p>
+ ${problems}${rights}<p><b>実戦準備で必要な確認：</b></p><ol>${list}</ol>
+ <p class="muted">${esc(r.caveat)} 既存の保存プランや実馬記録は変更しません。</p></details>`;
 }
 function mild97ReadinessHtml(plan){
  const report=mild97LiveReport(plan,true);if(!report)return '';

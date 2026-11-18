@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const {inspect}=require('./research-mild-bc-handoff-v115.js');
+const plan={autoDesign21:{mode:'mild'},mild94:{ok:true}};
+const good={ok:true,publicSires:[{id:'A',uses:2,rights:0,shortage:2},{id:'B',uses:1,rights:3,shortage:0}],publicMares:[{id:'牝馬',uses:2}]};
+const stage={ok:true};const externalAudit={anchors:[{status:'登録位置・異因名一致（外部未検証）'},{status:'登録位置・異因名一致（外部未検証）'},{status:'登録位置・異因名一致（外部未検証）'}],unknownFactors:['S']};
+let r=inspect({plan,readiness:good,stageAudit:stage,externalAudit});
+assert.equal(r.structural,true);assert.equal(r.anchorComplete,true);assert.equal(r.rights.length,1);assert.equal(r.publicMares[0].uses,2);assert.equal(r.productionAuthorized,false);assert.equal(r.gameConfirmed,false);assert.equal(r.missingFactors,1);
+r=inspect({plan,readiness:{...good,ok:false,errors:['親子不整合']},stageAudit:stage,externalAudit});assert.equal(r.structural,false);assert.match(r.problems.join(' '),/親子不整合/);
+r=inspect({plan,readiness:good,stageAudit:null,externalAudit});assert.equal(r.structural,false);
+r=inspect({plan,readiness:good,stageAudit:stage,externalAudit:{...externalAudit,anchors:[{status:'年号付きIDの表示形式一致（マスターID未照合）',notationOnly:true},...externalAudit.anchors.slice(1)]}});assert.equal(r.anchorComplete,false);assert.equal(r.notationOnly,true);
+assert.equal(inspect({plan:{autoDesign21:{mode:'hard'}}}),null);
+assert.equal(inspect({plan,readiness:good,stageAudit:stage,externalAudit:null}).anchorComplete,false);
+console.log('v115 BC handoff: 6 scenarios PASS');

@@ -22,7 +22,7 @@ if(data&&deep&&other&&king){
  test('解析で個人の所持・プラン・マスターを一切変更しない',()=>{const before=JSON.stringify(portable);cli.run(portable,inputs);assert.equal(JSON.stringify(portable),before);});
 }
 test('v123 UI とキャッシュへのモジュール接続',()=>{const html=fs.readFileSync(root+'/index.html','utf8'),app=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');
- assert.match(html,/research-mild-evidence-v123\.js\?v=123/);assert.match(html,/app\.js\?v=126/);
- assert.match(app,/mild123EvidenceHtml\(p\)/);assert.match(sw,/dbms-v126-1/);assert.match(sw,/research-mild-evidence-v123\.js/);
+ assert.match(html,/research-mild-evidence-v123\.js\?v=123/);assert.match(html,/app\.js\?v=127/);
+ assert.match(app,/mild123EvidenceHtml\(p\)/);assert.match(sw,/dbms-v127-1/);assert.match(sw,/research-mild-evidence-v123\.js/);
 });
 console.log(`v123 new checks: ${passed} PASS`);

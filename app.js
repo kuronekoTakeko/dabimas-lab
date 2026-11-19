@@ -485,6 +485,26 @@ function mild108CompareHtml(plan){
  <p class="muted"><b>注意：</b>探索には上限があります。ここにない馬の配合が不可能とは言えません。因子未収録の枠は0因子とは扱わず、クロス効果・SP/ST・至高成立はゲーム内未確認です。種側・肌側各＋1工程は上限付きで比較し、全組み合わせを網羅した意味ではありません。</p>
  </details>`;
 }
+// v127: bounded, diversity-aware candidates, NEVER a strength verdict.
+function mild127ShortlistHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const d=window.DabimasMildShortlist127?.fromSaved?.(plan);
+ if(!d)return '<p class="notice warn">v127候補比較は未実施（モジュール未読込）。</p>';
+ const routes=window.DabimasMildShortlist127.routeLabels;
+ const present=Object.entries(routes).map(([k,label])=>`${label} ${d.distribution[k]??'未記録'}件`).join('／');
+ const list=d.candidates.map((c,i)=>`<li><b>${esc(c.family)}</b>（探索順位 ${esc(c.rank??'?')}・${esc(routes[c.route]||'経路不明')}・${esc(c.grade)}）`+
+  `／短速長の記録済みニトロ段階 ${esc(c.nitroStages?.['短']??'?')}・${esc(c.nitroStages?.['速']??'?')}・${esc(c.nitroStages?.['長']??'?')}`+
+  `／因子未収録 ${esc(c.missingFactorSlots??'?')}枠 ／ 追加クロス研究根拠 ${esc(c.additionalCrossResearchEvidence??'未確認')}`+
+  `${c.sireFoundationMare?'／仕込み基礎牝 '+esc(c.sireFoundationMare):''}</li>`).join('');
+ return `<details class="a21-flow"><summary>v127｜同条件のマイルド型・工程別候補比較（${d.fresh?'v127新探索記録':'旧探索記録・再探索待ち'}）</summary>
+ <p>比較対象：${esc(d.eligible??'未確認')}候補。詳細検査 ${esc(d.inspectCount??'?')}件／検査対象内で未実施 ${esc(d.notReviewed??'?')}件／候補リスト外 ${esc(d.outsideShortlist??'?')}件。<b>全探索：${d.fullSearch?'一部条件で範囲内':'未完了'}</b>。</p>
+ <p><b>4つの準備構成：</b>${present}。0件は今回の上限内で完成候補を確認できなかった意味であり、不成立を意味しません。</p>
+ ${!d.canCompareAllRoutes?'<p class="muted">重要：4構成すべてを同条件で比較できていません。未観測の構成を劣るものと判定しません。</p>':''}
+ <p><b>父系を分けた最大3例</b>（候補は実生産の許可ではなく検討対象）：</p>
+ ${list?`<ol>${list}</ol>`:'<p class="muted">保存された比較候補がありません。</p>'}
+ ${d.needsNewSearch?'<p class="notice warn">この保存プランの順位は旧方式で作成済みです。v126のクロス由来フィルタを含めた新しい自動設計の順位ではありません。新規作成時にv127の比較情報を保存します。</p>':''}
+ <p class="muted">${esc(d.caveat)} ゲーム内の至高・有効クロス・SP/STと名牝の入手は未確認です。保存・所持権利数を変更しません。</p></details>`;
+}
 function mild88CoverageHtml(plan){
  const d=plan?.mild88;if(!d)return '';
  const a=d.inverse||{};
@@ -988,7 +1008,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -4559,6 +4579,7 @@ function auto21Create(){
    draft.mild78=window.DabimasMildRank78.snapshot(base,goal,window.DabimasMildFinish610);
    if(window.DabimasMildNitro107?.inspect)draft.mildNitro107=window.DabimasMildNitro107.inspect(base,goal);
    const choice=ranked[0];
+   if(mildGlobal87?.stats?.shortlist127)draft.mild127={...mildGlobal87.stats.shortlist127};
    if(mildGlobal87?.stats)draft.mild87={...mildGlobal87.stats,
     selectedFromGlobal:!!mildGlobal87.winner&&mildGlobal87.winner.trial===initial,
     selectedSire:base.xId||'',gameVerified:false};

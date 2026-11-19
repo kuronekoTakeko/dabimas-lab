@@ -82,6 +82,7 @@
   }
   rows.sort((a,b)=>ranker.compare(a.rank,b.rank,opts)||a.identity.localeCompare(b.identity,'ja'));
   const winner=rows[0];
+  const shortlist127=typeof globalThis!=='undefined'?globalThis.DabimasMildShortlist127?.fromRanked?.({rows,ranker,finish,goal,limit:3})||null:null;
   // Limited, recorded evidence only. Do not suggest any candidate absent from
   // the bounded, fully validated comparison set.
   const familyKey=row=>norm(row.rank.candidate.xPrep?.fatherId||row.rank.candidate.xId||'未確認');
@@ -135,7 +136,7 @@
     status:'記録済み血統・限定探索／ゲーム内未確認'});
    if(representatives.length>=6)break;
   }
-  return {version:112,winner,stats:{version:112,gameVerified:false,eligible:rows.length,distinct:seen.size,
+  return {version:112,winner,stats:{version:112,shortlist127,gameVerified:false,eligible:rows.length,distinct:seen.size,
    skipped,duplicates,gradesWithDirect:[...directByGrade.keys()].sort(),oneExtraCompared:compared,
    oneExtraApproved:approved,oneExtraNitroApproved:nitroApproved,oneExtraWithoutDirect:noReference,
    twoExtraCompared:twoCompared,twoExtraApproved:twoApproved,twoExtraWithoutOne:twoNoBaseline,

@@ -34,9 +34,9 @@ if(jsonPath){const data=JSON.parse(fs.readFileSync(jsonPath,'utf8'));const plans
 }
 check('HTML・SW・アプリにモジュールを読み込む',()=>{
  const h=fs.readFileSync(root+'/index.html','utf8'),a=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8'),g=fs.readFileSync(root+'/research-mild-global-v87.js','utf8');
- assert.match(h,/research-mild-shortlist-v127\.js\?v=127/);assert.match(h,/app\.js\?v=127/);
+ assert.match(h,/research-mild-shortlist-v127\.js\?v=127/);assert.match(h,/app\.js\?v=128/);
  assert(h.indexOf('research-mild-shortlist-v127.js')<h.indexOf('research-mild-global-v87.js'));
  assert.match(a,/mild127ShortlistHtml\(p\)/);assert.match(a,/draft\.mild127/);
- assert.match(sw,/dbms-v127-1/);assert.match(sw,/research-mild-shortlist-v127\.js/);assert.match(g,/DabimasMildShortlist127/);
+ assert.match(sw,/dbms-v128-1/);assert.match(sw,/research-mild-shortlist-v127\.js/);assert.match(g,/DabimasMildShortlist127/);
 });
 console.log(`v127: ${n} checks PASS`);

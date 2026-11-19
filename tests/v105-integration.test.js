@@ -11,8 +11,8 @@ assert(!app.includes('if(results.length>=completeLimit&&bestTheoryGrade===3)brea
 assert(app.includes('v102 必須モジュール未読込'));
 assert(app.includes('v98 全工程血統照合で停止'));
 assert(app.includes('v97 生産前の再検証で停止'));
-assert(html.includes('research-inverse-mild-v69.js?v=105'));
-assert(html.includes('app.js?v=105'));
-assert(html.indexOf('research-inverse-mild-v69.js?v=105')<html.indexOf('app.js?v=105'));
-assert(sw.includes('dbms-v105-1'));
+assert(html.includes('research-inverse-mild-v69.js?v=112'));
+assert(html.includes('app.js?v=128'));
+assert(html.indexOf('research-inverse-mild-v69.js?v=112')<html.indexOf('app.js?v=128'));
+assert(sw.includes('dbms-v128-1'));
 console.log('v105 integration checks: PASS');

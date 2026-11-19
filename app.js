@@ -491,14 +491,18 @@ function mild127ShortlistHtml(plan){
  const d=window.DabimasMildShortlist127?.fromSaved?.(plan);
  if(!d)return '<p class="notice warn">v127候補比較は未実施（モジュール未読込）。</p>';
  const routes=window.DabimasMildShortlist127.routeLabels;
+ const deep128=window.DabimasMildRescue128?.fromSaved?.(plan)||null;
+ const rescue128Html=deep128?.fresh?`<p class="muted"><b>v128 別父系の追加検査：</b>通常枠 ${esc(deep128.primaryLimit)}件・予備枠で実施 ${esc(deep128.extraInspected)}件／超完璧一次判定の父系 ${esc(deep128.primaryGrade3Families)}→${esc(deep128.completedGrade3Families)}種類。未詳細検査 ${esc(deep128.notReviewed)}件、候補リスト外 ${esc(deep128.outsideShortlist)}件。${esc(deep128.reason)}。全探索ではありません。</p>`:
+  '<p class="muted">v128の別父系予備枠による再比較は未実施です（旧保存プラン）。既存順位を再評価済みとは表示しません。</p>';
  const present=Object.entries(routes).map(([k,label])=>`${label} ${d.distribution[k]??'未記録'}件`).join('／');
  const list=d.candidates.map((c,i)=>`<li><b>${esc(c.family)}</b>（探索順位 ${esc(c.rank??'?')}・${esc(routes[c.route]||'経路不明')}・${esc(c.grade)}）`+
   `／短速長の記録済みニトロ段階 ${esc(c.nitroStages?.['短']??'?')}・${esc(c.nitroStages?.['速']??'?')}・${esc(c.nitroStages?.['長']??'?')}`+
   `／因子未収録 ${esc(c.missingFactorSlots??'?')}枠 ／ 追加クロス研究根拠 ${esc(c.additionalCrossResearchEvidence??'未確認')}`+
   `${c.sireFoundationMare?'／仕込み基礎牝 '+esc(c.sireFoundationMare):''}</li>`).join('');
- return `<details class="a21-flow"><summary>v127｜同条件のマイルド型・工程別候補比較（${d.fresh?'v127新探索記録':'旧探索記録・再探索待ち'}）</summary>
+ return `<details class="a21-flow"><summary>v128｜同条件のマイルド型・工程別候補比較（${d.fresh?'v127新探索記録':'旧探索記録・再探索待ち'}）</summary>
  <p>比較対象：${esc(d.eligible??'未確認')}候補。詳細検査 ${esc(d.inspectCount??'?')}件／検査対象内で未実施 ${esc(d.notReviewed??'?')}件／候補リスト外 ${esc(d.outsideShortlist??'?')}件。<b>全探索：${d.fullSearch?'一部条件で範囲内':'未完了'}</b>。</p>
  <p><b>4つの準備構成：</b>${present}。0件は今回の上限内で完成候補を確認できなかった意味であり、不成立を意味しません。</p>
+ ${rescue128Html}
  ${!d.canCompareAllRoutes?'<p class="muted">重要：4構成すべてを同条件で比較できていません。未観測の構成を劣るものと判定しません。</p>':''}
  <p><b>父系を分けた最大3例</b>（候補は実生産の許可ではなく検討対象）：</p>
  ${list?`<ol>${list}</ol>`:'<p class="muted">保存された比較候補がありません。</p>'}
@@ -1945,6 +1949,8 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const rescueLimit=scope==='meihin_fast'?60:120;
  const offered=inverse.candidates.length;
  let rescueInspected=0;
+ const grade3Families128=new Set();
+ let primaryGrade3Families128=0;
  let bestTheoryGrade=0; // v9.0: 2=perfect precheck, 3=super-perfect precheck
  let gradeAtPrimaryEnd=0;
  let rescueTrigger='第2枠は未使用';
@@ -1955,11 +1961,16 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   // remain document prechecks, not game confirmations.
   if(recipeIndex===primaryLimit){
    gradeAtPrimaryEnd=bestTheoryGrade;
-   rescueTrigger=bestTheoryGrade===3?'第1枠で超完璧候補を確認（追加不要）':
+   primaryGrade3Families128=grade3Families128.size;
+   rescueTrigger=bestTheoryGrade===3?'第1枠で超完璧候補を確認（別父系の不足も検査）':
     bestTheoryGrade===2?'第1枠で完璧候補のみ（超完璧を追加探索）':'第1枠で完成候補なし（追加探索）';
   }
-  if(!(typeof inv.shouldInspect90==='function'?inv.shouldInspect90(recipeIndex,bestTheoryGrade,primaryLimit,rescueLimit):
-   (recipeIndex>=0&&recipeIndex<primaryLimit+rescueLimit&&(recipeIndex<primaryLimit||bestTheoryGrade<3))))break;
+  if(!(window.DabimasMildRescue128?.shouldInspect?.({
+   index:recipeIndex,bestGrade:bestTheoryGrade,grade3Families:grade3Families128.size,
+   availableFamilies:inverse.stats?.diverseSireFamilies||0,primary:primaryLimit,reserve:rescueLimit,
+   diversityReserve:scope==='meihin_fast'?40:60,targetFamilies:3}) ??
+   (typeof inv.shouldInspect90==='function'?inv.shouldInspect90(recipeIndex,bestTheoryGrade,primaryLimit,rescueLimit):
+   (recipeIndex>=0&&recipeIndex<primaryLimit+rescueLimit&&(recipeIndex<primaryLimit||bestTheoryGrade<3)))))break;
   // v105: filling the retention cap is NOT a reason to skip later fathers.
   const recipe=inverse.candidates[recipeIndex];
   candidateFatherFamilies105.add(String(recipe.sirePrep?.fatherId||recipe.sireId||'未確認'));
@@ -2029,6 +2040,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
     reject88.completeCandidates++;
     const grade=opt66TheoryRank(trial);
     bestTheoryGrade=Math.max(bestTheoryGrade,grade);
+    if(grade===3)grade3Families128.add(String(trial.closingSireFamily105||'未確認').normalize('NFKC'));
     completeFatherFamilies105.add(trial.closingSireFamily105);
     const retained=typeof inv.retainDiverse105==='function'?
      inv.retainDiverse105(results,trial,completeLimit,opt66TheoryRank,x=>x.closingSireFamily105):
@@ -2170,7 +2182,13 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const superPerfectCandidates=results.filter(x=>opt66TheoryRank(x)===3).length;
  if(rescueTrigger==='第2枠は未使用')rescueTrigger=bestTheoryGrade===3?'第1枠で超完璧候補を確認（追加不要）':
   '第1枠を最後まで検査する前に候補リストを使い切り';
- const coverage89={version:90,gameVerified:false,primaryLimit,rescueLimit,
+ if(reject88.recipesTried<primaryLimit){primaryGrade3Families128=grade3Families128.size;gradeAtPrimaryEnd=bestTheoryGrade;}
+ const rescue128=window.DabimasMildRescue128?.snapshot?.({offered,inspected:reject88.recipesTried,
+  primary:primaryLimit,reserve:rescueLimit,diversityReserve:scope==='meihin_fast'?40:60,
+  availableFamilies:inverse.stats?.diverseSireFamilies||0,primaryGrade3Families:primaryGrade3Families128,
+  grade3Families:grade3Families128.size,primaryGrade:gradeAtPrimaryEnd,finalGrade:bestTheoryGrade,
+  prechecked:inverse.stats?.ranked||0})||null;
+ const coverage89={version:90,gameVerified:false,primaryLimit,rescueLimit,rescue128,
   rescueTrigger,gradeAtPrimaryEnd,bestTheoryGrade,perfectCandidates,superPerfectCandidates,completeLimit,
   precheckRecipes:inverse.stats.ranked||0,offered,inspected:reject88.recipesTried,
   rescueInspected,completeCandidates:reject88.completeCandidates,
@@ -4766,6 +4784,7 @@ function auto21Create(){
    if(isMaternalDDS67(draft)){
     if(researched.coverage89)draft.mild89={...researched.coverage89,
      centerId:researched.centerParentLines?.anchorId||'',gameVerified:false};
+    if(researched.coverage89?.rescue128)draft.mild128={...researched.coverage89.rescue128,gameVerified:false};
     const publicMares=mareRows(),eligibleMares=publicMares.filter(r=>opt10Self(r)&&mareRank12(r).value==='名牝');
     draft.mild88={version:88,publicMares:publicMares.length,eligibleMares:eligibleMares.length,
      unconfirmedMares:publicMares.filter(r=>mareRank12(r).value==='未確認').length,
@@ -4877,6 +4896,38 @@ function lineage106Run(){
  const row=r=>`<tr><td>${esc(r.route)}</td><td>${esc(r.fatherId)}</td><td>${esc(r.motherId||'—')}</td><td>${esc(r.sp)} / ${esc(r.st)}</td><td>${esc(r.interestingKnownDistinct)}/4${r.interestingMissing?'（欠'+esc(r.interestingMissing)+'）':''}</td></tr>`;
  target.innerHTML=`<p><b>一致 ${s.totalMatches}案</b>（直接 ${s.directMatches}／自家製1代 ${s.preparedMatches}）。所持登録 ${s.ownedTotal}頭、祖先15枠あり ${s.ownedWithPedigree}頭、公開牝馬 ${s.maresWithPedigree}頭。</p><p>検査：直接 ${s.directInspected}頭・1代仕込み ${s.preparedInspected}組。親系統不足：直接 ${s.unknownDirect}頭・仕込み ${s.unknownPrepared}組。見事系統の種類不一致：直接 ${s.notMatchingDirect}頭・仕込み ${s.notMatchingPrepared}組。</p><p class="muted">速・走・短 / 長・底・中 は父母の本人因子の参考本数（子の因子継承や能力予測ではありません）。現在の能力方針で参考順に表示、上位${s.showing}案。先に見事4系統だけをチェックしています。</p>${report.rows.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>ルート</th><th>所持父</th><th>母（仕込み）</th><th>SP/ST参考</th><th>面白の既知</th></tr></thead><tbody>${report.rows.map(row).join('')}</tbody></table></div>`:'<p>現在の公開CSVで4系統一致を確認できた候補はありません（データ不足による未確認候補は除外できません）。</p>'}<p class="muted">${esc(report.note)} 最終産駒のクロス・系統・親子関係・近親条件の検査を省略して成立と表示することはありません。</p>`;
 }
+// v129: research-only virtual acquisition. No state.owned mutation or persistence.
+function virtual129Run(){
+ const target=$('virtual129Result'),btn=$('virtual129Run');if(!target||!btn)return;
+ const api=window.DabimasVirtualOwnership129,inv=window.DabimasInverseMild69,dist=window.DabimasDistance54;
+ if(!api?.compare||!inv?.search||!parentRegistry68?.observed){target.textContent='公開マスターのpa親系統と研究モジュールが必要です。データ管理でCSVを確認してください。';return;}
+ const resolved=window.DabimasFamilySearch46?.resolve(auto21Candidates,$('auto21Horse')?.value,24,6);
+ const anchorId=resolved?.pool?.[0]?.set?.[0]?.id;
+ if(!anchorId){target.textContent='実所持の中心種牡馬を選択してください。';return;}
+ const race=$('auto21Race')?.value||'芝2200m',limit=Number($('virtual129Limit')?.value||100);
+ const allMares=$('virtual129Mares')?.value==='all';
+ const mares=mareRows().filter(r=>opt10Self(r)&&(allMares||mareRank12(r).value==='名牝'));
+ btn.disabled=true;target.textContent=`研究用比較中：${race}／追加上限${limit}頭／SP・バランス・STの3方針。所持・保存データは変更しません。`;
+ setTimeout(()=>{try{
+  const report=api.compare({master,owned:state.owned,anchorId,race,limit,mares,theory:currentParentTheory68(),inverse:inv,distance:dist});
+  if(!report.ok){target.textContent='比較を実行できません：'+report.error;return;}
+  const selected=report.pool;
+  const rows=report.rows.map(r=>{
+   const top=r.top;const origin=top?.usesVirtual?'仮想追加の父':'実所持の父';
+   const route=top?({direct:'準備0',sireOnly:'種側＋1',mareOnly:'肌側＋1',both:'両側＋1'}[top.route]||top.route):'—';
+   return `<tr><td>${esc(r.goalName)}</td><td>${r.scope==='actual'?'実所持のみ':'仮想追加込み'}</td><td>${esc(r.sires)}</td><td>${esc(r.ranked)}</td><td>${esc(r.examined)}</td><td>${esc([r.routes.direct,r.routes.sireOnly,r.routes.mareOnly,r.routes.both].join('/'))}</td><td>${esc(route)}</td><td>${top?esc(top.sireId)+' <small>('+esc(origin)+')</small>':'—'}</td></tr>`;
+  }).join('');
+  const counts=selected.addedDistance;
+  const r1=report.rows.filter(r=>r.scope==='actual'),r2=report.rows.filter(r=>r.scope==='virtual');
+  const deltas=r1.map((r,i)=>`${r.goalName} ${r2[i].ranked-r.ranked>=0?'+':''}${r2[i].ranked-r.ranked}`).join('／');
+  target.innerHTML=`<p><b>実所持で血統照合できる父 ${esc(selected.actual)}頭 → 仮想追加後 ${esc(selected.expanded)}頭（追加 ${esc(selected.added)}頭）</b>。基準種牡馬 ${esc(anchorId)}。目標 ${esc(race)}。</p>
+  <p>追加馬の登録距離：範囲内 ${esc(counts.covered)}頭／距離不明 ${esc(counts.unknown)}頭／範囲外 ${esc(counts.outside)}頭。登録距離が当てはまることは産駒の適性を保証しません。</p>
+  <div style="overflow:auto"><table class="detailtbl"><thead><tr><th>方針</th><th>対象</th><th>父の数</th><th>一次候補総数</th><th>抽出候補</th><th>抽出内：0/種1/肌1/両1</th><th>先頭の構成</th><th>先頭の父（参考）</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p>一次候補増分：${esc(deltas)}。抽出上限は各条件100件。${allMares?'公開全牝馬を対象とした事前探索であり、名牝ランク未確認馬も含みます。':'登録名牝のみを対象とした事前探索です。'}</p>
+  <details><summary>今回仮に追加した馬（先頭20頭）</summary><p>${selected.addedIds.slice(0,20).map(esc).join('／')||'追加馬なし'}</p></details>
+  <p class="notice warn"><b>研究用・生産不可。</b> ${esc(report.limitations)} 距離の効果をこの一次候補数から直接判定することもできません。実際の所持馬だけが通常の自動設計の対象です。</p>`;
+ }catch(e){target.textContent='仮想比較エラー：'+e.message;}finally{btn.disabled=false;}},25);
+}
 function setupAuto21(){
  const run=$('auto21Run');if(!run)return;
  const race=$('auto21Race');race.innerHTML=AUTO21_RACES.map(([value,label])=>`<option value="${esc(value)}" ${value==='芝1600m'?'selected':''}>${esc(label)}</option>`).join('');
@@ -4884,6 +4935,7 @@ function setupAuto21(){
  run.addEventListener('click',auto21Create);
  $('lineage106Run')?.addEventListener('click',lineage106Run);
  $('mild119BroadRun')?.addEventListener('click',mild119PreflightRun);
+ $('virtual129Run')?.addEventListener('click',virtual129Run);
  auto21RefreshCandidates();
 }
 

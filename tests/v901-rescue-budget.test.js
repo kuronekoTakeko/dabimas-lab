@@ -17,7 +17,7 @@ assert.deepEqual(selected.map(x=>x.id),['c','a']);
 assert.deepEqual(plans.map(x=>x.id),['a','b'],'retention must not mutate prior shortlist');
 assert.deepEqual(inv.retainStrongest90(plans,{id:'c',grade:3},0,x=>x.grade),[]);
 const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
-assert(app.includes('if(!inv.shouldInspect90(recipeIndex,bestTheoryGrade,primaryLimit,rescueLimit))break;'));
+assert(app.includes('DabimasMildRescue128?.shouldInspect?.({'),'v128 adapts second pass to evidence family count while retaining legacy fallback');
 assert(app.includes('theoryGrade<7||theoryGrade!==recipe.distinct'));
 assert(app.includes('gameVerified:false'));
 console.log('PASS v9.0.1 rescue budget: grade-2 does not prematurely halt grade-3 search; search cap; no mutation; explicit theory gate.');

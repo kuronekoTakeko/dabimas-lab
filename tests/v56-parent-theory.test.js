@@ -89,15 +89,15 @@ check('source conflicts block a single parent-system assignment rather than choo
 check('no mutation of pedigree or inventory records',()=>{
  const x=scenario({parents:{SS:'Nearctic',DDS:'Royal Charger'}});const before=JSON.stringify(x.pedigree);
  theory.inspect(x.pedigree,{registry:x.registry});assert.equal(JSON.stringify(x.pedigree),before);
- const owned=JSON.parse(fs.readFileSync('/mnt/data/dabimas_315_clean_start_v33 (1).json','utf8'));
- assert.equal(Object.keys(owned.owned).length,315);assert.equal(Object.values(owned.owned).filter(v=>v.owned&&v.rights===0).length,277);
+ const owned=JSON.parse(fs.readFileSync(process.env.DABIMAS_PORTABLE_JSON,'utf8'));
+ assert.equal(Object.values(owned.personal.owned).filter(v=>v.owned).length,330);assert.equal(Object.values(owned.personal.owned).filter(v=>v.owned&&v.rights===0).length,277);
 });
 check('v5.6 only adds a module, UI readout, versioned scripts/cache; Shiko remains unconfirmed',()=>{
  const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),html=fs.readFileSync(path.join(root,'index.html'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
  assert(app.includes('function mild56TheoryHtml(plan)'));assert(app.includes('chain09Parents(plan,closingStep)'));
  assert(app.includes('${mild56TheoryHtml(plan)}'));assert(app.includes('mild56TheoryHtml(p)+chain09FinalAudit(p)'));
- assert(html.indexOf('research-parent-theory-v56.js?v=68a')<html.indexOf('app.js?v=901'));
- assert(sw.includes("'./research-parent-theory-v56.js'"));assert(sw.includes('dbms-v901-1'));
+ assert(html.indexOf('research-parent-theory-v56.js?v=68a')<html.indexOf('app.js?v=128'));
+ assert(sw.includes("'./research-parent-theory-v56.js'"));assert(sw.includes('dbms-v128-1'));
  assert(app.includes('至高のゲーム内成立を保証する判定ではありません。'));
  assert(app.includes('const SAVE_KEY=\'dabimas_lab_v02_state\''));
 });

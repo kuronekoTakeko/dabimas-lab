@@ -31,8 +31,8 @@ if(jsonPath){
 }
 check('新スクリプト・画面・SWキャッシュ・アプリ順位フィルタを参照',()=>{
  const html=fs.readFileSync(root+'/index.html','utf8'),app=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');
- assert.match(html,/research-mild-cross-origin-v126\.js\?v=126/);assert.match(html,/app\.js\?v=127/);
+ assert.match(html,/research-mild-cross-origin-v126\.js\?v=126/);assert.match(html,/app\.js\?v=128/);
  assert.match(app,/DabimasMildCrossOrigin126\?\.classify/);assert.match(app,/DabimasMildCrossOrigin126\?\.filterAdditional/);
- assert.match(sw,/dbms-v127-1/);assert.match(sw,/research-mild-cross-origin-v126\.js/);
+ assert.match(sw,/dbms-v128-1/);assert.match(sw,/research-mild-cross-origin-v126\.js/);
 });
 console.log(`v126: ${n} checks PASS`);

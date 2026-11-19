@@ -1,0 +1,58 @@
+'use strict';
+const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const virtual=require('../research-virtual-ownership-v129.js');
+const distance=require('../research-distance-v54.js');
+const inverse=require('../research-inverse-mild-v69.js');
+const parent=require('../research-parent-theory-v56.js');
+const synthetic=[{id:'A-仮-',name:'A',sex:'male',lineage:'A系',distance:'1200m〜2400m',ancestry:Array.from({length:15},(_,i)=>({path:String(i),horse:'Test'+i,factors:['速']}))},
+{id:'B-仮-',name:'B',sex:'male',lineage:'B系',distance:'1600m〜3000m',ancestry:Array.from({length:15},(_,i)=>({path:String(i),horse:'Other'+i,factors:['長']}))}];
+const syntheticOwn={'a-仮-':{owned:true,rights:0}};
+const syntheticBefore=JSON.stringify(syntheticOwn);
+const syntheticChosen=virtual.choose({master:synthetic,owned:syntheticOwn,race:'芝2200m',limit:10,distance});
+assert.equal(syntheticChosen.actual.length,1);
+assert.equal(syntheticChosen.added.length,1);
+assert.equal(syntheticChosen.expanded.length,2);
+assert.equal(JSON.stringify(syntheticOwn),syntheticBefore);
+console.log('PASS portable: 仮想追加と権利0の取得済み登録を変更しない');
+const file=process.env.DABIMAS_PORTABLE_JSON||'/mnt/data/dabimas_portable_all_v113_2026-11-18 (1)(1).json';
+if(!fs.existsSync(file)){
+ console.log('SKIP: 実ユーザーJSONを渡していないため実データの統合検査は未実施（DABIMAS_PORTABLE_JSONで指定可能）');process.exit(0);
+}
+const data=JSON.parse(fs.readFileSync(file,'utf8'));
+const {owned}=data.personal,master=data.publicMaster.records;
+const ownedBefore=JSON.stringify(owned),personalBefore=JSON.stringify({plans:data.personal.plans,homebreds:data.personal.homebreds,genomes:data.personal.genomes});
+const anchor='ディープインパクト-央獅-';
+const a=virtual.choose({master,owned,anchorId:anchor,race:'芝2200m',limit:100,distance});
+assert.equal(a.added.length,100);assert.equal(a.actual.length,320);
+assert.equal(a.expanded.length,420);
+assert.equal(a.added.filter(r=>owned[r.id]?.owned).length,0);
+assert.equal(new Set(a.added.map(x=>x.id)).size,100);
+assert.ok(a.added.every(x=>x.ancestry.length===15&&x.sex==='male'));
+assert.ok(!a.expanded.some(x=>x.name==='ディープインパクト'));
+console.log('PASS 1-7: 実所持＋仮想100頭、種牡馬ID一意・中心系統除外・祖先15枠・非所持限定');
+const zero=virtual.choose({master,owned,anchorId:anchor,race:'芝2200m',limit:0,distance});
+assert.equal(zero.added.length,0);assert.equal(zero.expanded.length,zero.actual.length);
+const three=virtual.choose({master,owned,anchorId:anchor,race:'芝2200m',limit:999,distance});
+assert.equal(three.added.length,300);
+console.log('PASS 8-10: 仮想0/上限300、非所持のみ');
+const registry=parent.buildMasterRegistry(master);
+const theory={...parent,lookup:name=>parent.lookup(name,registry),isQuarantined:name=>registry.quarantined?.has(String(name).toLowerCase())||false};
+const mares=master.filter(r=>r.sex==='female');
+const report=virtual.compare({master,owned,anchorId:anchor,race:'芝2200m',limit:100,mares,theory,inverse,distance});
+assert.equal(report.ok,true,report.error);
+assert.equal(report.rows.length,6);
+assert.deepEqual(report.rows.map(x=>x.goal),['speed','speed','balance','balance','stamina','stamina']);
+assert.ok(report.rows.filter(x=>x.scope==='actual').every(x=>x.sires===a.actual.length));
+assert.ok(report.rows.filter(x=>x.scope==='virtual').every(x=>x.sires===a.expanded.length));
+assert.ok(report.rows.every(x=>x.examined<=100&&x.ranked>=0));
+assert.ok(report.rows[1].ranked>=report.rows[0].ranked);
+assert.equal(report.gameVerified,false);
+assert.equal(JSON.stringify(owned),ownedBefore);
+assert.equal(JSON.stringify({plans:data.personal.plans,homebreds:data.personal.homebreds,genomes:data.personal.genomes}),personalBefore);
+console.log('PASS 11-19: 全公開牝馬で6条件の実データ一次比較・未確認表示・元データ変更なし');
+const invalid=virtual.compare({master,owned,anchorId:'未取得-異因名-',race:'芝2200m',limit:100,mares,theory,inverse,distance});
+assert.equal(invalid.ok,false);
+console.log('PASS 20: 未所持の中心種牡馬からは研究実行不可');
+console.log('REPORT',JSON.stringify({owned:a.actual.length,virtual:a.expanded.length,addedDistance:a.addedDistance,race:'芝2200m',mareCount:mares.length,
+ rows:report.rows.map(x=>({goal:x.goal,scope:x.scope,ranked:x.ranked,first:x.top?.sireId||null}))},null,2));

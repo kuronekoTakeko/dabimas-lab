@@ -102,7 +102,7 @@ if(actual&&fs.existsSync(actual)){
 const root=path.join(__dirname,'..'),html=fs.readFileSync(root+'/index.html','utf8'),app=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');
 test('PWA wiring and SW cache include new modules and update query',()=>{
  assert.match(html,/research-mild-broad-v119\.js\?v=121/);assert.match(html,/research-mild-portfolio-v119\.js\?v=122/);
- assert.match(html,/app\.js\?v=128/);assert.match(sw,/dbms-v128-1/);
+ assert.match(html,/app\.js\?v=(128|129|130)/);assert.match(sw,/dbms-v(128|129|130)-1/);
  assert.match(sw,/research-mild-broad-v119\.js/);assert.match(sw,/research-mild-portfolio-v119\.js/);
  assert.match(app,/mild119PreflightRun/);assert.match(app,/mild119RenderPortfolio/);
 });

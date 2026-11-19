@@ -1,14 +1,14 @@
 'use strict';
 const fs=require('node:fs');const assert=require('node:assert/strict');const path=require('node:path');const root=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app.js'),'utf8'),sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
-assert(html.includes('research-virtual-ownership-v129.js?v=129'));
-assert(html.includes('app.js?v=129'));
-assert(html.indexOf('research-virtual-ownership-v129.js?v=129')<html.indexOf('app.js?v=129'));
+assert(/research-virtual-ownership-v129\.js\?v=(129|130)/.test(html));
+assert(/app\.js\?v=(129|130)/.test(html));
+assert(html.indexOf('research-virtual-ownership-v129.js?v=')<html.indexOf('app.js?v='));
 for(const id of ['virtual129Panel','virtual129Limit','virtual129Mares','virtual129Run','virtual129Result'])assert(html.includes(`id="${id}"`));
 assert(app.includes("$('virtual129Run')?.addEventListener('click',virtual129Run)"));
 assert(app.includes('window.DabimasVirtualOwnership129'));
 assert(app.includes('owned:state.owned'));
-assert(sw.includes("const CACHE='dbms-v129-1'"));
+assert(/const CACHE='dbms-v(129|130)-1'/.test(sw));
 assert(sw.includes("'./research-virtual-ownership-v129.js'"));
 const sources=[...html.matchAll(/<script\s+src="([^\"]+\.js)(?:\?[^\"]*)?"/g)].map(x=>x[1]);
 assert(sources.length>65);

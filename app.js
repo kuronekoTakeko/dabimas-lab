@@ -4909,7 +4909,7 @@ function virtual129Run(){
  const mares=mareRows().filter(r=>opt10Self(r)&&(allMares||mareRank12(r).value==='名牝'));
  btn.disabled=true;target.textContent=`研究用比較中：${race}／追加上限${limit}頭／SP・バランス・STの3方針。所持・保存データは変更しません。`;
  setTimeout(()=>{try{
-  const report=api.compare({master,owned:state.owned,anchorId,race,limit,mares,theory:currentParentTheory68(),inverse:inv,distance:dist});
+  const report=api.compare({master,owned:state.owned,anchorId,race,limit,mares,theory:currentParentTheory68(),inverse:inv,distance:dist,factorProfiles:window.DabimasVirtualFactorProfiles130});
   if(!report.ok){target.textContent='比較を実行できません：'+report.error;return;}
   const selected=report.pool;
   const rows=report.rows.map(r=>{
@@ -4920,9 +4920,17 @@ function virtual129Run(){
   const counts=selected.addedDistance;
   const r1=report.rows.filter(r=>r.scope==='actual'),r2=report.rows.filter(r=>r.scope==='virtual');
   const deltas=r1.map((r,i)=>`${r.goalName} ${r2[i].ranked-r.ranked>=0?'+':''}${r2[i].ranked-r.ranked}`).join('／');
+  const studied=(report.study?.comparisons||[]);
+  const factorRows=studied.flatMap(x=>['speed','balance','stamina'].map(goal=>{
+   const r=x.choices[goal],one=r?.[1],two=r?.[2];
+   const format=b=>!b?.top?'—':`${esc(b.top.father)}${b.top.foundation?' ＋ '+esc(b.top.foundation):''}（SP資料${esc(b.top.sp)}・ST資料${esc(b.top.st)}）`;
+   return `<tr><td>${esc({speed:'SP重視',balance:'バランス',stamina:'ST重視'}[goal])}</td><td>${x.scope==='actual'?'実所持のみ':'仮想追加込み'}</td><td>${esc(x.cohortSize)}</td><td>${format(one)}</td><td>${format(two)}</td></tr>`;
+  })).join('');
+  const studyHtml=studied.length?`<h4>v130｜同一候補集合で比較する素材種牡馬の因子プロフィール</h4><p>各対象の3方針で抽出した候補を統合してから比較。実所持と仮想追加は別集合です。<b>同じ工程数の中だけ</b>で速・短・走／長・中・底の記録数を確認します。強さ・SP/ST予測ではありません。</p><div style="overflow:auto"><table class="detailtbl"><thead><tr><th>方針</th><th>範囲</th><th>統合サンプル</th><th>追加1工程の参考素材</th><th>追加2工程の参考素材</th></tr></thead><tbody>${factorRows}</tbody></table></div><p class="muted">${esc(report.study.limitations)}</p>`:'';
   target.innerHTML=`<p><b>実所持で血統照合できる父 ${esc(selected.actual)}頭 → 仮想追加後 ${esc(selected.expanded)}頭（追加 ${esc(selected.added)}頭）</b>。基準種牡馬 ${esc(anchorId)}。目標 ${esc(race)}。</p>
   <p>追加馬の登録距離：範囲内 ${esc(counts.covered)}頭／距離不明 ${esc(counts.unknown)}頭／範囲外 ${esc(counts.outside)}頭。登録距離が当てはまることは産駒の適性を保証しません。</p>
-  <div style="overflow:auto"><table class="detailtbl"><thead><tr><th>方針</th><th>対象</th><th>父の数</th><th>一次候補総数</th><th>抽出候補</th><th>抽出内：0/種1/肌1/両1</th><th>先頭の構成</th><th>先頭の父（参考）</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div style="overflow:auto"><table class="detailtbl"><thead><tr><th>方針</th><th>対象</th><th>父の数</th><th>一次候補総数</th><th>抽出候補</th><th>抽出内：0/種1/肌1/両1</th><th>抽出先頭の構成</th><th>抽出先頭の父（最良順位ではない）</th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${studyHtml}
   <p>一次候補増分：${esc(deltas)}。抽出上限は各条件100件。${allMares?'公開全牝馬を対象とした事前探索であり、名牝ランク未確認馬も含みます。':'登録名牝のみを対象とした事前探索です。'}</p>
   <details><summary>今回仮に追加した馬（先頭20頭）</summary><p>${selected.addedIds.slice(0,20).map(esc).join('／')||'追加馬なし'}</p></details>
   <p class="notice warn"><b>研究用・生産不可。</b> ${esc(report.limitations)} 距離の効果をこの一次候補数から直接判定することもできません。実際の所持馬だけが通常の自動設計の対象です。</p>`;

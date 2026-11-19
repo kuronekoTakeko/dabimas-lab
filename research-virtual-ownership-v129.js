@@ -35,7 +35,7 @@
    scope:{race,requested:max,added:added.length,anchorId,gameVerified:false,source:'公開種牡馬・取得済み区分（読み取り専用）'}};
  }
  const route=c=>c?.sirePrep?(c?.basePrep?'both':'sireOnly'):(c?.basePrep?'mareOnly':'direct');
- function compare({master=[],owned={},anchorId='',race='芝2200m',limit=100,mares=[],theory,inverse,distance}={}){
+ function compare({master=[],owned={},anchorId='',race='芝2200m',limit=100,mares=[],theory,inverse,distance,factorProfiles=null}={}){
   if(!inverse?.search||!inverse?.fixedFromAnchor||!theory?.lookup)return {ok:false,error:'親系統と逆算探索モジュールがありません'};
   const anchor=(master||[]).find(r=>normalize(r.id)===normalize(anchorId));
   if(!anchor||!ownedFlag(owned,anchorId)||!hasPed(anchor))return {ok:false,error:'中心種牡馬は、実際に取得済みで15祖先枠が収録された馬を指定してください'};
@@ -46,6 +46,7 @@
   const pool=choose({master,owned,anchorId,race,limit,distance});
   if(!pool.actual.length)return {ok:false,error:'取得済みで血統が揃う補助種牡馬がありません'};
   const rows=[];
+  const candidateSets={actual:{},virtual:{}};
   for(const goal of goals){
    const wanted=goal==='speed'?['短','速','走']:goal==='stamina'?['長','中','底']:['短','速','走','長','中','底'];
    const score=r=>(r?.ancestry||[]).flatMap(a=>a.factors||[]).reduce((s,f)=>s+(wanted.includes(f)?2:0.4),0);
@@ -53,6 +54,7 @@
     const result=inverse.search({ownedSires:sires,mares:qualifiedMares,theory,score,excludeNames:[base(anchorId)],fixedMareLines:fixed.values,limit:100,maxAdditionalBirths:2});
     if(result?.stats?.error)return {ok:false,error:result.stats.error};
     const candidates=result.candidates||[];
+    candidateSets[scope][goal]=candidates;
     const routes={direct:0,sireOnly:0,mareOnly:0,both:0};
     for(const c of candidates)routes[route(c)]++;
     const top=candidates[0]||null;
@@ -63,7 +65,8 @@
       usesVirtual:!!used&&!ownedFlag(owned,used)}:null});
    }
   }
-  return {ok:true,version:129,anchorId,race,goals:[...goals],pool:{...pool,actual:pool.actual.length,expanded:pool.expanded.length,
+  const study=factorProfiles?.study?factorProfiles.study({candidateSets,master,owned}):null;
+  return {ok:true,version:130,study,anchorId,race,goals:[...goals],pool:{...pool,actual:pool.actual.length,expanded:pool.expanded.length,
     addedIds:pool.added.map(r=>r.id),added:pool.added.length,possible:pool.possible},mares:qualifiedMares.length,rows,
    limitations:'見事4＋面白8枠の限定一次比較のみ。最終31枠、締め肌理論、至高、クロス、種牡馬距離の産駒継承、SP/ST、実生産能力は未検証。仮想馬は所持・保存プランに登録しない。',gameVerified:false};
  }

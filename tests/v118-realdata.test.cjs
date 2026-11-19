@@ -25,6 +25,6 @@ if(actual&&fs.existsSync(actual))test('提供330頭の端末移行JSONで実数�
 const root=path.join(__dirname,'..');const html=fs.readFileSync(root+'/index.html','utf8'),js=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');
 test('v118をアプリ・HTML・SWに接続',()=>{
  assert.match(html,/research-mild-realdata-v118\.js\?v=122/);assert.match(js,/mild118RealdataHtml\(p\)/);
- assert.match(sw,/research-mild-realdata-v118\.js/);assert.match(sw,/dbms-v128-1/);
+ assert.match(sw,/research-mild-realdata-v118\.js/);assert.match(sw,/dbms-v(128|129|130)-1/);
 });
 console.log('v118 tests: '+count+' PASS');

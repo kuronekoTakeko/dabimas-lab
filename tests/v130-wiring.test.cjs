@@ -1,0 +1,16 @@
+'use strict';const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');const app=fs.readFileSync(path.join(root,'app.js'),'utf8');const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
+assert(html.includes('v130｜仮想所持・SP/ST/距離・素材因子'));
+assert(html.includes('research-virtual-factor-profiles-v130.js?v=130'));
+assert(html.indexOf('research-virtual-factor-profiles-v130.js?v=130')<html.indexOf('research-virtual-ownership-v129.js?v=130'));
+assert(html.indexOf('research-virtual-ownership-v129.js?v=130')<html.indexOf('app.js?v=130'));
+assert(app.includes('factorProfiles:window.DabimasVirtualFactorProfiles130'));
+assert(app.includes('v130｜同一候補集合で比較する素材種牡馬の因子プロフィール'));
+assert(!app.includes('state.owned=report.study'));
+assert(sw.includes("const CACHE='dbms-v130-1'"));
+assert(sw.includes("'./research-virtual-factor-profiles-v130.js'"));
+const js=[...html.matchAll(/<script\s+src="([^"]+\.js)(?:\?[^\"]*)?"/g)].map(m=>m[1]);const assets=[...sw.matchAll(/'\.\/([^']+)'/g)].map(m=>m[1]);
+for(const name of [...js,...assets])assert(fs.existsSync(path.join(root,name)),`missing ${name}`);
+assert(js.length>=70);assert(assets.length>=74);
+console.log(`PASS v130 wiring ${js.length} script refs; ${assets.length} cache refs; no personal data writes`);

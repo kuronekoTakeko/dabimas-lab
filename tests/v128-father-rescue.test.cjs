@@ -28,8 +28,8 @@ if(j){const data=JSON.parse(fs.readFileSync(j,'utf8'));check('実データ65保�
 check('アプリ・HTML・Service Workerを順序を守って読み込む',()=>{
  const h=fs.readFileSync(root+'/index.html','utf8'),app=fs.readFileSync(root+'/app.js','utf8'),sw=fs.readFileSync(root+'/sw.js','utf8');
  assert.match(h,/v128/);assert.match(h,/research-mild-rescue-v128\.js\?v=128/);
- assert(h.indexOf('research-mild-rescue-v128.js')<h.indexOf('app.js?v=128'));
+ assert(h.indexOf('research-mild-rescue-v128.js')<h.indexOf('app.js?v='));
  assert.match(app,/DabimasMildRescue128\?\.shouldInspect/);assert.match(app,/draft\.mild128=/);
- assert.match(sw,/dbms-v128-1/);assert.match(sw,/research-mild-rescue-v128\.js/);
+ assert.match(sw,/dbms-v(128|129|130)-1/);assert.match(sw,/research-mild-rescue-v128\.js/);
 });
 console.log('v128: '+n+' checks PASS');

@@ -22,5 +22,5 @@ if(dataPath){
  check('保存時照合がない旧案は未確認にする',()=>{const old=plans.find(p=>p.autoDesign21?.mode==='mild'&&!p.mild98?.stages?.length);assert(old);const x=get(old);assert(!x.fullyReconciled);assert(x.unconfirmed.length>0);});
  check('同じIDの自家製馬が二重登録された場合に検出',()=>{const p=latest[0],item=hb.find(h=>h.id===p.chain09.outputs['1']);const x=get(p,[...hb,item]);assert(!x.fullyReconciled);assert(x.errors.some(a=>a.includes('重複')));});
 }
-check('画面とService Workerがv124モジュールを参照',()=>{const html=fs.readFileSync(root+'/index.html','utf8');const app=fs.readFileSync(root+'/app.js','utf8');const sw=fs.readFileSync(root+'/sw.js','utf8');assert.match(html,/research-mild-live-audit-v124\.js\?v=124/);assert.match(app,/mild124LiveHtml\(p\)/);assert.match(sw,/dbms-v128-1/);assert.match(sw,/research-mild-live-audit-v124\.js/);});
+check('画面とService Workerがv124モジュールを参照',()=>{const html=fs.readFileSync(root+'/index.html','utf8');const app=fs.readFileSync(root+'/app.js','utf8');const sw=fs.readFileSync(root+'/sw.js','utf8');assert.match(html,/research-mild-live-audit-v124\.js\?v=124/);assert.match(app,/mild124LiveHtml\(p\)/);assert.match(sw,/dbms-v(128|129|130)-1/);assert.match(sw,/research-mild-live-audit-v124\.js/);});
 console.log('v124 new checks: '+passed+' PASS');

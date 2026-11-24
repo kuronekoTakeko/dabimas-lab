@@ -35,6 +35,10 @@
     const anchors=['g3','g4','g5'].map(k=>norm(t.draft.routeDraft.slots[k])).join('|');
     const family=c.xPrep?.fatherId||c.xId||'未確認';
     rows.push({id,grade,route:rt,births,anchors,missingSignature:missingSignature(c.full.rows),profile,
+     // v134: evidence-only snapshot, by FINAL FOAL path. Empty is unknown,
+     // never treated as evidence that this ancestor has no factor.
+     documentedFactors:Object.fromEntries(c.full.rows.filter(r=>Array.isArray(r.factors)&&r.factors.some(Boolean))
+      .map(r=>[r.path,r.factors.filter(Boolean).map(String)])),
      family,seedMare:c.xPrep?.motherId||null,baseMare:c.choices?.[1]||null});
    }
   }

@@ -571,6 +571,23 @@ function mild132StepEvidenceHtml(plan){
  ${sample}
  <p class="notice warn">${esc(info.limitations)} 追加クロスの効果は未確認。候補は自動で採用せず、元の保存プラン・所持・権利数を変更しません。</p></details>`;
 }
+// v134 | Jointly documented FINAL 31 slots only, never stage/ability proof.
+function mild134CommonHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const d=plan?.mild134?.version===134?plan.mild134:null;
+ if(!d)return `<details class="a21-flow"><summary>v134｜未収録位置の異なる候補の共通根拠（旧保存プラン）</summary><p class="muted">このプランにv134の新探索記録はありません。従来の順位や保存済み31枠を再探索済みとみなしません。</p></details>`;
+ if(!d.available)return `<details class="a21-flow"><summary>v134｜共通根拠の比較（候補不足）</summary><p class="muted">${esc(d.reason||'記録不足')}。ゲーム内未確認。</p></details>`;
+ const x=d.reviewPriority||null;
+ const lines=(d.examples||[]).map(c=>`<li><b>${esc(c.family)}</b>（${esc(c.referenceRoute)}の${esc(c.referenceFamily)}と比較）：`+
+  `双方に因子記録のある位置 ${esc(c.sharedSlots)}/31、その他 ${esc(c.unresolvedSlots)}枠は比較対象外。`+
+  `共通収録位置の記録差：SP側 ${esc(c.differences?.sp??'?')}／ST側 ${esc(c.differences?.st??'?')}（最終能力差ではありません）。</li>`).join('');
+ return `<details class="a21-flow"><summary>v134｜最終31枠・共通収録位置での対照研究（ゲーム内未確認）</summary>
+ <p class="muted">最終31枠を検査した実所持候補 ${esc(d.checked)}案。少工程候補なし ${esc(d.noLower)}案／同じ未収録位置で厳密比較 ${esc(d.strictComparable)}案／収録位置違いの参考対照 ${esc(d.partialPairs)}案。</p>
+ <p class="muted">位置違いの案のうち共通収録枠を比較できたもの ${esc(d.partialWithShared)}案。共通枠は${d.sharedSlotsRange?`${esc(d.sharedSlotsRange.min)}～${esc(d.sharedSlotsRange.max)}枠（平均${esc(d.sharedSlotsRange.mean)}枠）`:'未記録'}。<b>残りの枠は未知です。</b></p>
+ ${lines?`<p><b>観察例（改善・劣位の認定ではありません）</b></p><ul>${lines}</ul>`:''}
+ ${x?`<p><b>ゲーム内で最初に照合する参考対象：</b>${esc(x.family)}（${esc(window.DabimasMildCommonEvidence134?.routeLabels?.[x.route]||x.route)}、${esc(x.grade)}、未収録${esc(x.missingFactorSlots)}枠）。${x.prepFirst?`種側の仕込み開始案は ${esc(x.prepFirst.sire)} × ${esc(x.prepFirst.mare)}。`:''}<b>これは強さの順位・生産承認ではありません。</b></p>`:''}
+ <p class="notice warn">${esc(d.limitations)} 所持・権利・保存プランを変更しません。</p></details>`;
+}
 // v133: explain why v132 found no strict lower-step comparison partner.
 function mild133DiagnosticsHtml(plan){
  if(plan?.autoDesign21?.mode!=='mild')return '';
@@ -1094,7 +1111,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild134CommonHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -4599,6 +4616,11 @@ function auto21Create(){
   const mildDiagnostics133=mode==='mild'&&window.DabimasMildDiagnostics133?.study?.(
    viableAnchorTrials,{v132:window.DabimasMildStepEvidence132,full31:window.DabimasMildFinal31V131,
     ranker:window.DabimasMildRank78,owned:state.owned,maxExamples:2})||null;
+  // v134: review unknown-factor mismatches using only slots annotated in BOTH horses.
+  const mildCommonEvidence134=mode==='mild'&&window.DabimasMildCommonEvidence134?.study?.(
+   viableAnchorTrials,{v132:window.DabimasMildStepEvidence132,
+    full31:window.DabimasMildFinal31V131,ranker:window.DabimasMildRank78,
+    owned:state.owned,maxExamples:3})||null;
   if(!initial){const audits89=layoutAudit74.map(r=>r.coverage89).filter(Boolean);
    const inspected89=audits89.reduce((sum,r)=>sum+(r.inspected||0),0),outside89=audits89.reduce((sum,r)=>sum+(r.outsideShortlist||0)+(r.notReviewed||0),0);
    out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組、配置${placementSearches}通りを調べましたが、選択ルートの9工程を最後まで満たす候補を確定できませんでした（工程検査約${candidateAudit.reduce((s,x)=>s+x.foundationTrials,0)}回）。${audits89.length?`DDS詳細検査${inspected89}案、検査枠外${outside89}案（配置別集計、同一案の重複を含みます）。`:''}<b>この結果は配合不可能を意味しません。</b>高速限定探索をOFFにするか、祖先配置を「旧／新の両方を比較」に切り替えてください。名牝判定・CSVの祖先データ不足、途中の近親交配回避なども候補数に影響します。保存データは変更していません。</div>`;return;}
@@ -4688,6 +4710,7 @@ function auto21Create(){
   if(mode==='mild'&&mildFinal31V131)draft.mild131=mildFinal31V131;
   if(mode==='mild'&&mildStepEvidence132)draft.mild132=mildStepEvidence132;
   if(mode==='mild'&&mildDiagnostics133)draft.mild133=mildDiagnostics133;
+  if(mode==='mild'&&mildCommonEvidence134)draft.mild134=mildCommonEvidence134;
   auto21SetResearch(draft,base);
   if(mode==='mild'&&base.variant96)draft.mild96={...base.variant96};
   if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildRank78){

@@ -1,0 +1,7 @@
+更新：v133 → v134
+対象ファイル：index.html, app.js, sw.js, research-mild-step-evidence-v132.js
+追加ファイル：research-mild-common-evidence-v134.js
+※ZIPをGitHub Pagesのリポジトリに上書き・追加する前に差分を確認。
+※v133→v134の5ファイルのみ。v132以前へは直接適用できません。
+※README_v134.txtは変更内容の説明。個人データは含めません。
+※別PCでは同一バージョン・最新端末移行JSONを用いてください。

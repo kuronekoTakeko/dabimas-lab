@@ -632,7 +632,7 @@ function mild107NitroHtml(plan){
  const counts=x.counts||{},stages=x.stages||{};
  return `<details class="a21-flow"><summary>v107｜マイルド型・短速長ニトロ段階（研究上の指標）</summary>
  <p class="muted">指定タイプ：${esc(x.goal||'balance')}／短 ${esc(counts['短']??'未確認')}個（段階 ${esc(stages['短']??'未確認')}）・速 ${esc(counts['速']??'未確認')}個（段階 ${esc(stages['速']??'未確認')}）・長 ${esc(counts['長']??'未確認')}個（段階 ${esc(stages['長']??'未確認')}）。研究順位指数 ${esc(x.researchIndex??'未確認')}。</p>
- <p class="muted">因子未収録 ${esc(x.missingFactorSlots??'未確認')}枠。短 4/6/8/9/10、速 4/8/12/16/20、長 3/6/9 の段階を採用しています。<b>プレイヤー研究による仮説であり、公式確定やゲーム内SP/ST・成立を意味しません。</b> 短はSPとSTの両面に関係する可能性があるため、指数をゲーム内能力に換算しません。追加工程の採否は理論・既知クロス・安全性と併せて判断します。</p>
+ <p class="muted">因子未収録 ${esc(x.missingFactorSlots??'未確認')}枠。短 4/6/8/9/10、速 4/8/12/16/20、長 3/6/9 の段階を採用しています。<b>プレイヤー研究による仮説であり、公式確定やゲーム内SP/ST・成立を意味しません。</b> 短はSPとSTの両面に関係する可能性があるため、指数をゲーム内能力に換算しません。v136以降の新規探索では、指定3頭・締め肌理論・因子未収録位置が同一の対照だけを追加工程の改善判定に使用します。保存済みの旧研究順位は変更しません。</p>
  </details>`;
 }
 function mild78EvidenceHtml(plan){
@@ -4501,15 +4501,15 @@ function auto21Create(){
      // step candidate. Missing baseline never counts as an improvement.
      const baselines=new Map();
      for(const item of ranked){if((item.candidate.additionalBirths||0)!==0)continue;
-      const grade=rank78.grade(item.candidate),old=baselines.get(grade);
+      const grade=window.DabimasMildNitro107?.comparisonKey?.(item.candidate);if(!grade)continue;const old=baselines.get(grade);
       if(!old||rank78.compare(item,old,{goal,finish:window.DabimasMildFinish610,
        qualityCompare:auto35CompareQuality,evidenceCompare:auto37Compare,fallback:opt10Sort})<0)baselines.set(grade,item);
      }
      for(const item of ranked){if((item.candidate.additionalBirths||0)!==1||!item.candidate.xPrep||item.candidate.marePrep)continue;
-      const base=baselines.get(rank78.grade(item.candidate));
+      const base=baselines.get(window.DabimasMildNitro107?.comparisonKey?.(item.candidate));
       item.nitro107=base&&window.DabimasMildNitro107?.oneExtra?window.DabimasMildNitro107.oneExtra(item.candidate,base.candidate,{goal,finish:window.DabimasMildFinish610}):null;
       item.oneExtra85=base?rank78.oneExtraEvidence(item.candidate,base.candidate,{goal,finish:window.DabimasMildFinish610}):
-       {version:85,approved:false,compared:false,gameVerified:false,reason:'同じ理論の9工程候補を今回の探索範囲で確認できない'};
+       {version:85,approved:false,compared:false,gameVerified:false,reason:'同じ指定3頭・理論・因子未収録位置の9工程候補を今回の探索範囲で確認できない'};
      }
     }
     ranked.sort((a,b)=>{

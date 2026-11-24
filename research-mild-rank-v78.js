@@ -16,6 +16,7 @@
    baselineBirths:sBirth,goal,gameVerified:false,reason:'比較に必要な候補がありません'};
   if(eBirth!==sBirth+1||eBirth>1||grade(extra)!==grade(short)||grade(extra)<7){
    result.reason='同じ締め肌理論・0工程対1工程の比較ではありません';return result;}
+  if(!nitro()?.comparable?.(extra,short)){result.reason='指定3頭または因子未収録位置が同一の対照なし（v136）';return result;}
   const em=finish?.metric?.(extra,goal)||null,sm=finish?.metric?.(short,goal)||null;
   if(!em||!sm){result.reason='最終31枠または研究評価に欠落があります';return result;}
   result.compared=true;

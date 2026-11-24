@@ -33,24 +33,25 @@
   if(!rows.length)return {...invalid,stats:{...invalid.stats,skipped,duplicates}};
   const opts={goal,finish,qualityCompare,evidenceCompare,fallback};
   const directByGrade=new Map();
+  const comparisonKey=c=>nitro?.comparisonKey?.(c)||null;
   for(const row of rows){const c=row.rank.candidate;
    if(safe(c.additionalBirths)!==0)continue;
-   const grade=ranker.grade(c),prev=directByGrade.get(grade);
+   const grade=comparisonKey(c);if(grade===null)continue;const prev=directByGrade.get(grade);
    if(!prev||ranker.compare(row.rank,prev.rank,opts)<0)directByGrade.set(grade,row);
   }
   let compared=0,approved=0,nitroApproved=0,noReference=0;
   const reasons={};
   for(const row of rows){const c=row.rank.candidate;
    if(safe(c.additionalBirths)!==1||!(!!c.xPrep!==!!c.marePrep))continue;
-   const reference=directByGrade.get(ranker.grade(c));
+   const reference=directByGrade.get(comparisonKey(c));
    if(!reference){noReference++;
     reasons.noDirect=(reasons.noDirect||0)+1;
     row.rank.oneExtra85={version:87,approved:false,compared:false,gameVerified:false,
-     reason:'同じ理論の9工程対照を全DDS比較範囲でも確認できませんでした'};
+     reason:'同じ指定3頭・理論・因子未収録位置の9工程対照を全DDS比較範囲でも確認できませんでした'};
     continue;
    }
    const evidence=ranker.oneExtraEvidence(c,reference.rank.candidate,{goal,finish});
-   row.rank.oneExtra85={...evidence,version:87,scope:'同一作成操作中の全DDS・同理論の最良9工程案',
+   row.rank.oneExtra85={...evidence,version:87,scope:'同一作成操作中の全DDS・同指定3頭・同理論・同因子未収録位置の最良9工程案',
     baselineAnchor:reference.trial.anchor?.base||'',baselineSlots:{...(reference.trial.draft?.routeDraft?.slots||{})}};
    if(evidence.compared)compared++;
    if(evidence.approved)approved++;
@@ -67,15 +68,15 @@
   // preserve the option, but never invent a stage-gain approval.
   const oneByGrade=new Map();
   for(const row of rows){if(safe(row.rank.candidate.additionalBirths)!==1)continue;
-   const grade=ranker.grade(row.rank.candidate),prev=oneByGrade.get(grade);
+   const grade=comparisonKey(row.rank.candidate);if(grade===null)continue;const prev=oneByGrade.get(grade);
    if(!prev||ranker.compare(row.rank,prev.rank,opts)<0)oneByGrade.set(grade,row);
   }
   let twoCompared=0,twoApproved=0,twoNoBaseline=0;
   for(const row of rows){const c=row.rank.candidate;
    if(safe(c.additionalBirths)!==2||!c.xPrep||!c.marePrep)continue;
-   const base=oneByGrade.get(ranker.grade(c));
-   if(!base){twoNoBaseline++;row.rank.twoExtra111={version:111,approved:false,compared:false,gameVerified:false,reason:'同じ理論の1工程対照なし'};continue;}
-   const evidence=nitro?.twoExtra?.(c,base.rank.candidate,{goal,finish,directBaseline:directByGrade.get(ranker.grade(c))?.rank.candidate||null})||null;
+   const base=oneByGrade.get(comparisonKey(c));
+   if(!base){twoNoBaseline++;row.rank.twoExtra111={version:111,approved:false,compared:false,gameVerified:false,reason:'同じ指定3頭・理論・因子未収録位置の1工程対照なし'};continue;}
+   const evidence=nitro?.twoExtra?.(c,base.rank.candidate,{goal,finish,directBaseline:directByGrade.get(comparisonKey(c))?.rank.candidate||null})||null;
    row.rank.twoExtra111=evidence;
    if(evidence?.compared)twoCompared++;
    if(evidence?.approved)twoApproved++;
@@ -137,7 +138,7 @@
    if(representatives.length>=6)break;
   }
   return {version:112,winner,stats:{version:112,shortlist127,gameVerified:false,eligible:rows.length,distinct:seen.size,
-   skipped,duplicates,gradesWithDirect:[...directByGrade.keys()].sort(),oneExtraCompared:compared,
+   skipped,duplicates,gradesWithDirect:[...new Set([...directByGrade.values()].map(r=>ranker.grade(r.rank.candidate)))].sort((a,b)=>a-b),oneExtraCompared:compared,
    oneExtraApproved:approved,oneExtraNitroApproved:nitroApproved,oneExtraWithoutDirect:noReference,
    twoExtraCompared:twoCompared,twoExtraApproved:twoApproved,twoExtraWithoutOne:twoNoBaseline,
    fatherFamilies:familyCounts.size,birthCounts,gradeCounts,gradeBirthMatrix,routeCounts,routeGradeCounts,gradeRouteExamples,representatives,

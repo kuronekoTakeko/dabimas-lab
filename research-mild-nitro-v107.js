@@ -6,13 +6,15 @@
  const thresholds=Object.freeze({'短':[4,6,8,9,10],'速':[4,8,12,16,20],'長':[3,6,9]});
  const weights=Object.freeze({speed:{'短':9,'速':5,'長':1},stamina:{'長':9,'速':5,'短':1},balance:{'速':7,'長':7,'短':2}});
  const paths=new Set();for(let n=1;n<=5;n++){for(let i=0;i<(1<<(n-1));i++){let s='';for(let bit=n-2;bit>=0;bit--)s+=(i&(1<<bit))?'D':'S';paths.add(s+'S');}}
+ const norm=x=>String(x??'').normalize('NFKC').replace(/\s/g,'').toLowerCase();
  const grade=c=>c?.theory66?.blocked?0:c?.theory66?.superPerfect==='成立'?8:c?.theory66?.perfect==='成立'?7:0;
  function inspect(c,goal='balance'){
   if(!c||c.matches!==3||c.full?.known!==31||c.full?.conflicts?.length||c.full?.transmission?.conflicts?.length||c.full?.transmission?.invalid?.length||grade(c)<7)return null;
-  const rows=c.full.rows||[],seen=new Set(),counts={'短':0,'速':0,'長':0};let missing=0;
-  for(const row of rows){const path=String(row?.path||'');if(!paths.has(path)||seen.has(path))continue;seen.add(path);
+  const rows=c.full.rows||[],seen=new Set(),counts={'短':0,'速':0,'長':0},unknownPaths=[];let missing=0;
+  if(rows.length!==31)return null;
+  for(const row of rows){const path=String(row?.path||'');if(!paths.has(path)||seen.has(path))return null;seen.add(path);
    const fs=Array.isArray(row.factors)?row.factors.filter(Boolean):[];
-   if(!fs.length)missing++;
+   if(!fs.length){missing++;unknownPaths.push(path);}
    for(const f of fs)if(Object.prototype.hasOwnProperty.call(counts,f))counts[f]++;
   }
   if(seen.size!==31)return null;
@@ -20,12 +22,21 @@
   const w=weights[goal]||weights.balance;
   const researchIndex=Object.keys(stages).reduce((s,k)=>s+stages[k]*w[k],0);
   return {version:107,goal,counts,stages,missingFactorSlots:missing,knownFactorSlots:31-missing,
-   researchIndex,thresholds,gameVerified:false,limited:missing>0,
+   researchIndex,thresholds,unknownPaths:unknownPaths.sort(),gameVerified:false,limited:missing>0,
    caveat:'記録済み31祖先枠の短・速・長の段階による研究指標。未収録は0因子と断定できず、SP/ST能力・ゲーム内ボーナスを保証しません。'};
  }
+ // v136: compare additional matings only with identical anchor IDs/positions and missing-factor positions.
+ function comparisonKey(c){
+  const p=inspect(c);if(!p)return null;
+  const byPath=new Map(c.full.rows.map(r=>[r.path,r]));
+  const anchors=['DDS','SSSS','SDSSS'].map(path=>{const r=byPath.get(path);return [norm(r?.name||r?.horse),norm(r?.factorVariant||r?.variant)];});
+  if(anchors.some(a=>!a[0]||!a[1])||new Set(anchors.map(a=>a[0])).size!==1||new Set(anchors.map(a=>a[1])).size!==3)return null;
+  return JSON.stringify([grade(c),anchors,p.unknownPaths]);
+ }
+ function comparable(a,b){const x=comparisonKey(a),y=comparisonKey(b);return x!==null&&x===y;}
  function compare(a,b,goal='balance'){
   const x=inspect(a,goal),y=inspect(b,goal);if(!x)return y?1:0;if(!y)return -1;
-  if(x.missingFactorSlots!==y.missingFactorSlots)return 0; // do not favor missing annotations as evidence
+  if(!comparable(a,b))return 0; // identical factor coverage and anchor arrangement only
   return y.researchIndex-x.researchIndex;
  }
  function oneExtra(extra,baseline,{goal='balance',finish=null}={}){
@@ -34,7 +45,7 @@
   const e=inspect(extra,goal),b=inspect(baseline,goal),em=finish?.metric?.(extra,goal),bm=finish?.metric?.(baseline,goal);
   if(!e||!b||!em||!bm){result.reason='最終31枠・クロス根拠が不足';return result;}
   result.compared=true;result.extra=e;result.baseline=b;
-  if(e.missingFactorSlots!==b.missingFactorSlots){result.reason='因子未収録枠の数が異なるため、改善と断定できません';return result;}
+  if(!comparable(extra,baseline)){result.compared=false;result.reason='指定3頭または因子未収録位置が異なるため比較対象外（v136）';return result;}
   const keys=goal==='speed'?['短','速','長']:goal==='stamina'?['長','速','短']:['速','長','短'];
   const prioritized=keys.some(k=>e.stages[k]>b.stages[k]);
   const noLoss=keys.every(k=>e.stages[k]>=b.stages[k])&&em.independentCrossEvidence>=bm.independentCrossEvidence&&
@@ -54,7 +65,7 @@
   const e=inspect(extra,goal),b=inspect(baseline,goal),em=finish?.metric?.(extra,goal),bm=finish?.metric?.(baseline,goal);
   if(!e||!b||!em||!bm){result.reason='31枠とクロスの比較記録が不足';return result;}
   result.compared=true;result.extra=e;result.baseline=b;
-  if(e.missingFactorSlots!==b.missingFactorSlots){result.reason='因子未収録数が異なり改善未確定';return result;}
+  if(!comparable(extra,baseline)){result.compared=false;result.reason='指定3頭または因子未収録位置が異なるため比較対象外（v136）';return result;}
   const keys=goal==='speed'?['短','速','長']:goal==='stamina'?['長','速','短']:['速','長','短'];
   const nondecreasing=keys.every(k=>e.stages[k]>=b.stages[k]);
   const better=keys.some(k=>e.stages[k]>b.stages[k]);
@@ -66,7 +77,7 @@
   let strongerThanDirect=true;
   if(directBaseline){
    const d=inspect(directBaseline,goal),dm=finish?.metric?.(directBaseline,goal);
-   strongerThanDirect=!!(d&&dm&&d.missingFactorSlots===e.missingFactorSlots&&
+   strongerThanDirect=!!(d&&dm&&comparable(extra,directBaseline)&&
     keys.every(k=>e.stages[k]>=d.stages[k])&&e.researchIndex>d.researchIndex&&
     em.independentCrossEvidence>=dm.independentCrossEvidence&&em.crossFactorEvidence>=dm.crossFactorEvidence&&
     em.shortCrossRisk<=dm.shortCrossRisk&&em.unresolvedCrosses<=dm.unresolvedCrosses&&
@@ -77,5 +88,5 @@
    '追加1工程より高い評価と安全性維持を確認できない';
   return result;
  }
- return Object.freeze({thresholds,weights,inspect,compare,oneExtra,twoExtra});
+ return Object.freeze({thresholds,weights,inspect,comparisonKey,comparable,compare,oneExtra,twoExtra});
 });

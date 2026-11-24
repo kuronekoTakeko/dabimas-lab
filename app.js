@@ -1111,7 +1111,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild134CommonHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild135FirstCheckHtml(p)}${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild134CommonHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -1119,6 +1119,13 @@ ${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118Re
 el.querySelector('#closePlanEditor').onclick=closeEditor;if(el.querySelector('#routeAuditor'))setupRouteAuditPanel(el,p);setupPairEditor(el,p);setupChainPlanner09(el,p);setupOptimizer10(el,p);setupPrep17(el,p);setupProductionGuide13(el,p);setupMild82GameLog(el,p);const link=el.querySelector('#linkHomebred');if(link)link.onclick=()=>{switchTab('homebreds');$('homePlan').value=p.id;refreshHomeSteps();};const gen=el.querySelector('#generateRoute');if(gen)gen.onclick=()=>createDraftRoute(p,{g3:el.querySelector('#routeGen3').value,g4:el.querySelector('#routeGen4').value,g5:el.querySelector('#routeGen5').value});
 if(el.querySelector('#addPlanStep'))el.querySelector('#addPlanStep').onclick=()=>{p.steps.push({uid:uid(),title:`工程${p.steps.length+1}`,cross:'',sex:'',minSP:'',minST:'',result:'',note:'',done:false});touchPlan(p);showPlanEditor(p.id);};
 if(el.querySelector('#savePlanNow'))el.querySelector('#savePlanNow').onclick=()=>{touchPlan(p);alert('配合プランを保存しました。');};
+const m135=el.querySelector('[data-m135-download]');if(m135)m135.onclick=()=>{
+ const r=mild135Report(p),api=window.DabimasMildFirstCheck135;
+ if(!r?.available||!api?.toText){alert('照合表を作成できません。現在の保存プランを再確認してください。');return;}
+ const blob=new Blob([api.toText(r,p.title)],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download='dabimas_v135_ゲーム内確認シート.txt';document.body.append(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 el.scrollIntoView({behavior:'instant',block:'start'});
 }
 
@@ -3988,6 +3995,27 @@ function mild115HandoffHtml(plan){
  <p><b>血統構造・保存照合：</b>${r.structural?'登録上は再照合通過':'未通過・要確認'} ／ <b>至高の指定異因名：</b>${r.anchorComplete?'登録位置一致（外部未検証）':r.notationOnly?'年号表記のみ一致・ID未照合':'外部照合が必要'} ／ <b>ゲーム内成立：</b>未確認。</p>
  ${problems}${rights}<p><b>実戦準備で必要な確認：</b></p><ol>${list}</ol>
  <p class="muted">${esc(r.caveat)} 既存の保存プランや実馬記録は変更しません。</p></details>`;
+}
+// v135: one candidate's concrete 10-mating verification sheet, no writes to plans.
+function mild135Report(plan){
+ const api=window.DabimasMildFirstCheck135;
+ if(!api?.build)return null;
+ return api.build(plan,{definitions:chain09Definitions(plan),owned:state.owned});
+}
+function mild135FirstCheckHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild'||!isMaternalDDS67(plan))return '';
+ const r=mild135Report(plan);
+ if(!r)return '<p class="notice warn">v135の照合モジュールが未読込です。生産承認はできません。</p>';
+ if(!r.available)return `<details class="a21-flow" open><summary>v135｜全交配のゲーム内確認シート（要再照合）</summary><p class="notice warn">${esc(r.errors.join('／'))}</p></details>`;
+ const rows=r.rows.map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.label)}</b><div class="muted">${esc(x.sex)} ／ ${esc(x.output)}</div></td><td>${esc(x.sire)} × ${esc(x.mare)}${x.deps.length?`<div class="muted">前提：${esc(x.deps.join('、'))}</div>`:''}</td><td>未確認</td></tr>`).join('');
+ const rights=r.studUses.map(x=>`${esc(x.id)}：${esc(x.uses)}回（登録権利${esc(x.rights==null?'不明':x.rights+'回')}）`).join('、');
+ return `<details class="a21-flow" open><summary>v135｜この保存プランのゲーム内照合シート（全${r.matings}交配・未承認）</summary>
+ <p>保存した実配合を<b>準備${r.preparations}＋基幹${r.core}工程</b>で再構成。${r.priority?`v134確認優先父系：${esc(r.priority)}。`:''}全工程の配合理論・実馬・SP/STは未確認です。</p>
+ <div style="overflow-x:auto"><table class="detailtbl"><thead><tr><th>順</th><th>工程／性別</th><th>父 × 母</th><th>ゲーム内照合</th></tr></thead><tbody>${rows}</tbody></table></div>
+ <p class="muted">種牡馬：${rights||'未収録'}。権利0も所持済みなら交換候補として表示し、元の権利数は変更しません。</p>
+ ${r.warnings.length?`<p class="notice warn">${esc(r.warnings.join('／'))}</p>`:''}
+ <div class="btnrow"><button type="button" class="btn small ghost" data-m135-download="1">ゲーム内確認シートをTXT保存</button></div>
+ <p class="muted">${esc(r.caveat)} このボタンは照合表の保存だけを行い、ゲーム内操作や計画・実馬の変更はしません。</p></details>`;
 }
 // v116: do not infer that a linked virtual foal has already been produced.
 function mild116FlowHtml(plan){

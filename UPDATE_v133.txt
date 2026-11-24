@@ -1,0 +1,1 @@
+v133 更新：v132から差分のみ適用。research-mild-comparison-diagnostics-v133.js / app.js / index.html / sw.js。所持・権利・保存プラン・公開マスターは変更しません。更新前に端末移行JSONをバックアップしてください。

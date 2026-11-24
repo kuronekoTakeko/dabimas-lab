@@ -540,6 +540,37 @@ function mild131Final31Html(plan){
  '<p class="notice warn">このプランはv131の3方針・最終候補横断比較より前に保存されました。現在の31枠だけ再集計し、旧候補順位は更新していません。新規自動設計で横断比較記録が作られます。</p>'}
  <p class="muted">v126の最終5代クロス候補：${esc(saved.crossNames??'未確認')}種類。追加の独立・有効クロスと至高のゲーム内成立は未確認です。保存済み所持・権利・プランは変更しません。</p></details>`;
 }
+// v132: A comparable lower-step candidate is required before talking about
+// a recorded stage gain. Old saved plans are NOT retrospectively reranked.
+function mild132StepEvidenceHtml(plan){
+ if(plan?.autoDesign21?.mode!=='mild')return '';
+ const info=plan?.mild132?.version===132?plan.mild132:null;
+ if(!info)return `<details class="a21-flow"><summary>v132｜追加工程の根拠比較（旧保存プラン・再探索待ち）</summary>
+ <p class="muted">このプランにはv132の同一候補集合が保存されていません。保存済み31枠のSP/ST再集計はできますが、異なる工程数を同じ条件で比較した記録はありません。新規自動設計で比較記録を作成します（ゲーム内未確認）。</p></details>`;
+ if(!info.available)return `<details class="a21-flow"><summary>v132｜追加工程の根拠比較（候補不足）</summary>
+ <p class="muted">${esc(info.reason||'最終31枠の比較可能な候補がありません')}。追加工程が不成立という意味ではありません。</p></details>`;
+ const n=info.counts||{},r=info.byGoal||{};
+ const names={speed:'SP重視',balance:'バランス',stamina:'ST重視'};
+ const labels={noComparator:'比較対象なし',recordedStageGain:'段階増加の記録あり',noStageGain:'段階の優位なし',mixedEvidence:'優劣混在'};
+ const table=Object.entries(names).map(([g,label])=>{
+  const d=r[g]?.stats||{};
+  return `<tr><th>${esc(label)}</th>${Object.keys(labels).map(k=>`<td>${esc(d[k]??'?')}</td>`).join('')}</tr>`;
+ }).join('');
+ const sample=Object.entries(names).map(([g,label])=>{
+  const a=r[g]?.examples||[];
+  return `<details><summary>${esc(label)}の検討例 ${esc(a.length)}件</summary>`+
+   (a.length?`<ul>${a.map(x=>`<li>${esc(x.family)}（${esc(x.route)}・${esc(x.theory)}・未収録${esc(x.missing)}枠）`+
+   `：${esc(labels[x.status]||x.status)}／短速長段階 ${esc(x.stages?.['短'])}・${esc(x.stages?.['速'])}・${esc(x.stages?.['長'])}`+
+   `${x.baseline?'／比較先 '+esc(x.baseline.family):'／同条件の下位工程対照なし'}`+
+   `。これは生産承認ではありません。</li>`).join('')}</ul>`:'<p class="muted">表示できる検討例はありません。</p>')+'</details>';
+ }).join('');
+ return `<details class="a21-flow"><summary>v132｜追加0・1・2工程の根拠比較（ゲーム内未確認）</summary>
+ <p class="muted">最終31枠と至高の指定位置を確認した実所持候補 ${esc(info.checked)}案・父系${esc(info.distinctFamilies)}種類。構成別：追加0 ${esc(n.direct??0)}／種＋1 ${esc(n.sireOnly??0)}／肌＋1 ${esc(n.mareOnly??0)}／両側＋1 ${esc(n.both??0)}。</p>
+ <p class="muted"><b>比較条件：</b>至高3頭・肌作り理論・因子未収録の位置が同じものだけ。同じ段階や比較先不在は追加工程の改善根拠ではありません。</p>
+ <table class="detailtbl"><thead><tr><th>方針</th>${Object.values(labels).map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${table}</tbody></table>
+ ${sample}
+ <p class="notice warn">${esc(info.limitations)} 追加クロスの効果は未確認。候補は自動で採用せず、元の保存プラン・所持・権利数を変更しません。</p></details>`;
+}
 function mild88CoverageHtml(plan){
  const d=plan?.mild88;if(!d)return '';
  const a=d.inverse||{};
@@ -1043,7 +1074,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -4540,6 +4571,10 @@ function auto21Create(){
   // No new matings and no hypothetical-owned mares or sires enter this step.
   const mildFinal31V131=mode==='mild'&&window.DabimasMildFinal31V131?.study?.(
    viableAnchorTrials,{ranker:window.DabimasMildRank78,owned:state.owned,maxPerRoute:3})||null;
+  // v132: read-only, strict within-coverage step-comparison evidence.
+  const mildStepEvidence132=mode==='mild'&&window.DabimasMildStepEvidence132?.study?.(
+   viableAnchorTrials,{full31:window.DabimasMildFinal31V131,
+    ranker:window.DabimasMildRank78,owned:state.owned,maxExamples:2})||null;
   if(!initial){const audits89=layoutAudit74.map(r=>r.coverage89).filter(Boolean);
    const inspected89=audits89.reduce((sum,r)=>sum+(r.inspected||0),0),outside89=audits89.reduce((sum,r)=>sum+(r.outsideShortlist||0)+(r.notReviewed||0),0);
    out.innerHTML=`<div class="notice warn">${esc(selectionInfo.family||'自動選択')}の${anchorTried}組、配置${placementSearches}通りを調べましたが、選択ルートの9工程を最後まで満たす候補を確定できませんでした（工程検査約${candidateAudit.reduce((s,x)=>s+x.foundationTrials,0)}回）。${audits89.length?`DDS詳細検査${inspected89}案、検査枠外${outside89}案（配置別集計、同一案の重複を含みます）。`:''}<b>この結果は配合不可能を意味しません。</b>高速限定探索をOFFにするか、祖先配置を「旧／新の両方を比較」に切り替えてください。名牝判定・CSVの祖先データ不足、途中の近親交配回避なども候補数に影響します。保存データは変更していません。</div>`;return;}
@@ -4627,6 +4662,7 @@ function auto21Create(){
    return;
   }
   if(mode==='mild'&&mildFinal31V131)draft.mild131=mildFinal31V131;
+  if(mode==='mild'&&mildStepEvidence132)draft.mild132=mildStepEvidence132;
   auto21SetResearch(draft,base);
   if(mode==='mild'&&base.variant96)draft.mild96={...base.variant96};
   if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildRank78){

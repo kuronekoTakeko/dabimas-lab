@@ -106,14 +106,14 @@
   return chosen;
  }
  // v139: shortlist by surviving paternal positions, not the entire mare pedigree.
- const DDS_PREFIX=Object.freeze({3:'SSSD',4:'SSD',5:'SDSSD',6:'SDSD',7:'SDD'});
+ const DDS_PREFIX=Object.freeze({1:'DDD',3:'SSSD',4:'SSD',5:'SDSSD',6:'SDSD',7:'SDD'});
  function projectedShortlist(mares,goal,cap,trial,step){
   const prefix=DDS_PREFIX[step],rows=trial?.full?.rows||[];
   if(!prefix||rows.length!==31||new Set(rows.map(r=>r.path)).size!==31||!rows.every(r=>/^[SD]{0,4}S$/.test(r.path)&&r.name))return shortlist(mares,goal,cap);
   const anchors=['DDS','SSSS','SDSSS'];
   const outside=p=>!anchors.some(a=>p.startsWith(a));
   const anchorNames=new Set(rows.filter(r=>anchors.includes(r.path)).map(r=>norm(r.name)));
-  const opposite=new Map();for(const r of rows)if(r.path.startsWith('D')&&outside(r.path)&&!anchorNames.has(norm(r.name))){
+  const opposite=new Map();for(const r of rows)if(r.path.startsWith(prefix[0]==='D'?'S':'D')&&outside(r.path)&&!anchorNames.has(norm(r.name))){
    const k=norm(r.name);if(!opposite.has(k))opposite.set(k,[]);opposite.get(k).push(r);
   }
   const w=WEIGHTS[goal]||WEIGHTS.balance;
@@ -145,13 +145,13 @@
   let best=initial,tests=0,invalid=0,changedSteps=[];
   const seen=new Set();
   for(const step of steps){
-   if(![3,4,5,6,7].includes(step))continue;
+   if(![1,3,4,5,6,7].includes(step))continue;
    let stepBest=best;
    for(const mare of (projectDDS?projectedShortlist(mares,goal,perStage,best,step):candidates)){if(tests>=limit)break;
     const currentId=best.choices?.[step];if(!currentId||norm(mare.id)===norm(currentId))continue;
     if(Object.entries(best.choices||{}).some(([k,id])=>Number(k)!==step&&norm(id)===norm(mare.id)))continue;
     const choices={...best.choices,[step]:mare.id};
-    const key=steps.map(n=>norm(choices[n])).join('|')+'|'+norm(choices[1]);
+    const key=JSON.stringify(Object.keys(choices).sort().map(n=>[n,norm(choices[n])]));
     if(seen.has(key))continue;seen.add(key);tests++;
     const trial=evaluate(choices);
     if(!metric(trial,goal)){invalid++;continue;}

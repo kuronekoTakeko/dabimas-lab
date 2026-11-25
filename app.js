@@ -2172,7 +2172,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   for(let i=0;i<Math.min(results.length,scope==='meihin_fast'?2:3);i++){
    const starting=results[i];
    const refinement=finish610.optimize({initial:starting,mares,goal:p.goal,
-    maxTests:scope==='meihin_fast'?35:70,steps:[3,4,5,6,7],projectDDS:isMaternalDDS67(p),
+    maxTests:scope==='meihin_fast'?35:70,steps:isMaternalDDS67(p)&&!starting.marePrep?[1,3,4,5,6,7]:[3,4,5,6,7],projectDDS:isMaternalDDS67(p),
     evaluate:choices=>{
      const replacement=opt10Trial(p,choices,starting.xId,
       starting.xPrep?.horse||null,starting.marePrep?{1:starting.marePrep.horse}:null);

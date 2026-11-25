@@ -2204,7 +2204,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   for(let i=0;i<Math.min(results.length,scope==='meihin_fast'?1:2);i++){
    const original=results[i];
    const two=efficiency71.improve({initial:original,mares,goal:p.goal,
-    maxTests:scope==='meihin_fast'?26:50,refiner:finish610,
+    maxTests:scope==='meihin_fast'?26:50,refiner:finish610,projectDDS:isMaternalDDS67(p),
     evaluate:choices=>{
      const candidate=opt10Trial(p,choices,original.xId,
       original.xPrep?.horse||null,original.marePrep?{1:original.marePrep.horse}:null);

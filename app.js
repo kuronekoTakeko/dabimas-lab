@@ -1111,7 +1111,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild135FirstCheckHtml(p)}${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild134CommonHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${mild135FirstCheckHtml(p)}${mild137FactorHtml(p)}${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild134CommonHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3996,6 +3996,23 @@ function mild115HandoffHtml(plan){
  ${problems}${rights}<p><b>実戦準備で必要な確認：</b></p><ol>${list}</ol>
  <p class="muted">${esc(r.caveat)} 既存の保存プランや実馬記録は変更しません。</p></details>`;
 }
+// v137: final-pedigree factor targets; hypothetical only, no stored pedigree edits.
+function mild137FactorReport(p,ped=null){
+ const api=window.DabimasMildFactorTarget137;if(!api)return null;
+ if(!ped){const live=v28PlanPedigree(p);if(live.error||live.anchors?.some(a=>!a.ok))return null;ped=live.ped;}
+ return api.inspect(p,ped,state.homebreds,window.DabimasMildNitro107);
+}
+function mild137FactorHtml(p){
+ if(p?.autoDesign21?.mode!=='mild'||!isMaternalDDS67(p))return '';
+ const r=mild137FactorReport(p);if(!r?.available)return '<p class="muted">v137 希望因子の逆算：血統・実測情報の再照合が必要です。</p>';
+ const format=c=>['短','速','長'].map(k=>k+' '+c[k]).join(' ／ ');
+ return `<details class="a21-flow" open><summary>v137｜最終血統から逆算した希望因子（仮目標）</summary>
+ <p>記録済み ${r.recordedSlots}/31枠 ／ 仮牡 ${r.targets.length}枠 ／ その他未確認 ${r.unknown.length}枠。記録済み：${esc(format(r.counts))}。</p>
+ <table class="detailtbl"><thead><tr><th>工程</th><th>最終位置</th><th>希望因子の研究案</th></tr></thead><tbody>${r.targets.map(t=>`<tr><td>${esc(t.step==='prep'?'締め肌父準備':'工程'+t.step)}</td><td>${esc(t.path)}</td><td>${esc(t.wanted.join('・')||'段階上の追加指定なし')}</td></tr>`).join('')}</tbody></table>
+ <p>仮にすべて取得できた場合の記録分＋希望分：${esc(format(r.scenarioCounts))}。残る未確認枠を0因子とはしません。</p>
+ <p class="muted">各仮牡に短・速・長から異なる最大2因子を置く研究シナリオ。実際に取得可能か、能力・クロス効果・至高成立は未確認。既存の希望因子・保存血統は変更しません。新規設計では基幹牡の希望欄に研究案を設定します。</p>
+ <details><summary>その他の未確認祖先 ${r.unknown.length}枠</summary><ul>${r.unknown.map(x=>`<li>${esc(x.path+' '+x.name+'（'+x.kind+'）')}</li>`).join('')}</ul></details></details>`;
+}
 // v135: one candidate's concrete 10-mating verification sheet, no writes to plans.
 function mild135Report(plan){
  const api=window.DabimasMildFirstCheck135;
@@ -4929,6 +4946,10 @@ function auto21Create(){
       inverse69:researched.inverse69||null,centerParentLines:researched.centerParentLines||null,
       scope:researched.scope,tests:researched.tests,limited:!!researched.limited,parentDataObserved:researched.parentEvidence68||0,prunedMatching:researched.prunedMatching68||0,prunedInteresting:researched.prunedInteresting68||0,
       closingTheory:{perfect:base.theory66?.perfect||'未確認',superPerfect:base.theory66?.superPerfect||'未確認',interestingDistinct:base.theory66?.interestingDistinct??null,interestingEight:base.theory66?.interestingEight||'未確認',matching:base.theory66?.matching||'未確認'},gameVerified:false};
+    if(isMaternalDDS67(draft)&&finalPair.ready&&finalPair.ped?.known===31){
+     const target=mild137FactorReport(draft,finalPair.ped);
+     if(target?.available){for(const t of target.targets){if(typeof t.step==='number'&&draft.steps[t.step-1])draft.steps[t.step-1].wantedFactors=t.wanted.join('・');}draft.mild137=target;}
+    }
    if(isMaternalDDS67(draft)){
     if(researched.coverage89)draft.mild89={...researched.coverage89,
      centerId:researched.centerParentLines?.anchorId||'',gameVerified:false};

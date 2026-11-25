@@ -71,6 +71,7 @@
    if(mx.score!==my.score)return safe(my.score)-safe(mx.score);
    const line=finish?.compareLineage?.(mx,my)||0;if(line)return line;
   }
+  const closing=finish?.compareClosing?.(x,y,goal)||0;if(closing)return closing;
   if(typeof qualityCompare==='function'&&a.quality&&b.quality){
    const q=qualityCompare(a.quality,b.quality);if(q)return q;
   }

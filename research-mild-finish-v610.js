@@ -60,12 +60,29 @@
   if(!a||!b||a.length!==2||b.length!==2||a.some((g,i)=>g.slots!==b[i].slots||JSON.stringify(g.knownPaths)!==JSON.stringify(b[i].knownPaths)))return 0;
   return b[0].distinct-a[0].distinct||b[1].distinct-a[1].distinct;
  }
+ // v146: closing-mare evidence is a research tie-break, not a prediction.
+ // Do not compare different coverage masks, unknown/invalid pedigrees, or
+ // different theory/cost tiers. Only use the existing nitro hypothesis.
+ function closingEvidence(t,goal='balance'){
+  const p=t?.closingPed;
+  if(!p||p.known!==31||p.conflicts?.length||p.transmission?.conflicts?.length||p.transmission?.invalid?.length||p.directAncestor?.blocked||p.closeCross65?.blocked||grade(t)<7)return null;
+  const api=typeof globalThis!=='undefined'?globalThis.DabimasMildNitro107:null;
+  const e=api?.inspect?.({matches:3,full:p,theory66:t.theory66},goal);
+  if(!e||!p.rows.every(r=>r.name||r.horse))return null;
+  return e;
+ }
+ function compareClosing(a,b,goal='balance'){
+  if(grade(a)!==grade(b)||safeNumber(a?.additionalBirths)!==safeNumber(b?.additionalBirths))return 0;
+  const x=closingEvidence(a,goal),y=closingEvidence(b,goal);
+  if(!x||!y||JSON.stringify(x.unknownPaths)!==JSON.stringify(y.unknownPaths))return 0;
+  return y.researchIndex-x.researchIndex;
+ }
  function compare(a,b,goal='balance'){
   const x=metric(a,goal),y=metric(b,goal);
   if(!x)return y?1:0;if(!y)return -1;
   // Theory evidence outranks production cost. Within the same theory grade,
   // extra matings must not be added solely for a research score increase.
-  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||x.shortCrossRisk-y.shortCrossRisk||y.independentCrossEvidence-x.independentCrossEvidence||y.crossFactorEvidence-x.crossFactorEvidence||y.score-x.score||compareLineage(x,y);
+  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||x.shortCrossRisk-y.shortCrossRisk||y.independentCrossEvidence-x.independentCrossEvidence||y.crossFactorEvidence-x.crossFactorEvidence||y.score-x.score||compareLineage(x,y)||compareClosing(a,b,goal);
  }
  function marePriority(m,goal){
   const w=WEIGHTS[goal]||WEIGHTS.balance;
@@ -149,5 +166,5 @@
     changedSteps:changed?changedSteps:[],improved:changed,before:first,after:changed?after:first,
     gameVerified:false,caveat:'31枠の既知因子・独立クロス・子系統の相対順位。未収録は因子なしとしない。ゲーム内の効果・能力・至高成立は未検証。'}};
  }
- return Object.freeze({grade,metric,compare,compareLineage,shortlist,projectedShortlist,optimize});
+ return Object.freeze({grade,metric,compare,compareLineage,closingEvidence,compareClosing,shortlist,projectedShortlist,optimize});
 });

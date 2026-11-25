@@ -33,21 +33,20 @@
   // Only documented, independent, conflict-free factor variants are treated
   // as cross-factor evidence. Raw ancestor factors have MUCH lower priority.
   const candidates=(t.extraEffective||[]).filter(x=>!x.conflicts?.length);
-  const documented=candidates.filter(x=>x.counted?.length&&Object.values(x.counts||{}).some(v=>safeNumber(v)>0));
-  // Counts can be present even when the identity/independence of a cross is
-  // unresolved. Never present those candidate-factor counts as documented
-  // independent-cross effect evidence. Only fully documented cross sets can
-  // use the aggregate factor index as evidence (per-cross attribution is not
-  // available in this legacy data format).
+  const documented=candidates.filter(x=>x.outsidePairEvidenceComplete!==false&&!x.unresolved?.length&&x.counted?.length&&Object.values(x.counts||{}).some(v=>safeNumber(v)>0));
+  // v149: use only explicitly complete per-cross records in mixed sets.
+  // Legacy records without per-pair evidence retain the conservative all-or-none rule.
   const candidateCrossed=Object.entries(t.extraFactorCounts||{}).reduce((sum,[f,n])=>sum+(w[f]||0)*safeNumber(n),0);
   const allDocumented=candidates.length>0&&documented.length===candidates.length;
-  const crossed=allDocumented?candidateCrossed:0;
-  const unresolvedCrossCandidates=Math.max(0,candidates.length-documented.length);
+  const explicit=documented.filter(x=>x.outsidePairEvidenceComplete===true);
+  const credited=allDocumented?documented:explicit;
+  const crossed=credited.reduce((sum,x)=>sum+Object.entries(x.counts||{}).reduce((n,[f,v])=>n+(w[f]||0)*safeNumber(v),0),0);
+  const unresolvedCrossCandidates=Math.max(0,candidates.length-credited.length);
   const risk=safeNumber(t.risk),conflicts=safeNumber(t.conflictCount);
   const unverified=safeNumber(t.unresolvedCount);
-  const score=4*crossed+3*documented.length+0.35*candidates.length+0.16*observedFactors-5*risk-20*conflicts-Math.min(3,unverified)*0.12;
+  const score=4*crossed+3*credited.length+0.35*candidates.length+0.16*observedFactors-5*risk-20*conflicts-Math.min(3,unverified)*0.12;
   return {score:Math.round(score*100)/100,grade:grade(t),additionalBirths:safeNumber(t.additionalBirths),
-   independentCrossCandidates:candidates.length,independentCrossEvidence:documented.length,crossFactorEvidence:Math.round(crossed*100)/100,
+   independentCrossCandidates:candidates.length,independentCrossEvidence:credited.length,crossFactorEvidence:Math.round(crossed*100)/100,
    candidateCrossFactorIndex:Math.round(candidateCrossed*100)/100,unresolvedCrossCandidates,crossEvidenceComplete:allDocumented,
    ancestorFactorsRecorded:observedFactorRows,lineageEvidence:null,generationEvidence,
    childLineDiversity:childFamilies.size,shortCrossRisk:risk,unresolvedCrosses:unverified,

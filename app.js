@@ -1777,7 +1777,10 @@ function opt10Trial(p,choices,xId,xCandidate=null,mareCandidates=null){
  const extraOrigin126=window.DabimasMildCrossOrigin126?.filterAdditional?.({
   rows:final.rows,anchors:anchorPositions66(p).map(([path,slot])=>({path,name:splitName(slots[slot]||'').name})),
   candidates:extraRaw});
- const extraEffective=extraOrigin126?.filtered||[]; // fail closed if script unavailable
+ const extraPairs138=window.DabimasMildCrossPairs138?.restrict?.({rows:final.rows,
+  anchors:anchorPositions66(p).map(([path,slot])=>({path,name:splitName(slots[slot]||'').name,verified:anchorIdentity92(byPath.get(path),routeSnapshotMember(slots[slot],p),slots[slot]).ok})),
+  candidates:extraOrigin126?.filtered||[],aggregate:sumNamedVariants16});
+ const extraEffective=extraPairs138?.filtered||[]; // only actual independent outside pairs
  const extras={};for(const c of extraEffective)for(const [factor,n] of Object.entries(c.counts))extras[factor]=(extras[factor]||0)+n;
  const fc=f=>extras[f]||0;
  const crossScore=p.goal==='speed'?fc('走')*5+fc('中')*4+fc('短')*2+fc('速')*2+fc('長')

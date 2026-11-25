@@ -64,7 +64,15 @@
   });
  }
  function rankForRoute(entries,race,lookup,route){
-  return route==='paternal'?rankPlacements(entries,race,lookup):[...(entries||[])];
+  // v143: unknown distance must not move a placement down merely for missing data.
+  // Keep the neutral preflight slots of unknown entries; reorder only known entries.
+  const original=[...(entries||[])];
+  if(route!=='paternal'||!parseRace(race))return original;
+  const get=typeof lookup==='function'?lookup:()=>null;
+  const known=original.map((entry,i)=>({entry,i,assessment:assess(race,get(entry?.slots?.g3))})).filter(x=>x.assessment.status!=='unknown');
+  const ordered=[...known].sort((a,b)=>compare(a.assessment,b.assessment)||a.i-b.i);
+  known.forEach((x,i)=>{original[x.i]=ordered[i].entry;});
+  return original;
  }
  return Object.freeze({rankForRoute,parseRace,parseRange,assess,compare,rankPlacements,preferredDistances:[...PREFERRED],research,inheritance});
 });

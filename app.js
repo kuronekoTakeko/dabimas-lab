@@ -789,6 +789,15 @@ function effectiveCrossFactors16(rows,plan=null){
   uncertain,conflicts,independentCount:independent.candidates.length,derivedCount:independent.inherited.length,
   complete:uncertain.length===0&&conflicts.length===0};
 }
+// v143: one calculation shared by the DDS search and the result screen.
+function mildExtraCross143(rows,plan,effective=effectiveCrossFactors16(rows,plan)){
+ const slots=plan.routeDraft?.slots||{},byPath=new Map(rows.map(r=>[r.path,r]));
+ const baseName=key(splitName(slots.g3||'').name);
+ const anchors=anchorPositions66(plan).map(([path,slot])=>({path,name:splitName(slots[slot]||'').name,verified:anchorIdentity92(byPath.get(path),routeSnapshotMember(slots[slot],plan),slots[slot]).ok}));
+ const origin=window.DabimasMildCrossOrigin126?.filterAdditional?.({rows,anchors,candidates:effective.crosses.filter(c=>key(c.name)!==baseName&&!c.conflicts.length)});
+ const pairs=window.DabimasMildCrossPairs138?.restrict?.({rows,anchors,candidates:origin?.filtered||[],aggregate:sumNamedVariants16});
+ return {origin,pairs};
+}
 function renderCrossFactor16(m){
  const result=m.effective16;
  const counts=Object.entries(result.frequency).sort((a,b)=>FACTORS.indexOf(a[0])-FACTORS.indexOf(b[0]));
@@ -1771,15 +1780,7 @@ function opt10Trial(p,choices,xId,xCandidate=null,mareCandidates=null){
  // from raw factors that merely appear in a pedigree once. Same-lineage alone
  // does NOT make X optimal. Actual game nitro/SP/ST effects are not inferred.
  const effective=effectiveCrossFactors16(final.rows,p);
- const extraRaw=effective.crosses.filter(c=>key(c.name)!==baseName && !c.conflicts.length);
- // v126: Do not score repetitions inherited just because the required
- // 3x4x5 anchor parents occur on both sides of the pedigree.
- const extraOrigin126=window.DabimasMildCrossOrigin126?.filterAdditional?.({
-  rows:final.rows,anchors:anchorPositions66(p).map(([path,slot])=>({path,name:splitName(slots[slot]||'').name})),
-  candidates:extraRaw});
- const extraPairs138=window.DabimasMildCrossPairs138?.restrict?.({rows:final.rows,
-  anchors:anchorPositions66(p).map(([path,slot])=>({path,name:splitName(slots[slot]||'').name,verified:anchorIdentity92(byPath.get(path),routeSnapshotMember(slots[slot],p),slots[slot]).ok})),
-  candidates:extraOrigin126?.filtered||[],aggregate:sumNamedVariants16});
+ const {origin:extraOrigin126,pairs:extraPairs138}=mildExtraCross143(final.rows,p,effective);
  const extraEffective=extraPairs138?.filtered||[]; // only actual independent outside pairs
  const extras={};for(const c of extraEffective)for(const [factor,n] of Object.entries(c.counts))extras[factor]=(extras[factor]||0)+n;
  const fc=f=>extras[f]||0;
@@ -4315,6 +4316,8 @@ function mild93AuditHtml(plan){
 }
 function auto21Result(plan,ped,goal,mode,meta){
  const c=effectiveCrossFactors16(ped.rows,plan);
+ const extraReport=mode==='mild'&&isMaternalDDS67(plan)?mildExtraCross143(ped.rows,plan,c).pairs:null;
+ const extraLabel=extraReport?.validRoots?String(extraReport.filtered.length):'未確認';
  const lines4=ped.rows.filter(r=>r.path.length===4);
  const sp=lines4.filter(r=>BONUS_SPEED.has(canonicalLine(r.line))).length;
  const st=lines4.filter(r=>BONUS_STAMINA.has(canonicalLine(r.line))).length;
@@ -4323,15 +4326,16 @@ function auto21Result(plan,ped,goal,mode,meta){
  const goalName=GOAL_LABELS[goal]||'バランス';
  const counts=Object.entries(c.frequency).map(([f,n])=>chip(f+' ×'+n)).join('');
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
- <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計・追加仕込み含む）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>独立クロス候補</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分のクロス因子</small></div></div>
+ <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計・追加仕込み含む）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>全クロス候補（至高指定含む）</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分の全クロス因子</small></div>${extraReport?`<div><b>${esc(extraLabel)}</b><small>追加独立クロス候補（至高由来除外）</small></div>`:''}</div>
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜${isMaternalDDS67(plan)?'選択した至高3代目種牡馬の直仔牝馬×所持締め肌父Aを逆算（必要なら1代仕込み）':isMaternal66(plan)?'公開名牝7頭と所持の至高3異因名を配置しました（補助X不要）':'名牝6頭と所持種牡馬を自動配置しました'}。</p>
  ${mild69PrepStages(plan).length?`<p class="notice"><b>追加準備 ${mild69PrepStages(plan).length}工程</b>を基幹工程1より前に生産します。下の「生産順の配合フロー」に父母・産駒を記載しています。</p>`:''}
  ${plan.mild50?.reusedCount?`<p class="notice"><b>v5.0 実馬再利用：${plan.mild50.reusedCount}工程短縮</b>。基本9工程のうち新規生産は${plan.mild50.productionStages}工程です。既存実馬の父母・性別・31枠を一致検証しました。実馬記録の編集時はリンクを再確認します。</p>`:''}
  ${!isMaternal66(plan)&&!plan.hard23&&plan.research10?.xSelection31?`<p class="muted"><b>工程7の補助X：</b>${esc(plan.research10.xSelection31.selected)}（${esc(plan.research10.xSelection31.lineage||'子系統未確認')}）。所持X ${plan.research10.xSelection31.candidateCount}頭を各6牝馬候補の固定条件で再比較。独立追加クロス候補：${esc(plan.research10.xSelection31.extraIndependentCrosses.join('・')||'なし')}。${(plan.research10.xSelection31.tiedCount||1)>1?`参考評価で同点${plan.research10.xSelection31.tiedCount}頭（最良確定ではありません）。`:''}全組合せの最適保証ではありません。</p>`:''}
  ${plan.mildDiversity60?`<details class="a21-flow"><summary>v8.5｜親系統・子系統の配置監査（中心種牡馬に連動）</summary><p>必須至高の3×4×5祖先とその子孫を除く、4・5代目の対象${esc(plan.mildDiversity60.eligibleSlots)}枠：親系統判明${esc(plan.mildDiversity60.parentKnown)}枠／未確認${esc(plan.mildDiversity60.parentUnknown)}枠。基準親系統 ${esc(plan.mildDiversity60.focusParent||'未確認')} の追加重複 ${esc(plan.mildDiversity60.extraFocusParent??'未確認')}枠。参考：Ro ${esc(plan.mildDiversity60.extraRoyalCharger)}枠・非Ro ${esc(plan.mildDiversity60.nonRoyalCharger)}枠。子系統判明${esc(plan.mildDiversity60.childLineKnown)}枠／異なる子系統${esc(plan.mildDiversity60.distinctChildLines)}種類。</p><p class="muted">親系統は公開CSVのpa列と公式限定資料を参照。未確認を有利扱いしません。至高と途中の完璧・超完璧の条件を優先し、研究評価が同点の場合だけ選択中心種牡馬の親系統重複を参考比較します。子系統数が多ければ強いと保証するものではありません。</p></details>`:''}
  <p class="muted">自家製種牡馬の本人因子はゲーム内実測待ちです。表示するクロス因子${c.total}${c.complete?'':'+'}個は公開血統中心の試算であり、最終確定値ではありません。実測因子を登録した後は、保存プランを開いて保存プランの実測因子プレビューで反映位置を確認してください。</p>
- <p><b>有効クロス因子の内訳（研究上）：</b>${counts||'因名確定分なし'}。<br>4代目のSP/ST対象系統 ${sp}／${st}枠。ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
- <details class="a21-flow"><summary>独立クロス候補と配置位置</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
+ <p><b>全クロス因子の内訳（至高指定含む・研究上）：</b>${counts||'因名確定分なし'}。<br>${mode==='mild'?'子系統からSP/STへの直接加点は行いません。':`4代目のSP/ST対象系統 ${sp}／${st}枠。`}ニトロ段階・正確なSP/ST・公式BC勝率は未計算です。</p>
+ <details class="a21-flow"><summary>全クロス候補と配置位置（至高指定含む）</summary>${c.crosses.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ 因子${x.total}（${x.unresolved.length?'因名未確認あり':'因名判明分'}）</p>`).join('')||'なし'}</details>
+ ${extraReport?.validRoots?`<details class="a21-flow"><summary>追加独立クロス候補（探索評価と同じ基準）</summary>${extraReport.filtered.map(x=>`<p><b>${esc(x.name)}</b>：${esc(x.paths.join(' × '))} ／ ${x.outsidePairEvidenceComplete?'因子記録あり':'因名・因子未確認（加点なし）'}</p>`).join('')||'なし'}<p class="muted">至高指定馬とその継承経路を除外。ゲーム内効果は未確認。</p></details>`:''}
  ${meta.searchNote?`<p class="notice">${esc(meta.searchNote)}</p>`:''}
  ${audit34Html(plan,ped)}
  ${mild84GateHtml(plan)}

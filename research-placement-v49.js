@@ -20,9 +20,9 @@
   const issues=Array.isArray(a.issues)?a.issues.length:0;
   return (Number(a.knownSires)||0)*1.5+bonus+(Array.isArray(a.extraCrosses)?a.extraCrosses.length:0)*.75-issues*6;
  }
- function rank(ids,audit,goal='balance'){
+ function rank(ids,audit,goal='balance',options={}){
   return all(ids).map(slots=>{let result=null,issue='';try{result=audit(slots);}catch(e){issue=String(e?.message||e);}
-   return {slots,signature:sig(slots),score:score(result,goal),audit:result,issue};
+   return {slots,signature:sig(slots),score:options.neutral?(result?Number(result.knownSires||0)-6*(result.issues?.length||0):-Infinity):score(result,goal),audit:result,issue};
   }).sort((a,b)=>b.score-a.score||a.signature.localeCompare(b.signature,'ja'));
  }
  function pick(entries,cap,baseline){

@@ -4377,7 +4377,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  ${plan.mild58?`<div class="notice"><b>v5.8 マイルド・母系1代仕込み：</b>所持種牡馬${esc(plan.mild58.tested)}候補を工程6の前に追加する形で比較。${plan.mild58.chosenSireId?`採用：${esc(plan.mild58.chosenSireId)}（全${esc(plan.mild58.resultStages)}工程）。`:'途中配合理論の確実な改善と研究評価の維持を同時に満たす候補はなく、9工程のままです。'}超完璧・完璧のみ評価し、奇跡は除外。<b>ゲーム内成立・締め肌能力は未確認。</b>探索は上限付きです。</div>`:''}
  ${plan.mild55?`<div class="notice"><b>v5.5 マイルド型・複数枠の同時改善：</b>2枠変更${esc(plan.mild55.checked)}候補を照合（名牝ペア${esc(plan.mild55.marePairTrials)}／補助X＋名牝${esc(plan.mild55.xMareTrials)}）。${plan.mild55.improved?'研究上の評価が改善':'上位候補は従来案を維持'}。網羅探索・ゲーム内成立保証ではありません。</div>`:''}
  ${plan.mild53?`<div class="notice"><b>v5.3 マイルド型の同工程改善：</b>名牝・補助Xの差し替えを${esc(plan.mild53.searched)}件比較。追加クロス候補 ${esc((plan.mild53.namedExtraCrosses||[]).join('、')||'未検出')}。評価は研究上の局所比較であり、最強・ゲーム内成立を保証しません。</div>`:''}
- ${plan.mildDistance54?`<div class="notice"><b>v5.4 マイルド型の目標距離チェック：</b>締め種父系の起点となる${isMaternal66(plan)?'4':'3'}代目 ${esc(plan.mildDistance54.anchorG3)}／公開距離 ${plan.mildDistance54.range?esc(`${plan.mildDistance54.range.min}〜${plan.mildDistance54.range.max}m`):'未収録'}／目標 ${esc(plan.mildDistance54.race)}。<b>${plan.mildDistance54.rangeStatus==='covered'?'距離範囲内':plan.mildDistance54.rangeStatus==='outside'?'距離範囲外（要注意）':'距離適性未確認'}</b>。自家製締め種への継承は有志研究による推定で、得意距離の一致やゲーム内の能力を保証しません。</div>`:''}
+ ${plan.mildDistance54?`<div class="notice"><b>v5.4 マイルド型の目標距離チェック：</b>締め種父系の起点となる${isMaternal66(plan)?'4':'3'}代目 ${esc(plan.mildDistance54.anchorG3)}／公開距離 ${plan.mildDistance54.range?esc(`${plan.mildDistance54.range.min}〜${plan.mildDistance54.range.max}m`):'未収録'}／目標 ${esc(plan.mildDistance54.race)}。<b>${plan.mildDistance54.rangeStatus==='covered'?'距離範囲内':plan.mildDistance54.rangeStatus==='outside'?'距離範囲外（要注意）':'距離適性未確認'}</b>。${isMaternal66(plan)?'母側3代配置では祖先の距離を探索順位に使わず、参考表示のみ。':'父系起点の距離は探索時の参考情報。'}得意距離の一致やゲーム内の能力を保証しません。</div>`:''}
  ${mild30Html(plan)}
  ${reuse44Html(plan)}
  ${production63Html(plan)}
@@ -4475,13 +4475,10 @@ function auto21Create(){
    const positioning=window.DabimasPlacement49;
    const permutations=positioning?.rank(anchor.set.map(r=>r.id),slots=>getRouteAudit(proto,slots),goal)||[];
    const layoutLimit=selectionInfo.pool.length<=3?6:2;
-   // v5.4 MILD ONLY: compare the three possible 3rd-generation fathers by
-   // published distance range BEFORE cutting the 6 placement options to 2.
-   // Keep the legacy baseline layout and the old ordering if the range is unknown.
+   // v142: distance preflight is a paternal-line proxy only. Do not use
+   // the maternal g3's distance or legacy SP/ST child-line weights to prune.
    const distanceApi=window.DabimasDistance54;
-   const distanceSorted=mode==='mild'&&distanceApi?
-    distanceApi.rankPlacements(permutations,race,id=>map.get(key(id))||null):permutations;
-   const selectedLayouts=positioning?.pick(distanceSorted,layoutLimit,defaults)||[];
+   const selectedLayouts=positioning?.pick(permutations,layoutLimit,defaults)||[];
    const trials=[],layoutRecords=[];let tests=0,layoutsChecked=0;
    const flexibleMild=mode==='mild'&&!!window.DabimasMaternalDDS67&&!!window.DabimasInverseMild69;
    // One-click default: maternal 3rd generation FIRST. Test the old route only
@@ -4497,13 +4494,17 @@ function auto21Create(){
     // v7.4: DDS must compare BOTH fourth/fifth permutations sharing the
     // same third-generation center ancestor, even when the preflight top-two cutoff
     // would discard one. Legacy routes keep their original shortlist.
+    const routeLayout=routeType==='dds'?'maternal-dds-g3':routeType==='maternal'?'maternal-g3':'paternal-g3';
+    const routeProto={...proto,routeDraft:{layout:routeLayout}};
+    const routeRanked=mode==='mild'&&positioning?positioning.rank(anchor.set.map(r=>r.id),slots=>getRouteAudit(routeProto,slots),goal,{neutral:true}):permutations;
+    const routeSorted=mode==='mild'&&distanceApi?distanceApi.rankForRoute(routeRanked,race,id=>map.get(key(id))||null,routeType):routeRanked;
+    const routePicked=mode==='mild'?positioning?.pick(routeSorted,layoutLimit,defaults)||[]:selectedLayouts;
     const layouts=routeType==='dds'&&window.DabimasMildAnchor74?
-     window.DabimasMildAnchor74.selectDDS(distanceSorted,selectedLayouts,anchor.set):selectedLayouts;
+     window.DabimasMildAnchor74.selectDDS(routeSorted,routePicked,[]):routePicked;
     for(const layout of layouts){
     layoutsChecked++;
     const draft=newPlan(anchor);draft.goal=goal;draft.target=`公式BC想定：${race}`;
     const slots={...layout.slots};
-    const routeLayout=routeType==='dds'?'maternal-dds-g3':routeType==='maternal'?'maternal-g3':'paternal-g3';
     draft.routeDraft={slots,paths:routeType==='dds'?{...window.DabimasMaternalDDS67.anchorPaths}:routeType==='maternal'?{...window.DabimasMaternal66.anchorPaths}:{g3:'SSS',g4:'DSSS',g5:'DDDSS'},layout:routeLayout,validated:false};
     draft.steps=routeType==='dds'?buildMaternal66Steps(slots,routeLayout):routeType==='maternal'?buildMaternal66Steps(slots):buildDraftSteps(slots);
     const researched=routeType==='dds'?opt69Find(draft,fast?'meihin_fast':'meihin',inverseMemo79,inverseStats79):routeType==='maternal'?opt66Find(draft,fast?'meihin_fast':'meihin'):opt10Find(draft,fast?'meihin_fast':'meihin');tests+=researched.tests||0;
@@ -4593,7 +4594,7 @@ function auto21Create(){
     // Comparing its 'unknown' to a paternal candidate's 'covered' would still
     // unfairly demote maternal DDS. Compare only when BOTH proxies are known.
     const trialStud=anchorStud(trial),initialStud=anchorStud(initial);
-    const distanceOrder=mode==='mild'&&distanceApi&&trialStud&&initialStud?
+    const distanceOrder=mode==='mild'&&distanceApi&&trialStud&&initialStud&&distanceApi.parseRange(trialStud.distance)&&distanceApi.parseRange(initialStud.distance)?
       distanceApi.compare(distanceApi.assess(race,trialStud),distanceApi.assess(race,initialStud)):0;
     const quality=auto35CompareQuality(a.quality,b.quality);
     const evidence=auto37Compare(a.evidence,b.evidence);
@@ -4803,6 +4804,7 @@ function auto21Create(){
    const checked=window.DabimasDistance54.assess(race,map.get(key(g3))||null);
    draft.mildDistance54={version:54,anchorG3:g3,source:'公開マスターの種牡馬「距離」欄',
     race,range:checked.range,rangeStatus:checked.status,preferredCandidateCount:checked.preferredCandidateCount,
+    rankingRole:isMaternal66(draft)?'reference-only':'paternal-proxy',
     inheritedAlongPaternalLine:'研究上の仮定（最終締め種でゲーム内未確認）',
     preferredRaceConfirmed:false,gameVerified:false};
   }
@@ -5003,7 +5005,7 @@ function auto21Create(){
     candidateAudit,searchCap:selectionInfo.limit,hardFinalists:mode==='hard'?viableAnchorTrials.length:null,hardDeepCompared:mode==='hard'?hardCompared:null,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:`名牝＋${parents.stages||9}工程（${isMaternal66(saved)?isMaternalDDS67(saved)?'母側DDS＋父側4/5代目・名牝6枠': '母側DSS＋父側4/5代目・名牝7枠':'通常3×4×5'}／実馬再利用${saved.mild50?.reusedCount||0}件）`,
    placement49:{availablePerTriple:6,layoutSearches:placementSearches,validLayouts:placementQualified,
     chosenSlots:{...saved.routeDraft.slots},deepFinalists:mode==='hard'?hardCompared:0,
-    scope:selectionInfo.pool.length<=3?'各セット最大6配置':'各セット最大2配置',gameVerified:false},mareTests:mode==='hard'?hardTrial.researched.tests:researched.tests,confirmedTheory:false,
+    scope:mode==='mild'?'DDSは各セット最大6配置・その他は有限候補':selectionInfo.pool.length<=3?'各セット最大6配置':'各セット最大2配置',gameVerified:false},mareTests:mode==='hard'?hardTrial.researched.tests:researched.tests,confirmedTheory:false,
    dataQuality35:{structural:chosenQuality.structural,missingNames:chosenQuality.missingNames,
     coverage:chosenQuality.coverage,unavailable:!!chosenQuality.unavailable,verifiedTheory:false},
    researchEvidence37:{anchorObserved:!!evidence37.anchorObserved,anchorFactorKinds:evidence37.anchorFactorKinds??null,

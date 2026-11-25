@@ -63,5 +63,8 @@
    return compare(da,db)||((Number(b?.score)||0)-(Number(a?.score)||0));
   });
  }
- return Object.freeze({parseRace,parseRange,assess,compare,rankPlacements,preferredDistances:[...PREFERRED],research,inheritance});
+ function rankForRoute(entries,race,lookup,route){
+  return route==='paternal'?rankPlacements(entries,race,lookup):[...(entries||[])];
+ }
+ return Object.freeze({rankForRoute,parseRace,parseRange,assess,compare,rankPlacements,preferredDistances:[...PREFERRED],research,inheritance});
 });

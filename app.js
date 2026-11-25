@@ -3278,11 +3278,11 @@ function auto21RefreshCandidates(){
  // Keep every eligible same-name variant trio up to an explicit global cap.
  // Family selection then compares ALL retained trios in that family (up to 24),
  // rather than forcing the user to pick a trio before the other ancestors exist.
- auto21Candidates=api?api.choose(source,40,240):[];
+ auto21Candidates=api?api.choose(source,goal,40,240):[];
  const families=familiesApi?familiesApi.families(auto21Candidates):[];
  sel.innerHTML=auto21Candidates.length?
    families.map(f=>`<option value="family:${encodeURIComponent(f.name)}">${esc(f.name)}（至高一次候補 ${f.count}組を内部比較）</option>`).join('')+
-   '<option value="auto">中心馬の馬名も自動選択（上位6組）</option>'+
+   '<option value="auto">中心馬の馬名も自動選択（別馬名優先・最大6組）</option>'+
    '<optgroup label="詳細指定：異因名3頭の組合せ">'+
    auto21Candidates.map((c,i)=>`<option value="${i}">${esc(c.base)}：${esc(c.set.map(r=>r.variant||r.id).join('・'))}（${c.kinds.length}種類／研究指数${c.researchScore}）</option>`).join('')+'</optgroup>':
    '<option value="">候補なし（取得済み3因名を確認）</option>';
@@ -5005,7 +5005,7 @@ function auto21Create(){
   const evidence37=auto37Evidence(pedigree,saved);
   saved.autoDesign21={createdAt:nowISO(),mode,goal,race,autoAnchor45:{enabled:autoPick||familyPick,selectionMode:selectionInfo.mode,requestedFamily:selectionInfo.family||null,
     anchorCandidatesCompared:anchorTried,qualifiedCandidates:anchorQualified,totalPrimaryCandidates:auto21Candidates.length,
-    eligibleInSelection:selectionInfo.available,selectedAnchor:selected.base,selectedVariants:selected.set.map(r=>r.id),
+    eligibleInSelection:selectionInfo.available,distinctFamiliesCompared:new Set(candidateAudit.map(x=>x.base)).size,selectedAnchor:selected.base,selectedVariants:selected.set.map(r=>r.id),
     candidateAudit,searchCap:selectionInfo.limit,hardFinalists:mode==='hard'?viableAnchorTrials.length:null,hardDeepCompared:mode==='hard'?hardCompared:null,verifiedGame:false},searchStage:mode==='hard'?`名牝＋v2.4可変${parents.stages}工程（5代血統・探索上限あり）`:`名牝＋${parents.stages||9}工程（${isMaternal66(saved)?isMaternalDDS67(saved)?'母側DDS＋父側4/5代目・名牝6枠': '母側DSS＋父側4/5代目・名牝7枠':'通常3×4×5'}／実馬再利用${saved.mild50?.reusedCount||0}件）`,
    placement49:{availablePerTriple:6,layoutSearches:placementSearches,validLayouts:placementQualified,
     chosenSlots:{...saved.routeDraft.slots},deepFinalists:mode==='hard'?hardCompared:0,

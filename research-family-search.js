@@ -15,7 +15,12 @@ function families(candidates){
 }
 function resolve(candidates,selection,maxFamily=24,maxAuto=6){
  const entries=Array.isArray(candidates)?candidates:[];
- if(selection==='auto')return {mode:'auto',family:null,pool:entries.slice(0,maxAuto),available:entries.length,limit:maxAuto};
+ if(selection==='auto'){
+  // Give distinct families a first opportunity before spending the finite budget on siblings.
+  const seen=new Set(),first=[],rest=[];
+  for(const c of entries){const k=norm(c?.base);if(!k)continue;if(seen.has(k))rest.push(c);else{seen.add(k);first.push(c);}}
+  return {mode:'auto',family:null,pool:[...first,...rest].slice(0,maxAuto),available:entries.length,limit:maxAuto};
+ }
  if(String(selection).startsWith('family:')){
   let family='';try{family=decodeURIComponent(String(selection).slice(7));}catch(_){return {mode:'invalid',pool:[],available:0,limit:0};}
   const matches=entries.filter(c=>norm(c?.base)===norm(family));

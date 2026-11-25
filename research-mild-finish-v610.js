@@ -86,7 +86,38 @@
   for(const m of sorted)add(m);
   return chosen;
  }
- function optimize({initial,mares=[],evaluate,goal='balance',maxTests=80,steps=[3,4,5,6,7]}={}){
+ // v139: shortlist by surviving paternal positions, not the entire mare pedigree.
+ const DDS_PREFIX=Object.freeze({3:'SSSD',4:'SSD',5:'SDSSD',6:'SDSD',7:'SDD'});
+ function projectedShortlist(mares,goal,cap,trial,step){
+  const prefix=DDS_PREFIX[step],rows=trial?.full?.rows||[];
+  if(!prefix||rows.length!==31||new Set(rows.map(r=>r.path)).size!==31||!rows.every(r=>/^[SD]{0,4}S$/.test(r.path)&&r.name))return shortlist(mares,goal,cap);
+  const anchors=['DDS','SSSS','SDSSS'];
+  const outside=p=>!anchors.some(a=>p.startsWith(a));
+  const anchorNames=new Set(rows.filter(r=>anchors.includes(r.path)).map(r=>norm(r.name)));
+  const opposite=new Map();for(const r of rows)if(r.path.startsWith('D')&&outside(r.path)&&!anchorNames.has(norm(r.name))){
+   const k=norm(r.name);if(!opposite.has(k))opposite.set(k,[]);opposite.get(k).push(r);
+  }
+  const w=WEIGHTS[goal]||WEIGHTS.balance;
+  const scored=(mares||[]).filter(m=>m?.id&&m.ancestry?.length>=15).map(m=>{
+   const names=new Set(),recorded=new Set();let factors=0;
+   for(const a of m.ancestry){const path=prefix+String(a.path||'').replace(/父/g,'S').replace(/母/g,'D');
+    if(!/^[SD]{0,4}S$/.test(path)||!outside(path))continue;
+    const k=norm(a.horse||a.name);if(!k||anchorNames.has(k))continue;
+    factors+=(a.factors||[]).reduce((n,f)=>n+(w[f]||0),0);
+    const hits=opposite.get(k)||[];if(hits.length){names.add(k);if((a.factorVariant||a.variant)&&a.factors?.length&&hits.some(r=>r.factorVariant&&r.factors?.length))recorded.add(k);}
+   }
+   return {m,matched:names.size,recorded:recorded.size,factors};
+  }).sort((a,b)=>b.recorded-a.recorded||b.matched-a.matched||b.factors-a.factors||marePriority(b.m,goal)-marePriority(a.m,goal)||a.m.id.localeCompare(b.m.id,'ja'));
+  // Keep half of the budget for legacy diverse alternatives; projected overlaps
+  // are a proposal ordering only, never proof of an independent cross.
+  const chosen=[],seen=new Set(),add=m=>{if(m&&chosen.length<cap&&!seen.has(norm(m.id))){seen.add(norm(m.id));chosen.push(m);}};
+  if(prefix.length>=5)return shortlist(mares,goal,cap);
+  for(const x of scored.slice(0,Math.ceil(cap/2)))add(x.m);
+  for(const m of shortlist(mares,goal,cap))add(m);
+  for(const x of scored)add(x.m);
+  return chosen;
+ }
+ function optimize({initial,mares=[],evaluate,goal='balance',maxTests=80,steps=[3,4,5,6,7],projectDDS=false}={}){
   const first=metric(initial,goal);
   if(!first||typeof evaluate!=='function')return {winner:initial,audit:{error:'有効な31枠・締め肌理論と評価関数が必要',gameVerified:false}};
   const limit=Math.max(0,Math.min(180,Math.trunc(maxTests)||0));
@@ -97,7 +128,7 @@
   for(const step of steps){
    if(![3,4,5,6,7].includes(step))continue;
    let stepBest=best;
-   for(const mare of candidates){if(tests>=limit)break;
+   for(const mare of (projectDDS?projectedShortlist(mares,goal,perStage,best,step):candidates)){if(tests>=limit)break;
     const currentId=best.choices?.[step];if(!currentId||norm(mare.id)===norm(currentId))continue;
     if(Object.entries(best.choices||{}).some(([k,id])=>Number(k)!==step&&norm(id)===norm(mare.id)))continue;
     const choices={...best.choices,[step]:mare.id};
@@ -112,9 +143,9 @@
   }
   const after=metric(best,goal);
   const changed=compare(best,initial,goal)<0;
-  return {winner:changed?best:initial,audit:{version:610,goal,tests,invalid,limit,limited:tests>=limit,
+  return {winner:changed?best:initial,audit:{version:610,projectedDDS:projectDDS,goal,tests,invalid,limit,limited:tests>=limit,
     changedSteps:changed?changedSteps:[],improved:changed,before:first,after:changed?after:first,
     gameVerified:false,caveat:'31枠の既知因子・独立クロス・子系統の相対順位。未収録は因子なしとしない。ゲーム内の効果・能力・至高成立は未検証。'}};
  }
- return Object.freeze({grade,metric,compare,shortlist,optimize});
+ return Object.freeze({grade,metric,compare,shortlist,projectedShortlist,optimize});
 });

@@ -5,12 +5,13 @@
  * this optional research-only ranking.
  */
 (function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.DabimasMildEfficiency71=api;})(typeof window!=='undefined'?window:globalThis,function(){'use strict';
- const N=[3,4,5,6,7];
+ const SUPPORT=[3,4,5,6,7];
  const norm=x=>String(x??'').normalize('NFKC').replace(/\s/g,'').toLowerCase();
- function improve({initial,mares=[],evaluate,goal='balance',maxTests=35,projectDDS=false,refiner}={}){
+ function improve({initial,mares=[],evaluate,goal='balance',maxTests=35,projectDDS=false,steps=SUPPORT,refiner}={}){
   const first=refiner?.metric?.(initial,goal);
   if(!first||typeof evaluate!=='function'||typeof refiner?.compare!=='function'||typeof refiner?.shortlist!=='function')
    return {winner:initial,audit:{version:71,error:'最終血統・締め肌理論の確認が必要',tested:0,gameVerified:false}};
+  const N=[...new Set(steps)].filter(n=>[1,...SUPPORT].includes(n)&&initial.choices?.[n]);
   const limit=Math.min(90,Math.max(0,Math.trunc(Number(maxTests))||0));
   // Keep a small, lineage-diverse pool. We revisit EVERY pair of stages
   // before moving to higher-ranked replacement pairs, avoiding first-pair bias.

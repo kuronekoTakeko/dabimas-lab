@@ -2206,7 +2206,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   for(let i=0;i<Math.min(results.length,scope==='meihin_fast'?1:2);i++){
    const original=results[i];
    const two=efficiency71.improve({initial:original,mares,goal:p.goal,
-    maxTests:scope==='meihin_fast'?26:50,refiner:finish610,projectDDS:isMaternalDDS67(p),
+    maxTests:scope==='meihin_fast'?26:50,refiner:finish610,projectDDS:isMaternalDDS67(p),steps:isMaternalDDS67(p)&&!original.marePrep?[1,3,4,5,6,7]:[3,4,5,6,7],
     evaluate:choices=>{
      const candidate=opt10Trial(p,choices,original.xId,
       original.xPrep?.horse||null,original.marePrep?{1:original.marePrep.horse}:null);
@@ -4353,7 +4353,7 @@ function auto21Result(plan,ped,goal,mode,meta){
   <p class="muted"><b>比較順：</b>締め肌の超完璧→完璧、必要な新規準備工程の少なさを優先。同一3頭・同一3代目の4/5代交換で条件が同じ場合、記録済み因子の4代目優先を研究上の仮順位として利用します。4代目の実際の効果倍率は未検証です。ゲーム内の強さ・至高成立を保証しません。</p>
  </details>`:''}
  ${plan.mild610?`<details class="a21-flow"><summary>v6.10｜マイルド型・最終31枠の比較（${plan.mild610.tests||0}候補）</summary>
-  <p class="muted">同じ締め肌と至高祖先のまま、工程3〜7に使う名牝を変更して全9工程・最終31枠を再検査しました。比較は${esc(plan.mild610.limited?'上限到達の部分探索':'上限付きの部分探索')}です。</p>
+  <p class="muted">至高祖先と締め肌の理論を維持し、対象工程に使う名牝を変更して全9工程・最終31枠を再検査しました。比較は${esc(plan.mild610.limited?'上限到達の部分探索':'上限付きの部分探索')}です。</p>
   <p class="muted">研究用相対評価：${esc(plan.mild610.before?.score??'未計算')} → ${esc(plan.mild610.after?.score??'未計算')} ／ 改善${plan.mild610.improved?'あり':'なし（元の構成を維持）'} ／ 入れ替えた基幹工程：${esc((plan.mild610.changedSteps||[]).join('・')||'なし')}。</p>
   <p class="muted">採用案の独立クロス候補 ${esc(plan.mild610.after?.independentCrossCandidates??'未確認')}種類（因子記録まで確認 ${esc(plan.mild610.after?.independentCrossEvidence??'未確認')}種類）、4〜5代目で記録がある因子枠 ${esc(plan.mild610.after?.ancestorFactorsRecorded??'未確認')}枠、子系統 ${esc(plan.mild610.after?.childLineDiversity??'未確認')}種類。<b>因子・クロスのゲーム内効果やSP/ST能力を算出した数値ではありません。</b></p>
  </details>`:''}

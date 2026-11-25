@@ -69,6 +69,7 @@
    if(mx.independentCrossEvidence>0&&my.independentCrossEvidence>0&&mx.crossFactorEvidence!==my.crossFactorEvidence)
     return safe(my.crossFactorEvidence)-safe(mx.crossFactorEvidence);
    if(mx.score!==my.score)return safe(my.score)-safe(mx.score);
+   const line=finish?.compareLineage?.(mx,my)||0;if(line)return line;
   }
   if(typeof qualityCompare==='function'&&a.quality&&b.quality){
    const q=qualityCompare(a.quality,b.quality);if(q)return q;

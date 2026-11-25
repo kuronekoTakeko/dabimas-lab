@@ -12,9 +12,6 @@
   stamina:{'長':6,'中':4,'底':3,'走':2,'速':1,'短':1},
   balance:{'走':4,'速':3,'短':2,'中':4,'長':4,'底':2}
  };
- // Child lines from parent ancestry are research tags, NOT parent systems.
- const SPEED=['ハビタット','ボールドルーラー','フェアトライアル','クラリオン','プリンスビオ','トムフール','エクリプス','ダンテ','オーエンテューダー','インテント','ニアークティック','ネアルコ'];
- const STAMINA=['ハイペリオン','ブレニム','ネヴァーセイダイ','プリンスキロ','モスボロー','フェアウェイ','サーゲイロード','オリオール','ナスルーラ','テディ','フォルティノ','ヒムヤー','ニアークティック','ネアルコ'];
  function family(s){return String(s||'').replace(/系$/,'').trim();}
  function grade(t){return t?.theory66?.blocked?0:t?.theory66?.superPerfect==='成立'?8:t?.theory66?.perfect==='成立'?7:0;}
  function safeNumber(v){const n=Number(v);return Number.isFinite(n)?Math.max(0,n):0;}
@@ -22,14 +19,13 @@
   if(!t||t.matches!==3||t.full?.known!==31||t.full?.conflicts?.length||t.full?.transmission?.conflicts?.length||t.full?.transmission?.invalid?.length||grade(t)<7)return null;
   const w=WEIGHTS[goal]||WEIGHTS.balance,rows=t.full.rows||[];
   const anchors=new Set(['DDS','SSSS','SDSSS']);
-  const support=rows.filter(r=>[4,5].includes(r.path?.length)&&!anchors.has(r.path));
-  let lineWeighted=0,observedFactors=0,observedFactorRows=0;
+  const support=rows.filter(r=>[4,5].includes(r.path?.length)&&![...anchors].some(a=>r.path.startsWith(a)));
+  const generationEvidence=[4,5].map(depth=>{const group=support.filter(r=>r.path.length===depth), known=group.filter(r=>family(r.line));return {depth,slots:group.length,known:known.length,unknown:group.length-known.length,knownPaths:known.map(r=>r.path).sort(),distinct:new Set(known.map(r=>family(r.line))).size};});
+  let observedFactors=0,observedFactorRows=0;
   const childFamilies=new Set();
   for(const r of support){
    const line=family(r.line),scale=r.path.length===4?1.7:0.85;
-   if(line){childFamilies.add(line);const sp=SPEED.includes(line),st=STAMINA.includes(line);
-    lineWeighted+=scale*(goal==='speed'?(sp?2:0)+(st?0.5:0):goal==='stamina'?(st?2:0)+(sp?0.5:0):(sp?1.25:0)+(st?1.25:0));
-   }
+   if(line)childFamilies.add(line);
    if(Array.isArray(r.factors)&&r.factors.length){observedFactorRows++;
     for(const f of r.factors)observedFactors+=(w[f]||0)*scale;
    }
@@ -49,21 +45,27 @@
   const unresolvedCrossCandidates=Math.max(0,candidates.length-documented.length);
   const risk=safeNumber(t.risk),conflicts=safeNumber(t.conflictCount);
   const unverified=safeNumber(t.unresolvedCount);
-  const score=4*crossed+3*documented.length+0.35*candidates.length+lineWeighted+0.16*observedFactors+
-   0.65*childFamilies.size-5*risk-20*conflicts-Math.min(3,unverified)*0.12;
+  const score=4*crossed+3*documented.length+0.35*candidates.length+0.16*observedFactors-5*risk-20*conflicts-Math.min(3,unverified)*0.12;
   return {score:Math.round(score*100)/100,grade:grade(t),additionalBirths:safeNumber(t.additionalBirths),
    independentCrossCandidates:candidates.length,independentCrossEvidence:documented.length,crossFactorEvidence:Math.round(crossed*100)/100,
    candidateCrossFactorIndex:Math.round(candidateCrossed*100)/100,unresolvedCrossCandidates,crossEvidenceComplete:allDocumented,
-   ancestorFactorsRecorded:observedFactorRows,lineageEvidence:Math.round(lineWeighted*100)/100,
+   ancestorFactorsRecorded:observedFactorRows,lineageEvidence:null,generationEvidence,
    childLineDiversity:childFamilies.size,shortCrossRisk:risk,unresolvedCrosses:unverified,
    source:'最終31枠（記録根拠のある独立クロス／候補因子を分離した研究用相対評価）',gameVerified:false};
+ }
+ // No assumed SP/ST mapping from child-line names. Diversity is only a
+ // research tie-break, and only with identical observed positions.
+ function compareLineage(x,y){
+  const a=x?.generationEvidence,b=y?.generationEvidence;
+  if(!a||!b||a.length!==2||b.length!==2||a.some((g,i)=>g.slots!==b[i].slots||JSON.stringify(g.knownPaths)!==JSON.stringify(b[i].knownPaths)))return 0;
+  return b[0].distinct-a[0].distinct||b[1].distinct-a[1].distinct;
  }
  function compare(a,b,goal='balance'){
   const x=metric(a,goal),y=metric(b,goal);
   if(!x)return y?1:0;if(!y)return -1;
   // Theory evidence outranks production cost. Within the same theory grade,
   // extra matings must not be added solely for a research score increase.
-  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||y.score-x.score;
+  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||x.shortCrossRisk-y.shortCrossRisk||y.independentCrossEvidence-x.independentCrossEvidence||y.crossFactorEvidence-x.crossFactorEvidence||y.score-x.score||compareLineage(x,y);
  }
  function marePriority(m,goal){
   const w=WEIGHTS[goal]||WEIGHTS.balance;
@@ -147,5 +149,5 @@
     changedSteps:changed?changedSteps:[],improved:changed,before:first,after:changed?after:first,
     gameVerified:false,caveat:'31枠の既知因子・独立クロス・子系統の相対順位。未収録は因子なしとしない。ゲーム内の効果・能力・至高成立は未検証。'}};
  }
- return Object.freeze({grade,metric,compare,shortlist,projectedShortlist,optimize});
+ return Object.freeze({grade,metric,compare,compareLineage,shortlist,projectedShortlist,optimize});
 });

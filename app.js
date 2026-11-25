@@ -2111,7 +2111,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   if(theoryGrade<7||theoryGrade!==recipe.distinct){theoryRejected++;reject88.closingTheory++;continue;}
   // Save at most the bounded amount of grade-7 evidence. Still inspect
   // later recipes, as one may be a verified 31-slot grade-8 challenger.
-  if(theoryGrade===7&&results.length>=completeLimit)continue;
+  if(theoryGrade===7&&results.length>=completeLimit&&results.every(t=>opt66TheoryRank(t)>2))continue;
   const sireKey=recipe.sireId||recipe.sireName;
   // Diversity across candidate sire recipes: preserve alternatives for factor/cross assessment.
   const signature=[sireKey,base.id].join('|');if(seen.has(signature))continue;seen.add(signature);
@@ -2153,7 +2153,8 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
     if(grade===3)grade3Families128.add(String(trial.closingSireFamily105||'未確認').normalize('NFKC'));
     completeFatherFamilies105.add(trial.closingSireFamily105);
     const retained=typeof inv.retainDiverse105==='function'?
-     inv.retainDiverse105(results,trial,completeLimit,opt66TheoryRank,x=>x.closingSireFamily105):
+     inv.retainDiverse105(results,trial,completeLimit,opt66TheoryRank,x=>x.closingSireFamily105,
+      (a,b)=>window.DabimasMildFinish610?.compare(a,b,p.goal)||0):
      (typeof inv.retainStrongest90==='function'?inv.retainStrongest90(results,trial,completeLimit,opt66TheoryRank):
       [...results,trial].sort((a,b)=>opt66TheoryRank(b)-opt66TheoryRank(a)).slice(0,completeLimit));
     results.splice(0,results.length,...retained);

@@ -149,7 +149,7 @@
  // same-father recipes on a tie. Preserve theory grade and birth-count
  // priority; reserve a place for a different father within equal tier.
  // Caller still performs the full 31-slot quality ranking afterwards.
- function retainDiverse105(previous,candidate,cap,gradeOf,familyOf){
+ function retainDiverse105(previous,candidate,cap,gradeOf,familyOf,compareWithinTier){
   const limit=Math.max(0,Math.trunc(Number(cap)||0));if(!limit)return [];
   const grade=typeof gradeOf==='function'?gradeOf:()=>0;
   const family=typeof familyOf==='function'?familyOf:x=>x?.closingSireFamily105||x?.xId||'';
@@ -167,6 +167,8 @@
   const kept=[];
   for(const tier of tiers){
    const items=groups.get(tier),selectedFamilies=new Set();
+   // v145: compare complete bloodlines before bounded retention, not only arrival order.
+   if(typeof compareWithinTier==='function')items.sort((a,b)=>compareWithinTier(a.x,b.x)||a.index-b.index);
    // Choose first by original order, then one from every other sire family.
    for(const item of items){if(kept.length>=limit)break;
     if(!selectedFamilies.has(item.family)){kept.push(item.x);selectedFamilies.add(item.family);}

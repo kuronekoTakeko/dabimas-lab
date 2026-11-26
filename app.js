@@ -1129,7 +1129,7 @@ ${p.chain09?.outputs?.[9]?`<details class="prod-optional"><summary>生産後：�
 <div id="homePlanInline">${renderLinkedHomebreds(p)}</div>
 <h3 class="heading">生産フローの確認・進捗記録（合計${mild69FlowCount(p)}工程${mild69PrepStages(p).length?`：準備${mild69PrepStages(p).length}＋基幹${(p.steps||[]).length}`:""}）</h3>
 <p class="muted">工程を開くと、配合内容・必要な性別・希望因子・実測結果・SP/STの採用ラインを編集できます。生産前チェックに未確認が残る間は仮プランです。</p>
-${mild135FirstCheckHtml(p)}${mild137FactorHtml(p)}${mild152FactorAuditHtml(p)}${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild134CommonHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
+${production165Html(p)}${mild135FirstCheckHtml(p)}${mild137FactorHtml(p)}${mild152FactorAuditHtml(p)}${mild115HandoffHtml(p)}${mild116FlowHtml(p)}${mild117RealismHtml(p)}${mild118RealdataHtml(p)}${mild123EvidenceHtml(p)}${mild124LiveHtml(p)}${mild125DecisionHtml(p)}${mild104Html(p)}${mild98StageHtml(p)}${mild97ReadinessHtml(p)}${mild81ExecutionHtml(p)}${mild82GameLogHtml(p)}${mild80ProductionDemand(p)}${mild72ScheduleHtml(p)}${mild76CoreReuseHtml(p)}${mild79CacheHtml(p)}${mild84GateHtml(p)}${mild85ExtraHtml(p)}${mild131Final31Html(p)}${mild132StepEvidenceHtml(p)}${mild133DiagnosticsHtml(p)}${mild134CommonHtml(p)}${mild127ShortlistHtml(p)}${mild87GlobalHtml(p)}${mild108CompareHtml(p)}${mild94ReleaseHtml(p)}${mild95SiblingHtml(p)}${mild96VariantHtml(p)}${mild93AuditHtml(p)}${mild88CoverageHtml(p)}${mild89CoverageHtml(p)}${mild107NitroHtml(p)}${mild78EvidenceHtml(p)}${mild77TopologyHtml(p)}
 <div id="planStepEditor">${mild69PrepEditor(p)}${(p.steps||[]).map((s,i)=>renderPlanStep(s,i,(p.steps||[]).length,p)).join('')}</div>
 
 <details class="prod-optional"><summary>ゲームで生産後：ゲノム・成立確認</summary><div id="productionGuide13"></div></details>
@@ -3651,7 +3651,7 @@ function mild30Html(plan){
  const errors=result.blocks.length?`<p class="m30-block"><b>要確認：</b>${esc(result.blocks.slice(0,5).join('／'))}${result.blocks.length>5?` ほか${result.blocks.length-5}件`:''}</p>`:'';
  return `<section class="m30-preflight" aria-label="マイルド型の生産前点検"><h4>マイルド型｜生産前の自動点検</h4><p><b>${esc(summary)}</b></p><div class="m30-grid">${rows}</div>${errors}
  <p class="m30-notice">全兄弟姉妹による成立阻害や、血統表に現れない牝馬側の血縁関係は現在の公開マスターだけでは判定できません。${result.needsYearCheck?'年号付き種牡馬の同名扱いもゲーム内では未確認です。':''} 産駒本人因子・SP/ST・ニトロ・最終的な至高成立は推定しません。</p>
- <p class="m30-notice"><b>現在は実際の生産開始をまだ案内していません。</b> 初めて試すときは本気型ではなくマイルド型を選び、配合の成立確認を段階的に行います。</p></section>`;
+ <p class="m30-notice"><b>研究上の推奨案です。ゲーム内の配合理論と種付け権利を確認してから生産してください。</b> 初めて試すときは本気型ではなくマイルド型を選び、配合の成立確認を段階的に行います。</p></section>`;
 }
 
 // v4.4: no steps are discarded unless the exact 31 positions and factor
@@ -3667,6 +3667,48 @@ function reuse44Html(plan){
  ${matches.map(x=>`<p>工程${x.step}：${x.candidates.map(h=>esc(h.name)+'（'+esc(h.id)+'）').join('／')}</p>`).join('')}
  <p class="muted">ゲーム内の至高成立・能力は別途検証が必要です。既存の保存プラン・自家製馬は書き換えません。</p></details>`;
 }
+// v165: one shared, read-only production sequence for all three display styles.
+function production165Rows(plan){
+ if(!plan?.chain09||!plan?.routeDraft?.slots||!Array.isArray(plan.steps)||plan.steps.length<9)return [];
+ const p=JSON.parse(JSON.stringify(plan)),rows=[];
+ // Legacy expansion routes retain their existing detailed editor; don't silently omit prerequisites.
+ if(p.hard23?.preparations?.length||p.prep17?.steps?.length)return [];
+ for(const [i,x] of mild69PrepStages(p).entries())rows.push({label:'準備'+(i+1),sire:x.info.fatherId,mare:x.info.motherId,output:x.foal?.id||x.info.foalId,valid:!!x.foal&&key(x.foal.fatherId)===key(x.info.fatherId)&&key(x.foal.motherId)===key(x.info.motherId)&&x.foal.sex===(x.sex==='牡'?'male':'female'),sex:x.sex,done:!!x.progress.done,reused:false,mode:x.foal?.mode||'',wanted:''});
+ const offset=rows.length;
+ for(let n=1;n<=9;n++){
+  const pair=chain09Parents(p,n),out=chain09Output(p,n),def=chain09Definitions(p)[n-1],step=p.steps[n-1];
+  rows.push({label:'基幹工程'+n,sire:pair.sireId,mare:pair.mareId,output:out.horse?.id||'',valid:!!out.horse&&pair.ready,sex:n===9?'不問':def.sex==='female'?'牝':'牡',done:!!step.done,reused:!!out.reused,mode:out.horse?.mode||'',wanted:step.wantedFactors||'',sireRef:def.sireStep?offset+def.sireStep:0,mareRef:def.mareStep?offset+def.mareStep:0});
+ }
+ return rows.map((r,i)=>({...r,no:i+1}));
+}
+function production165Model(rows){
+ const outputs=new Map(),model=[];
+ for(const r of rows){
+  const ref=(id,fallback)=>{const matches=id?outputs.get(key(id))||[]:[];return matches.length===1?matches[0]:fallback||0;};
+  const s=ref(r.sire,r.sireRef),m=ref(r.mare,r.mareRef);
+  const deps=[s,m].filter(n=>n>0&&n<r.no),level=deps.length?Math.max(...deps.map(n=>model[n-1].level))+1:0;
+  model.push({...r,s,m,level});
+  if(r.output&&r.valid){const k=key(r.output);outputs.set(k,[...(outputs.get(k)||[]),r.no]);}
+ }
+ return model;
+}
+function production165Html(plan,view='saved'){
+ const rows=production165Model(production165Rows(plan));if(!rows.length)return '';
+ const num=n=>n<=20?String.fromCodePoint(0x245f+n):'('+n+')';
+ const parent=(r,side)=>{const ref=side==='s'?r.s:r.m,id=side==='s'?r.sire:r.mare;return ref?`${num(ref)}の産駒${id?'':'（未連結）'}`:id||'未指定';};
+ const result=r=>r.no===rows.length?'最終産駒':r.reused?`${num(r.no)}の産駒（再利用：${r.output}）`:`${num(r.no)}の産駒（${r.sex}）`;
+ const status=r=>!r.valid?'要確認・未連結':r.reused?'実馬再利用・新規生産不要':r.done?'完了（手動記録）':r.mode==='real'?'実馬登録済み':'未生産・仮設計';
+ const sexClass=r=>r.sex==='牡'?'p165-male':r.sex==='牝'?'p165-female':'p165-any';
+ const list=`<ol class="p165-list">${rows.map(r=>`<li class="${sexClass(r)}"><b>${num(r.no)} <span class="p165-sire">${esc(parent(r,'s'))}</span> × <span class="p165-mare">${esc(parent(r,'m'))}</span> → ${esc(result(r))}</b><small>${esc(r.label)}｜${esc(status(r))}${r.wanted?'｜希望因子：'+esc(r.wanted):''}</small>${r.reused?'':(!r.valid?'<small>親馬・産駒の登録を確認してください。</small>':'')}</li>`).join('')}</ol>`;
+ const counts=new Map(),nodes=rows.map(r=>{const row=counts.get(r.level)||0;counts.set(r.level,row+1);return {...r,x:16+r.level*292,y:16+row*158};});
+ const width=32+(Math.max(...nodes.map(n=>n.level))+1)*292,height=32+Math.max(...counts.values())*158;
+ const links=nodes.flatMap(n=>[['s',n.s],['m',n.m]].filter(x=>x[1]>0&&x[1]<n.no).map(([side,ref])=>{const a=nodes[ref-1],x=a.x+258,y=a.y+113,tx=n.x,ty=n.y+(side==='s'?47:76),mid=(x+tx)/2;return `<path d="M${x} ${y} H${mid} V${ty} H${tx}" fill="none" stroke="${side==='s'?'#2764a5':'#b04470'}" stroke-width="2" marker-end="url(#${side==='s'?'p165a':'p165b'}${esc(view)}${esc(plan.id)})"/>`; })).join('');
+ // IDs are scoped to a chart; two views never need to share a marker.
+ const chart=`<div class="p165-scroll" tabindex="0" aria-label="横にスクロールできる配合チャート"><div class="p165-chart" style="width:${width}px;height:${height}px"><svg aria-hidden="true" width="${width}" height="${height}"><defs>${[['a','#2764a5'],['b','#b04470']].map(([a,c])=>`<marker id="p165${a}${esc(view)}${esc(plan.id)}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="${c}"/></marker>`).join('')}</defs>${links}</svg>${nodes.map(r=>`<article class="p165-node ${sexClass(r)}" style="left:${r.x}px;top:${r.y}px"><strong>${num(r.no)} ${esc(r.label)}</strong><div class="p165-sire">父：${esc(parent(r,'s'))}</div><div class="p165-mare">母：${esc(parent(r,'m'))}</div><div class="p165-output">→ ${esc(result(r))}</div><small>${esc(status(r))}</small></article>`).join('')}</div></div>`;
+ const detail=`<div class="p165-scroll"><table class="detailtbl"><thead><tr><th>順番</th><th>父</th><th>母</th><th>産駒</th><th>状態・希望因子</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${num(r.no)} ${esc(r.label)}</td><td>${esc(parent(r,'s'))}${r.s&&r.sire?'<small> '+esc(r.sire)+'</small>':''}</td><td>${esc(parent(r,'m'))}${r.m&&r.mare?'<small> '+esc(r.mare)+'</small>':''}</td><td>${esc(result(r))}${r.output?'<small> '+esc(r.output)+'</small>':''}</td><td>${esc(status(r))}${r.wanted?'／'+esc(r.wanted):''}</td></tr>`).join('')}</tbody></table></div>`;
+ return `<section class="p165-flow"><h3>生産ガイド｜番号付き配合チャート</h3><p>全${rows.length}枠（再利用${rows.filter(r=>r.reused).length}枠）。番号は準備を含む生産順です。父馬名＝青、母馬名＝桃。工程の枠線は産駒の性別（牡＝青、牝＝赤、不問＝灰）。番号が付いた産駒を後の工程で使います。</p>${rows.some(r=>!r.valid)?'<p class="notice warn">未連結の工程があります。詳細工程で確認してから生産してください。</p>':''}<details open><summary>表示A：番号順の生産リスト</summary>${list}</details><details open><summary>表示B：つながりが分かるチャート（横スクロール）</summary>${chart}</details><details><summary>表示C：父母・登録名・希望因子の詳細表</summary>${detail}</details><p class="muted">ゲーム内の至高成立・産駒能力は未確認。希望因子は研究上の目標です。既存の工程番号や保存データは変更しません。</p></section>`;
+}
+
 function auto21Flow(plan){
  let lines=[];
  for(const step of plan.hard23?.preparations||[]){
@@ -4371,6 +4413,7 @@ function auto21Result(plan,ped,goal,mode,meta){
  const counts=Object.entries(c.frequency).map(([f,n])=>chip(f+' ×'+n)).join('');
  return `<div class="a21-report"><h3>作成済み｜${esc(plan.title)}</h3>
  <div class="a21-metrics"><div><b>${meta.stages||9}</b><small>生産工程（仮設計・追加仕込み含む）</small></div><div><b>${ped.known}/31</b><small>最終産駒・種牡馬祖先</small></div><div><b>${c.independentCount}</b><small>全クロス候補（至高指定含む）</small></div><div><b>${c.total}${c.complete?'':'+'}</b><small>因名判明分の全クロス因子</small></div>${extraReport?`<div><b>${esc(extraLabel)}</b><small>追加独立クロス候補（至高由来除外）</small></div>`:''}</div>
+ ${production165Html(plan,'result')}
  <p>目標：${esc(goalName)}｜レース：${esc(plan.target)}｜${isMaternalDDS67(plan)?'選択した至高3代目種牡馬の直仔牝馬×所持締め肌父Aを逆算（必要なら1代仕込み）':isMaternal66(plan)?'公開名牝7頭と所持の至高3異因名を配置しました（補助X不要）':'名牝6頭と所持種牡馬を自動配置しました'}。</p>
  ${mild69PrepStages(plan).length?`<p class="notice"><b>追加準備 ${mild69PrepStages(plan).length}工程</b>を基幹工程1より前に生産します。下の「生産順の配合フロー」に父母・産駒を記載しています。</p>`:''}
  ${plan.mild50?.reusedCount?`<p class="notice"><b>v5.0 実馬再利用：${plan.mild50.reusedCount}工程短縮</b>。基本9工程のうち新規生産は${plan.mild50.productionStages}工程です。既存実馬の父母・性別・31枠を一致検証しました。実馬記録の編集時はリンクを再確認します。</p>`:''}

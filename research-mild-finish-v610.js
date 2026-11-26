@@ -105,7 +105,8 @@
  // raw-factor mares. This is a shortlist, not an exhaustive global search.
  function shortlist(mares,goal,cap=16){
   const sorted=[...(mares||[])].filter(x=>x?.id&&x.ancestry?.length>=15)
-   .sort((a,b)=>marePriority(b,goal)-marePriority(a,goal)||a.id.localeCompare(b.id,'ja'));
+   .map(m=>({m,priority:marePriority(m,goal)}))
+   .sort((a,b)=>b.priority-a.priority||a.m.id.localeCompare(b.m.id,'ja')).map(x=>x.m);
   const limit=Math.max(0,Math.min(sorted.length,Math.trunc(cap)||0));
   const chosen=[],used=new Set(),byFamily=new Set();
   const add=m=>{const k=norm(m.id);if(chosen.length>=limit||used.has(k))return;chosen.push(m);used.add(k);};
@@ -135,8 +136,8 @@
     const fs=factorRecord(a);factors+=(fs||[]).reduce((n,f)=>n+(w[f]||0),0);
     const hits=opposite.get(k)||[];if(hits.length){names.add(k);if((a.factorVariant||a.variant)&&fs?.length&&hits.some(r=>r.factorVariant&&factorRecord(r)?.length))recorded.add(k);}
    }
-   return {m,matched:names.size,recorded:recorded.size,factors};
-  }).sort((a,b)=>b.recorded-a.recorded||b.matched-a.matched||b.factors-a.factors||marePriority(b.m,goal)-marePriority(a.m,goal)||a.m.id.localeCompare(b.m.id,'ja'));
+   return {m,matched:names.size,recorded:recorded.size,factors,priority:marePriority(m,goal)};
+  }).sort((a,b)=>b.recorded-a.recorded||b.matched-a.matched||b.factors-a.factors||b.priority-a.priority||a.m.id.localeCompare(b.m.id,'ja'));
   // Keep half of the budget for legacy diverse alternatives; projected overlaps
   // are a proposal ordering only, never proof of an independent cross.
   const chosen=[],seen=new Set(),add=m=>{if(m&&chosen.length<cap&&!seen.has(norm(m.id))){seen.add(norm(m.id));chosen.push(m);}};

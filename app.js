@@ -1359,7 +1359,13 @@ const homeId = name => `自家製:${String(name||'').trim()}`;
 let homeDraftPair=null;
 function homeHorseObj(rec){return {id:rec.id,name:rec.name,variant:'',factors:rec.mode==='real'&&rec.factorsVerified?(rec.factors||[]):[],factorsVerified:rec.mode==='real'&&rec.factorsVerified===true,lineage:rec.lineage||'',parentSystem:rec.parentSystem||rec.ancestry?.find(a=>a.path==='S')?.parentSystem||'',sex:rec.sex,ancestry:(rec.ancestry||[]),isHomebred:true,mode:rec.mode,sp:rec.sp,st:rec.st,fatherId:rec.fatherId,motherId:rec.motherId};}
 function getHomeParents(sex){return state.homebreds.filter(h=>h.sex===sex).map(homeHorseObj);}
-function findParentHorse(id){if(!id)return null;return getHomeParents('male').concat(getHomeParents('female')).find(x=>key(x.id)===key(id))||map.get(key(id))||null;}
+// v156: normalize the requested ID once; materialize only the matched homebred.
+// Preserve male-before-female precedence, including legacy duplicate IDs.
+function findParentHorse(id){if(!id)return null;const target=key(id);let female=null;
+ for(const h of state.homebreds){if((h.sex!=='male'&&h.sex!=='female')||key(h.id)!==target)continue;
+  if(h.sex==='male')return homeHorseObj(h);if(!female)female=h;}
+ return female?homeHorseObj(female):map.get(target)||null;}
+
 function mergeHomebreds(items){const byId=new Map(state.homebreds.map(h=>[key(h.id),h]));for(const h of items){if(!h||typeof h.name!=='string'||!['male','female'].includes(h.sex)||!Array.isArray(h.ancestry))continue;const id=String(h.id||homeId(h.name));const clean={...h,id,ancestry:h.ancestry.slice(0,31),factors:Array.isArray(h.factors)?h.factors.slice(0,3):[]};const existing=byId.get(key(id));if(!existing||String(clean.updatedAt||'')>String(existing.updatedAt||''))byId.set(key(id),clean);}state.homebreds=[...byId.values()];}
 function getPlanTitle(id){return getPlan(id)?.title||'（計画削除または未設定）';}
 function renderLinkedHomebreds(p){

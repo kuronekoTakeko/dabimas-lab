@@ -641,7 +641,7 @@ function mild78EvidenceHtml(plan){
  return `<details class="a21-flow"><summary>v7.8｜最終31枠の因子・独立クロス重視の比較</summary>
  <p class="muted">締め肌の配合理論：${x.grade===8?'超完璧':x.grade===7?'完璧':'未確認'}（公開データ上の一次判定）／追加準備：${esc(x.additionalBirths)}工程。</p>
  <p class="muted">独立クロス候補 ${esc(x.independentCrossCandidates??'未確認')}件（うち因子記録の裏付け ${esc(x.confirmedIndependentCrosses??'未確認')}件）／記録済みのクロス因子研究指数 ${esc(x.knownCrossFactorIndex??'未確認')} ／ 4・5代目の因子記録 ${esc(x.factorRowsRecorded??'未確認')}枠 ／ 子系統 ${esc(x.lineageFamilies??'未確認')}種類。</p>
- <p class="muted">選択順位：超完璧→完璧。同じ理論なら原則工程数を優先し、v8.5の独立クロス・安全性・因子記録の証拠がそろった場合に限り自家製種牡馬1工程を許容。裏付けのない同名クロス候補数だけでは優先しません。研究用相対評価 ${esc(x.researchScore??'未確認')}。ゲーム内の成立・効果・SP/STは未確認です。</p>
+ ${x.version>=154?`<p class="muted"><b>v154｜最終31枠の比較方針：</b>因子記録 ${esc(x.fullDocumentedFactorSlots??'未確認')}/31枠、効果未確認の独立クロス候補 ${esc(x.unresolvedCrossCandidates??'未確認')}件。同一理論・追加工程の根拠段階では近親リスクと記録根拠のある独立クロスを先に比較。因子未収録位置が異なる場合は記録の充実度を確認優先度にのみ用い、未確認クロス数に加点しません。追加仕込みの改善判定では未確認クロスの増加も確認します。研究用相対評価 ${esc(x.researchScore??'未確認')}。ゲーム内の成立・効果・SP/STは未確認です。</p>`:`<p class="muted">選択順位：超完璧→完璧。同じ理論なら原則工程数を優先し、v8.5の独立クロス・安全性・因子記録の証拠がそろった場合に限り自家製種牡馬1工程を許容。裏付けのない同名クロス候補数だけでは優先しません。研究用相対評価 ${esc(x.researchScore??'未確認')}。ゲーム内の成立・効果・SP/STは未確認です。</p>`}
  </details>`;
 }
 function mild77TopologyHtml(plan){

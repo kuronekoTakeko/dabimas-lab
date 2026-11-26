@@ -28,6 +28,7 @@
    score:sm.score};
   const noLoss=em.crossFactorEvidence>=sm.crossFactorEvidence &&
    em.shortCrossRisk<=sm.shortCrossRisk && em.unresolvedCrosses<=sm.unresolvedCrosses &&
+   safe(em.unresolvedCrossCandidates)<=safe(sm.unresolvedCrossCandidates) &&
    em.ancestorFactorsRecorded>=sm.ancestorFactorsRecorded && em.score>sm.score;
   const newDocumentedCross=em.independentCrossEvidence>sm.independentCrossEvidence;
   result.approved=!!(noLoss&&newDocumentedCross);
@@ -58,7 +59,7 @@
   // from beating a comparable direct candidate merely on raw factor totals.
   // Factor counts have no claimed SP/ST conversion; compare recorded nitro
   // stages only when annotation coverage is comparable.
-  const n=nitro();if(n?.compare){const d=n.compare(x,y,goal);if(d)return d;}
+  const n=nitro();
   const mx=finish?.metric?.(x,goal)||null,my=finish?.metric?.(y,goal)||null;
   if(mx&&my){
    // Avoid upgrading a candidate with worsened documented short-cross risk.
@@ -68,6 +69,10 @@
     return safe(my.independentCrossEvidence)-safe(mx.independentCrossEvidence);
    if(mx.independentCrossEvidence>0&&my.independentCrossEvidence>0&&mx.crossFactorEvidence!==my.crossFactorEvidence)
     return safe(my.crossFactorEvidence)-safe(mx.crossFactorEvidence);
+   // v154: documentation priority is not ability. Never prefer fewer
+   // unresolved cross candidates at the expense of recorded factor slots.
+   const coverage=safe(my.fullDocumentedFactorSlots)-safe(mx.fullDocumentedFactorSlots);if(coverage)return coverage;
+   if(n?.compare){const d=n.compare(x,y,goal);if(d)return d;}
    // v152: different unknown-factor positions make raw ancestor-factor scores incomparable.
    if(finish?.comparableCoverage?.(mx,my)&&mx.score!==my.score)return safe(my.score)-safe(mx.score);
    // Same evidence tier but differing factor masks: a completeness tie-break
@@ -77,6 +82,7 @@
    const line=finish?.compareLineage?.(mx,my)||0;if(line)return line;
   }
   const closing=finish?.compareClosing?.(x,y,goal)||0;if(closing)return closing;
+  if(mx&&my&&safe(mx.unresolvedCrossCandidates)!==safe(my.unresolvedCrossCandidates))return safe(mx.unresolvedCrossCandidates)-safe(my.unresolvedCrossCandidates);
   if(typeof qualityCompare==='function'&&a.quality&&b.quality){
    const q=qualityCompare(a.quality,b.quality);if(q)return q;
   }
@@ -89,13 +95,13 @@
  }
  function snapshot(t,goal='balance',finish=null){
   const m=finish?.metric?.(t,goal)||null;
-  return {version:109,gameVerified:false,goal,grade:grade(t),additionalBirths:safe(t?.additionalBirths),
+  return {version:154,gameVerified:false,goal,grade:grade(t),additionalBirths:safe(t?.additionalBirths),
    confirmedIndependentCrosses:m?.independentCrossEvidence??null,
    independentCrossCandidates:m?.independentCrossCandidates??null,
    knownCrossFactorIndex:m?.crossFactorEvidence??null,
    candidateCrossFactorIndex:m?.candidateCrossFactorIndex??null,
    unresolvedCrossCandidates:m?.unresolvedCrossCandidates??null,
-   factorRowsRecorded:m?.ancestorFactorsRecorded??null,
+   factorRowsRecorded:m?.ancestorFactorsRecorded??null,fullDocumentedFactorSlots:m?.fullDocumentedFactorSlots??null,
    lineageFamilies:m?.childLineDiversity??null,
    researchScore:m?.score??null,
    caveat:'締め肌の完璧／超完璧は独立評価。同じ理論・追加工程の根拠段階では最終産駒の記録済みニトロ段階と独立クロスを比較し、実質同程度なら少工程を優先。SP/ST予測・効果倍率・ゲーム内成立の保証なし。'};

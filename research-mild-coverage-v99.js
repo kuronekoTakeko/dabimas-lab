@@ -31,7 +31,7 @@
   if(conflicts.length)warnings.push('重複登録ID '+conflicts.length+'件');
   if(source.length&&completeMares.length!==mares.length)warnings.push('公開繁殖牝馬の祖先情報不完全 '+(mares.length-completeMares.length)+'頭');
   return {version:99,canRun:!errors.length,errors,warnings,ownedCount:ownedIds.length,matched:ownedIds.length-missing.length,usable:usable.length,missing,incomplete,zeroRights: rightsZero.length,mares:mares.length,completeMares:completeMares.length,masterCount:source.length,selectedMissing,duplicates:conflicts.length,
-   limited:true,gameVerified:false,caveat:'公開CSVの収録範囲・品質の診断です。探索は起点候補や配置数の上限を持つ限定探索で、全315頭の全組合せ網羅・ゲーム内至高成立は保証しません。権利0は候補から除外しません。'};
+   limited:true,gameVerified:false,caveat:'公開CSVの収録範囲・品質の診断です。探索は起点候補や配置数の上限を持つ限定探索で、取得済み種牡馬の全組合せ網羅・ゲーム内至高成立は保証しません。権利0は候補から除外しません。'};
  }
  return Object.freeze({inspect});
 });

@@ -50,11 +50,11 @@
   const unresolvedCrossCandidates=Math.max(0,candidates.length-credited.length);
   const risk=safeNumber(t.risk),conflicts=safeNumber(t.conflictCount);
   const unverified=safeNumber(t.unresolvedCount);
-  const score=4*crossed+3*credited.length+0.35*candidates.length+0.16*observedFactors-5*risk-20*conflicts-Math.min(3,unverified)*0.12;
+  const score=4*crossed+3*credited.length+0.16*observedFactors-5*risk-20*conflicts-Math.min(3,unverified)*0.12;
   return {score:Math.round(score*100)/100,grade:grade(t),additionalBirths:safeNumber(t.additionalBirths),
    independentCrossCandidates:candidates.length,independentCrossEvidence:credited.length,crossFactorEvidence:Math.round(crossed*100)/100,
    candidateCrossFactorIndex:Math.round(candidateCrossed*100)/100,unresolvedCrossCandidates,crossEvidenceComplete:allDocumented,
-   ancestorFactorsRecorded:observedFactorRows,documentedFactorPaths:factorCoverage.sort(),lineageEvidence:null,generationEvidence,
+   ancestorFactorsRecorded:observedFactorRows,fullDocumentedFactorSlots:rows.filter(r=>factorRecord(r)!==null).length,documentedFactorPaths:factorCoverage.sort(),lineageEvidence:null,generationEvidence,
    childLineDiversity:childFamilies.size,shortCrossRisk:risk,unresolvedCrosses:unverified,
    source:'最終31枠（記録根拠のある独立クロス／候補因子を分離した研究用相対評価）',gameVerified:false};
  }
@@ -89,10 +89,10 @@
   if(!x)return y?1:0;if(!y)return -1;
   // Theory evidence outranks production cost. Within the same theory grade,
   // extra matings must not be added solely for a research score increase.
-  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||x.shortCrossRisk-y.shortCrossRisk||y.independentCrossEvidence-x.independentCrossEvidence||y.crossFactorEvidence-x.crossFactorEvidence||(comparableCoverage(x,y)?y.score-x.score:
+  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||x.shortCrossRisk-y.shortCrossRisk||y.independentCrossEvidence-x.independentCrossEvidence||y.crossFactorEvidence-x.crossFactorEvidence||y.fullDocumentedFactorSlots-x.fullDocumentedFactorSlots||(comparableCoverage(x,y)?y.score-x.score:
    // Different unknown masks are NOT an ability comparison. In a research
    // tie, prefer the pedigree with more documented support SLOTS to audit.
-   y.documentedFactorPaths.length-x.documentedFactorPaths.length)||compareLineage(x,y)||compareClosing(a,b,goal);
+   y.documentedFactorPaths.length-x.documentedFactorPaths.length)||compareLineage(x,y)||compareClosing(a,b,goal)||x.unresolvedCrossCandidates-y.unresolvedCrossCandidates;
  }
  function marePriority(m,goal){
   const w=WEIGHTS[goal]||WEIGHTS.balance;

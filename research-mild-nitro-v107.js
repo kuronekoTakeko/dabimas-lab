@@ -7,6 +7,7 @@
  const weights=Object.freeze({speed:{'短':9,'速':5,'長':1},stamina:{'長':9,'速':5,'短':1},balance:{'速':7,'長':7,'短':2}});
  const paths=new Set();for(let n=1;n<=5;n++){for(let i=0;i<(1<<(n-1));i++){let s='';for(let bit=n-2;bit>=0;bit--)s+=(i&(1<<bit))?'D':'S';paths.add(s+'S');}}
  const norm=x=>String(x??'').normalize('NFKC').replace(/\s/g,'').toLowerCase();
+ const unknownCross=m=>Number(m?.unresolvedCrossCandidates||0);
  const grade=c=>c?.theory66?.blocked?0:c?.theory66?.superPerfect==='成立'?8:c?.theory66?.perfect==='成立'?7:0;
  const validFactors150=new Set(['短','速','底','長','走','中','強','雷','堅','難','適','丈','早','晩']);
  function factorRecord150(row){const shared=typeof globalThis!=='undefined'?globalThis.DabimasMildFactorIntegrity152:null;
@@ -53,7 +54,7 @@
   const prioritized=keys.some(k=>e.stages[k]>b.stages[k]);
   const noLoss=keys.every(k=>e.stages[k]>=b.stages[k])&&em.independentCrossEvidence>=bm.independentCrossEvidence&&
    em.crossFactorEvidence>=bm.crossFactorEvidence&&em.shortCrossRisk<=bm.shortCrossRisk&&
-   em.unresolvedCrosses<=bm.unresolvedCrosses&&em.ancestorFactorsRecorded>=bm.ancestorFactorsRecorded;
+   em.unresolvedCrosses<=bm.unresolvedCrosses&&unknownCross(em)<=unknownCross(bm)&&em.ancestorFactorsRecorded>=bm.ancestorFactorsRecorded;
   result.approved=prioritized&&noLoss&&e.researchIndex>b.researchIndex;
   result.reason=result.approved?'記録済みニトロ段階が改善し、クロス・安全性・情報量の悪化なし':
    'ニトロ段階改善またはクロス・安全性維持の根拠不足';return result;
@@ -74,7 +75,7 @@
   const better=keys.some(k=>e.stages[k]>b.stages[k]);
   const crossSafe=em.independentCrossEvidence>=bm.independentCrossEvidence&&
    em.crossFactorEvidence>=bm.crossFactorEvidence&&em.shortCrossRisk<=bm.shortCrossRisk&&
-   em.unresolvedCrosses<=bm.unresolvedCrosses&&em.ancestorFactorsRecorded>=bm.ancestorFactorsRecorded;
+   em.unresolvedCrosses<=bm.unresolvedCrosses&&unknownCross(em)<=unknownCross(bm)&&em.ancestorFactorsRecorded>=bm.ancestorFactorsRecorded;
   // A superior 1-stage rival alone is insufficient: where a validated
   // direct route exists, 2-stage evidence must also beat that direct route.
   let strongerThanDirect=true;
@@ -83,7 +84,7 @@
    strongerThanDirect=!!(d&&dm&&comparable(extra,directBaseline)&&
     keys.every(k=>e.stages[k]>=d.stages[k])&&e.researchIndex>d.researchIndex&&
     em.independentCrossEvidence>=dm.independentCrossEvidence&&em.crossFactorEvidence>=dm.crossFactorEvidence&&
-    em.shortCrossRisk<=dm.shortCrossRisk&&em.unresolvedCrosses<=dm.unresolvedCrosses&&
+    em.shortCrossRisk<=dm.shortCrossRisk&&em.unresolvedCrosses<=dm.unresolvedCrosses&&unknownCross(em)<=unknownCross(dm)&&
     em.ancestorFactorsRecorded>=dm.ancestorFactorsRecorded);
   }
   result.approved=nondecreasing&&better&&crossSafe&&strongerThanDirect&&e.researchIndex>b.researchIndex;

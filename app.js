@@ -505,6 +505,7 @@ function mild127ShortlistHtml(plan){
  ${rescue128Html}
  ${!d.canCompareAllRoutes?'<p class="muted">重要：4構成すべてを同条件で比較できていません。未観測の構成を劣るものと判定しません。</p>':''}
  <p><b>父系を分けた最大3例</b>（候補は実生産の許可ではなく検討対象）：</p>
+ ${d.goalAlternatives?.length?`<p><b>能力方針別の記録最大候補（参考・生産未承認）</b></p><ul>${d.goalAlternatives.map(c=>`<li>${esc(c.factor)}因子 ${esc(c.recordedCounts?.[c.factor])}個／探索順位 ${esc(c.rank)}／${esc(c.family)}／${esc(routes[c.route])}／因子未収録 ${esc(c.missingFactorSlots)}枠／名牝 ${esc(Object.values(c.choices||{}).join('・'))}</li>`).join('')}</ul><p class="muted">収録位置が異なる場合は能力の優劣は未判定です。</p>`:''}
  ${list?`<ol>${list}</ol>`:'<p class="muted">保存された比較候補がありません。</p>'}
  ${d.needsNewSearch?'<p class="notice warn">この保存プランの順位は旧方式で作成済みです。v126のクロス由来フィルタを含めた新しい自動設計の順位ではありません。新規作成時にv127の比較情報を保存します。</p>':''}
  <p class="muted">${esc(d.caveat)} ゲーム内の至高・有効クロス・SP/STと名牝の入手は未確認です。保存・所持権利数を変更しません。</p></details>`;
@@ -624,7 +625,7 @@ function mild89CoverageHtml(plan){
  <p class="muted">一次逆算レシピ ${esc(d.precheckRecipes??'未確認')}案、比較候補リスト ${esc(d.offered??'未確認')}案、31枠を実際に詳細検査 ${esc(d.inspected??'未確認')}案（第2枠 ${esc(d.rescueInspected??0)}案）、31枠完成 ${esc(d.completeCandidates??0)}案。検査リスト内で未実施 ${esc(d.notReviewed??0)}案、比較候補リスト外 ${esc(d.outsideShortlist??0)}案。</p>
  <p class="muted">${d.version===90?`追加検査を行う条件：${esc(d.rescueTrigger||'未確認')}。詳細検査済みの完璧候補${esc(d.perfectCandidates??0)}件・超完璧候補${esc(d.superPerfectCandidates??0)}件（公開血統の一次条件、ゲーム内未確認）。` : ''}結果：${esc(d.stopReason||'未確認')}。${d.exhaustive?'この時点の公開データ上の事前レシピは検査範囲内です。':'探索上限・早期終了があるため、候補の不存在は証明していません。'} 9工程と追加1工程の採否は別の横断比較で決定します。</p>
  ${d.fatherFamiliesInspected105!=null?`<p class="muted"><b>v105｜締め肌父の候補分散：</b>詳細検査した父馬系統 ${esc(d.fatherFamiliesInspected105)}種類／31枠完成した父馬系統 ${esc(d.fatherFamiliesCompleted105)}種類／最終比較へ残った父馬系統 ${esc(d.fatherFamiliesFinal105)}種類。完成した別父候補：${esc((d.fatherExamples105||[]).join('、')||'なし')}。この集計は選択した配置の限定探索のみで、別父の完璧・超完璧成立や能力優位を意味しません。</p>`:''}
- ${d.lane153?`<p class="muted"><b>v153｜別構成の比較候補保持：</b>完璧・超完璧の一次判定と仕込み構成別に、従来候補${esc(d.lane153.baseline)}案＋比較代表${esc(d.lane153.added)}案を確保。追加候補は生産工程の追加指示ではありません。${esc((d.lane153.retained||[]).map(k=>k.replace('8|','超完璧・').replace('7|','完璧・').replace('sireOnly','種側1').replace('mareOnly','肌側1').replace('both','両側2').replace('direct','追加なし')).join('／'))}。限定探索・ゲーム内未確認。</p>`:''}
+ ${d.lane153?`<p class="muted"><b>v153｜別構成の比較候補保持：</b>完璧・超完璧の一次判定と仕込み構成別に、従来候補${esc(d.lane153.baseline)}案＋比較代表${esc(d.lane153.added)}案を確保。能力方針別の因子記録候補 ${esc(d.lane153.goalAdded??0)}案も保持。追加候補は生産工程の追加指示ではありません。${esc((d.lane153.retained||[]).map(k=>k.replace('8|','超完璧・').replace('7|','完璧・').replace('sireOnly','種側1').replace('mareOnly','肌側1').replace('both','両側2').replace('direct','追加なし')).join('／'))}。限定探索・ゲーム内未確認。</p>`:''}
  <p class="muted">中心種牡馬 ${esc(d.centerId||'未確認')}。${esc(d.caveat||'ゲーム内未確認。')}</p>
  </details>`;
 }
@@ -2063,7 +2064,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length&&window.DabimasMildFactorIntegrity152.audit(ped.rows).available;
  const results=[],seen=new Set(),supportSignatures=new Set();
  // v153: retain one representative per validated theory/route lane.
- const lane153=window.DabimasMildLane153?.create((a,b)=>window.DabimasMildFinish610?.compare(a,b,p.goal)||0);
+ const lane153=window.DabimasMildLane153?.create((a,b)=>window.DabimasMildFinish610?.compare(a,b,p.goal)||0,p.goal);
  // v105: track only successful complete pedigrees, not unverified eight-line prechecks.
  const completeFatherFamilies105=new Set();
  const candidateFatherFamilies105=new Set();

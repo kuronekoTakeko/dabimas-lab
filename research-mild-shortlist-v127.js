@@ -16,7 +16,7 @@
    sireFoundationMare:c?.xPrep?.motherId||null,mareFoundationFather:c?.marePrep?.fatherId||null,
    mareFoundationMare:c?.marePrep?.motherId||null,route:kind(c),additionalBirths:num(c.additionalBirths),
    grade:ranker?.grade?.(c)===8?'超完璧・一次判定':ranker?.grade?.(c)===7?'完璧・一次判定':'不明',
-   missingFactorSlots:nitro?.missingFactorSlots??null,nitroStages:nitro?.stages??null,
+   recordedCounts:nitro?.counts??null,choices:{...c.choices},missingFactorSlots:nitro?.missingFactorSlots??null,nitroStages:nitro?.stages??null,
    additionalCrossResearchEvidence:v?.independentCrossEvidence??null,
    crossEffectVerified:false,gameVerified:false};
  }
@@ -30,7 +30,10 @@
    const row=eligible[i],key=family(row.rank.candidate).normalize('NFKC').toLowerCase();
    if(used.has(key))continue;used.add(key);chosen.push(compact(row,i,{ranker,finish,goal}));
   }
-  return {version:127,scope:'one-search-ranked',eligible:eligible.length,distribution,candidates:chosen,
+  const goalAlternatives=[];const factors=goal==='stamina'?['長']:goal==='speed'?['短','速']:['短','速','長'];
+  const profiles=eligible.map((r,i)=>compact(r,i,{ranker,finish,goal}));
+  for(const f of factors){let best=null;for(const c of profiles){if(c.recordedCounts&&(!best||c.recordedCounts[f]>best.recordedCounts[f]))best=c;}if(best)goalAlternatives.push({...best,factor:f});}
+  return {version:127,goalAlternatives,scope:'one-search-ranked',eligible:eligible.length,distribution,candidates:chosen,
    selectedNotEnoughFamilies:chosen.length<Math.min(3,eligible.length),completeSearch:false,gameVerified:false,
    caveat:'同一作成操作中に最終31枠と締め肌の一次条件を通過した有限候補の、父系を分けた比較上位。選定された一案以外は保存された生産工程ではありません。欠けている経路や未探索レシピを不成立と断定しません。権利数は順位に使いません。'};
  }
@@ -52,7 +55,7 @@
   const noCandidates=candidates.length===0;
   return {version:127,planId:plan.id||'',planTitle:plan.title||'',race:plan.autoDesign21?.race||'',goal:plan.goal||'',
    fresh:!!fresh,source:fresh?'保存時のv127順位記録':'旧版の保存済み代表候補（v126評価で再探索していない）',
-   candidates,distribution:stage,eligible:fresh?.eligible??older?.distinct??null,
+   candidates,goalAlternatives:fresh?.goalAlternatives||[],distribution:stage,eligible:fresh?.eligible??older?.distinct??null,
    inspectCount:coverage?.inspected??null,notReviewed:coverage?.notReviewed??null,
    outsideShortlist:coverage?.outsideShortlist??null,
    fullSearch:coverage?.exhaustive===true&&plan.fastSearch59?.complete===true,

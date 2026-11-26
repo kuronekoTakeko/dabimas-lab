@@ -128,21 +128,32 @@
    const k=norm(r.name);if(!opposite.has(k))opposite.set(k,[]);opposite.get(k).push(r);
   }
   const w=WEIGHTS[goal]||WEIGHTS.balance;
+  // v157: reserve proposal lanes for surviving goal factors and novel child
+  // lines. Names alone are not evidence of cross effects or ability.
+  const otherLines=new Set(rows.filter(r=>!r.path.startsWith(prefix)&&outside(r.path)&&[4,5].includes(r.path.length)).map(r=>family(r.line)).filter(Boolean));
   const scored=(mares||[]).filter(m=>m?.id&&m.ancestry?.length>=15).map(m=>{
-   const names=new Set(),recorded=new Set();let factors=0;
+   const names=new Set(),recorded=new Set(),novelLines=new Set();let factors=0,knownSlots=0;
    for(const a of m.ancestry){const path=prefix+String(a.path||'').replace(/父/g,'S').replace(/母/g,'D');
     if(!/^[SD]{0,4}S$/.test(path)||!outside(path))continue;
     const k=norm(a.horse||a.name);if(!k||anchorNames.has(k))continue;
-    const fs=factorRecord(a);factors+=(fs||[]).reduce((n,f)=>n+(w[f]||0),0);
+    const fs=factorRecord(a);if(fs!==null)knownSlots++;
+    const line=family(a.line||a.lineage);if(line&&!otherLines.has(line)&&[4,5].includes(path.length))novelLines.add(line);
+    factors+=(fs||[]).reduce((n,f)=>n+(w[f]||0),0);
     const hits=opposite.get(k)||[];if(hits.length){names.add(k);if((a.factorVariant||a.variant)&&fs?.length&&hits.some(r=>r.factorVariant&&factorRecord(r)?.length))recorded.add(k);}
    }
-   return {m,matched:names.size,recorded:recorded.size,factors,priority:marePriority(m,goal)};
+   return {m,matched:names.size,recorded:recorded.size,factors,knownSlots,novelLines:novelLines.size,priority:marePriority(m,goal)};
   }).sort((a,b)=>b.recorded-a.recorded||b.matched-a.matched||b.factors-a.factors||b.priority-a.priority||a.m.id.localeCompare(b.m.id,'ja'));
   // Keep half of the budget for legacy diverse alternatives; projected overlaps
   // are a proposal ordering only, never proof of an independent cross.
   const chosen=[],seen=new Set(),add=m=>{if(m&&chosen.length<cap&&!seen.has(norm(m.id))){seen.add(norm(m.id));chosen.push(m);}};
   if(prefix.length>=5)return shortlist(mares,goal,cap);
-  for(const x of scored.slice(0,Math.ceil(cap/2)))add(x.m);
+  const projectedBudget=Math.ceil(cap/2);
+  if(cap>=4){
+   const factorLane=[...scored].sort((a,b)=>b.knownSlots-a.knownSlots||b.factors-a.factors||a.m.id.localeCompare(b.m.id,'ja'));
+   const lineLane=[...scored].sort((a,b)=>b.novelLines-a.novelLines||b.knownSlots-a.knownSlots||b.factors-a.factors||a.m.id.localeCompare(b.m.id,'ja'));
+   const lanes=[scored,factorLane,lineLane];
+   for(let i=0;chosen.length<projectedBudget&&i<scored.length;i++)for(const lane of lanes){if(chosen.length>=projectedBudget)break;add(lane[i]?.m);}
+  }else for(const x of scored.slice(0,projectedBudget))add(x.m);
   for(const m of shortlist(mares,goal,cap))add(m);
   for(const x of scored)add(x.m);
   return chosen;

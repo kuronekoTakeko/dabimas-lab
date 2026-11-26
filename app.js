@@ -2208,6 +2208,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
      replacement.additionalBirths=starting.additionalBirths;
      replacement.maternal67=starting.maternal67;
      replacement.xSearchCount=starting.xSearchCount;replacement.closingSireFamily105=starting.closingSireFamily105;
+     lane153?.observe(replacement); // v161: retain validated single-step alternatives, even if not local winner
      return replacement;
     }});
    if(refinement?.audit){results[i]=refinement.winner;
@@ -2242,6 +2243,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
      candidate.maternal67=original.maternal67;
      candidate.xSearchCount=original.xSearchCount;candidate.closingSireFamily105=original.closingSireFamily105;
      candidate.finish610=original.finish610||null;
+     lane153?.observe(candidate); // v161: retain validated pair alternatives
      return candidate;
     }});
    results[i]=two.winner;
@@ -2291,6 +2293,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
      newTrial.xSearchCount=original.xSearchCount;newTrial.closingSireFamily105=original.closingSireFamily105;
      newTrial.finish610=original.finish610||null;
      newTrial.efficiency71=original.efficiency71||null;
+     lane153?.observe(newTrial); // v161: retain validated variant alternatives
      return newTrial;
     }});
    results[i]=check.winner;

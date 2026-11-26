@@ -131,19 +131,26 @@
   const opposite=new Map();for(const r of rows)if(r.path.startsWith(prefix[0]==='D'?'S':'D')&&outside(r.path)&&!anchorNames.has(norm(r.name))){
    const k=norm(r.name);if(!opposite.has(k))opposite.set(k,[]);opposite.get(k).push(r);
   }
+  // v161: a projected repeat is a cross proposal only if it has an
+  // independent parent-side pair, not merely two descendants of a repeated horse.
+  const oppositeRows=rows.filter(r=>r.path.startsWith(prefix[0]==='D'?'S':'D'));
   const w=WEIGHTS[goal]||WEIGHTS.balance;
   // v157: reserve proposal lanes for surviving goal factors and novel child
   // lines. Names alone are not evidence of cross effects or ability.
   const otherLines=new Set(rows.filter(r=>!r.path.startsWith(prefix)&&outside(r.path)&&[4,5].includes(r.path.length)).map(r=>family(r.line)).filter(Boolean));
   const scored=(mares||[]).filter(m=>m?.id&&m.ancestry?.length>=15).map(m=>{
    const names=new Set(),recorded=new Set(),novelLines=new Set();let factors=0,knownSlots=0;
-   for(const a of m.ancestry){const path=prefix+String(a.path||'').replace(/父/g,'S').replace(/母/g,'D');
+   const projected=m.ancestry.map(a=>({a,path:prefix+String(a.path||'').replace(/父/g,'S').replace(/母/g,'D'),name:norm(a.horse||a.name)})).filter(r=>/^[SD]{0,4}S$/.test(r.path)&&r.name);
+   const independent=(a,b)=>!projected.some(parent=>parent.name!==a.name&&a.path.length>parent.path.length&&a.path.startsWith(parent.path)&&oppositeRows.some(r=>norm(r.name)===parent.name&&b.path.length>r.path.length&&b.path.startsWith(r.path)));
+   for(const entry of projected){const {a,path}=entry;
     if(!/^[SD]{0,4}S$/.test(path)||!outside(path))continue;
     const k=norm(a.horse||a.name);if(!k||anchorNames.has(k))continue;
     const fs=factorRecord(a);if(fs!==null)knownSlots++;
     const line=family(a.line||a.lineage);if(line&&!otherLines.has(line)&&[4,5].includes(path.length))novelLines.add(line);
     factors+=(fs||[]).reduce((n,f)=>n+(w[f]||0),0);
-    const hits=opposite.get(k)||[];if(hits.length){names.add(k);if((a.factorVariant||a.variant)&&fs?.length&&hits.some(r=>r.factorVariant&&factorRecord(r)?.length))recorded.add(k);}
+    const hits=(opposite.get(k)||[]).filter(r=>independent(entry,r));
+    if(hits.length){names.add(k);const variant=norm(a.factorVariant||a.variant);
+     if(variant&&fs?.length&&hits.some(r=>{const v=norm(r.factorVariant||r.variant),other=factorRecord(r);return v&&other?.length&&(v!==variant||JSON.stringify([...fs].sort())===JSON.stringify([...other].sort()));}))recorded.add(k);}
    }
    return {m,matched:names.size,recorded:recorded.size,factors,knownSlots,novelLines:novelLines.size,priority:marePriority(m,goal)};
   }).sort((a,b)=>b.recorded-a.recorded||b.matched-a.matched||b.factors-a.factors||b.priority-a.priority||a.m.id.localeCompare(b.m.id,'ja'));

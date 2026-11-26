@@ -7,7 +7,11 @@ const SP_LINES=['ハビタット系','ボールドルーラー系','フェアト
 const ST_LINES=['ハイペリオン系','ブレニム系','ネヴァーセイダイ系','プリンスキロ系','モスボロー系','フェアウェイ系'];
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalize=s=>String(s||'').normalize('NFKC').replace(/[\s　]/g,'').replace(/[－―ｰ]/g,'-');
-const key=s=>normalize(s).toLowerCase();
+// v166: bounded memo of pure string normalization. No horse records or user state.
+const keyMemo166=new Map();
+const key=s=>{if(typeof s!=='string')return normalize(s).toLowerCase();
+ const hit=keyMemo166.get(s);if(hit!==undefined)return hit;
+ const value=normalize(s).toLowerCase();if(keyMemo166.size>=16384)keyMemo166.clear();keyMemo166.set(s,value);return value;};
 function splitName(display){
  const v=String(display||'').trim();
  const m=v.match(/^(.*?)-([^-]+)-$/);if(m)return{name:m[1],variant:m[2]};
@@ -1366,7 +1370,12 @@ function homeHorseObj(rec){return {id:rec.id,name:rec.name,variant:'',factors:re
 function getHomeParents(sex){return state.homebreds.filter(h=>h.sex===sex).map(homeHorseObj);}
 // v156: normalize the requested ID once; materialize only the matched homebred.
 // Preserve male-before-female precedence, including legacy duplicate IDs.
-function findParentHorse(id){if(!id)return null;const target=key(id);let female=null;
+let parentIndex166=null;
+// Only synchronous search: no await or mutation of state.homebreds in the scope.
+function withParentIndex166(fn){if(parentIndex166)return fn();const index=new Map();
+ for(const h of state.homebreds){if(h.sex!=='male'&&h.sex!=='female')continue;const k=key(h.id),old=index.get(k);if(!old||(old.sex==='female'&&h.sex==='male'))index.set(k,h);}
+ parentIndex166=index;try{return fn();}finally{parentIndex166=null;}}
+function findParentHorse(id){if(!id)return null;const target=key(id);if(parentIndex166){const h=parentIndex166.get(target);return h?homeHorseObj(h):map.get(target)||null;}let female=null;
  for(const h of state.homebreds){if((h.sex!=='male'&&h.sex!=='female')||key(h.id)!==target)continue;
   if(h.sex==='male')return homeHorseObj(h);if(!female)female=h;}
  return female?homeHorseObj(female):map.get(target)||null;}
@@ -1825,7 +1834,8 @@ function opt66Compare(a,b){
  if(ta!==tb)return tb-ta;
  return opt10Sort(a,b);
 }
-function opt66Find(p,scope){
+function opt66Find(p,scope){return withParentIndex166(()=>opt66FindImpl166(p,scope));}
+function opt66FindImpl166(p,scope){
  const fast=scope==='meihin_fast',mareData=opt10MarePool(p,'meihin');
  const ordered=window.DabimasMildDiversity60?.orderCandidates(mareData.pool,currentParentTheory68(),{mare:true,
   favorites:Object.fromEntries(mareData.pool.map(r=>[r.id,!!state.mareFavorites[key(r.id)]]))})||mareData.pool;
@@ -2028,7 +2038,8 @@ function opt67Find(p,scope){
 // and ONE-birth foundation mare). Unlike the legacy search, no top-12 mare
 // truncation occurs before inverse parent-line matching. The final pedigree,
 // early-cross guard, sex graph, and saved 31-slot structure remain mandatory.
-function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
+function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){return withParentIndex166(()=>opt69FindImpl166(p,scope,inverseMemo79,inverseStats79));}
+function opt69FindImpl166(p,scope,inverseMemo79=null,inverseStats79=null){
  const api=window.DabimasMaternalDDS67,inv=window.DabimasInverseMild69,theory=currentParentTheory68();
  if(!api?.validateGraph?.().ok||!inv||!theory||!parentRegistry68?.observed)
   return {results:[],tests:0,message:'v6.9逆算探索にはpa親系統付き公開CSVが必要です。データ管理で添付mydata.csvを読み込んでください。'};
@@ -2382,7 +2393,8 @@ function opt10Sort(a,b){
  return b.matches-a.matches||b.idx-a.idx||(window.DabimasMildDiversity60?.compareAtTie(a.diversity60,b.diversity60)||0)||a.risk-b.risk||a.extra.length-b.extra.length;
 }
 function opt10UniqueKey(t){return OPT10_MARE_STEPS.map(n=>key(t.choices[n])).join('|')+'|'+key(t.xId);}
-function opt10Find(p,scope){
+function opt10Find(p,scope){return withParentIndex166(()=>opt10FindImpl166(p,scope));}
+function opt10FindImpl166(p,scope){
  const fast=scope==='meihin_fast';
  const mares=opt10MarePool(p,fast?'meihin':scope),x=opt10XPool(p),ch=chain09Data(p);
  if(fast){

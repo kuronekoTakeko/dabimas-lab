@@ -458,7 +458,7 @@ function mild87GlobalHtml(plan){
  const d=plan?.mild87;if(!d)return '';
  return `<details class="a21-flow"><summary>v8.7｜至高候補・追加1工程の横断比較</summary>
  <p class="muted">検証済みDDS候補（比較範囲内）${esc(d.distinct??'未確認')}件、重複除外 ${esc(d.duplicates??0)}件、追加1工程を同じ理論の9工程案と照合 ${esc(d.oneExtraCompared??0)}件（証拠が改善 ${esc(d.oneExtraApproved??0)}件）。同等の9工程案が見つからない追加1工程候補 ${esc(d.oneExtraWithoutDirect??0)}件。</p>
- ${d.selection159?`<p><b>v${esc(d.selection159.version||159)} 第一候補の記録比較：</b>${d.selection159.promoted?`非悪化条件を満たす別案を${esc(d.selection159.promotions?.length||0)}回採用`:'全評価項目で非悪化の別案を確認できず、従来順位を維持'}。${esc(d.selection159.policy||'')}</p>`:''}
+ ${d.selection159?`<p><b>v${esc(d.selection159.version||159)} 第一候補の記録比較：</b>${d.selection159.version>=162?(d.selection159.promoted?'研究総合評価で別案を採用':'研究総合評価で従来案を採用'):d.selection159.promoted?`非悪化条件を満たす別案を${esc(d.selection159.promotions?.length||0)}回採用`:'全評価項目で非悪化の別案を確認できず、従来順位を維持'}。${esc(d.selection159.policy||'')}</p>`:''}
  <p class="muted">これは同一クリック内の限定的な候補比較であり、候補ゼロや対照不在は「不可能」を意味しません。最終31枠の独立クロス・因子記録・危険度を照合した研究上の順位で、ゲーム内での至高・完璧・超完璧成立や産駒SP/STの保証ではありません。</p>
  </details>`;
 }

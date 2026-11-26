@@ -40,6 +40,14 @@
   const gains=pairs.filter(([,u,v,sign])=>(u-v)*sign>0).map(([metric,after,before])=>({metric,before,after}));
   return gains.length?gains:null;
  }
+ // v162: configurable research utility, not predicted ability. Unknown factors stay unknown.
+ function utility(c,{finish,goal='balance',nitro=globalThis.DabimasMildNitro107}={}){
+  const n=nitro?.inspect(c,goal),m=finish?.metric(c,goal);if(!n||!m)return null;
+  const w=({speed:[3,3,0.7,2,1],balance:[1.5,2,2,1.5,1.5],stamina:[0.5,1,4,0.7,2]})[goal]||[1.5,2,2,1.5,1.5];
+  const factors=e=>e?['短','速','長'].reduce((a,k,i)=>a+w[i]*(e.counts[k]+2*e.stages[k]),0)+w[3]*Math.min(5,e.recordedByDepth155?.total?.走||0)+w[4]*Math.min(goal==='stamina'?4:5,e.recordedByDepth155?.total?.中||0):0;
+  const parts={final:factors(n),parents:0.2*(factors(finish.closingEvidence(c,goal))+factors(finish.closingEvidence(c,goal,'sire'))),lineage:0.6*(m.generationEvidence?.[0]?.distinct||0)+0.3*(m.generationEvidence?.[1]?.distinct||0),cross:2*m.independentCrossEvidence+m.crossFactorEvidence, risk:-6*m.shortCrossRisk-0.5*m.unresolvedCrossCandidates,effort:-8*safe(c.additionalBirths)};
+  return {score:Object.values(parts).reduce((a,b)=>a+b,0),parts,missing:n.missingFactorSlots,gameVerified:false};
+ }
  function select(trials,{ranker,finish,goal='balance',qualityCompare=null,evidenceCompare=null,fallback=null}={}){
   const invalid={version:87,winner:null,stats:{version:87,gameVerified:false,reason:'比較可能な最終31枠がありません',eligible:0,distinct:0}};
   if(!ranker?.grade||!ranker?.oneExtraEvidence||!ranker?.compare||!finish?.metric)return invalid;
@@ -108,12 +116,16 @@
    if(evidence?.approved)twoApproved++;
   }
   rows.sort((a,b)=>ranker.compare(a.rank,b.rank,opts)||a.identity.localeCompare(b.identity,'ja'));
-  // Compare the legacy research-priority winner only against strict, same-mask
-  // improvements. Each promotion is monotonic across all recorded dimensions.
   const originalWinner=rows[0];let winner=originalWinner;const promotions=[];
-  for(const row of rows){if(row===winner)continue;const gains=dominance(row.rank,winner.rank,{finish,goal,nitro});if(gains){promotions.push({from:winner.identity,to:row.identity,gains});winner=row;}}
-  if(winner!==originalWinner){rows.splice(rows.indexOf(winner),1);rows.unshift(winner);}
-  const selection159={version:160,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,policy:'同じ指定3頭・理論・工程数・因子収録位置・締め肌・締め種収録位置・子系統収録位置の記録比較で、全評価項目非悪化かつ改善がある場合のみ第一候補を変更。能力の優位は未確認。'};
+  // Keep the best available closing theory and structural safety tier. Within
+  // that tier trade recorded research features against production effort.
+  const grade=Math.max(...rows.map(r=>ranker.grade(r.rank.candidate)));
+  const minRisk=Math.min(...rows.filter(r=>ranker.grade(r.rank.candidate)===grade).map(r=>finish.metric(r.rank.candidate,goal).shortCrossRisk));
+  const eligible=rows.filter(r=>ranker.grade(r.rank.candidate)===grade&&finish.metric(r.rank.candidate,goal).shortCrossRisk===minRisk).map(r=>({r,u:utility(r.rank.candidate,{finish,goal,nitro})})).filter(x=>x.u);
+  eligible.sort((a,b)=>b.u.score-a.u.score||safe(a.r.rank.candidate.additionalBirths)-safe(b.r.rank.candidate.additionalBirths)||a.r.identity.localeCompare(b.r.identity,'ja'));
+  if(eligible.length)winner=eligible[0].r;
+  if(winner!==originalWinner){promotions.push({from:originalWinner.identity,to:winner.identity,before:utility(originalWinner.rank.candidate,{finish,goal,nitro}),after:utility(winner.rank.candidate,{finish,goal,nitro})});rows.splice(rows.indexOf(winner),1);rows.unshift(winner);}
+  const selection159={version:162,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,utility:utility(winner.rank.candidate,{finish,goal,nitro}),policy:'研究用の能力方針別総合指標（因子・ニトロ・両親・子系統多様性・独立クロス・追加工程負担）。未知因子は未確認。能力値ではなく、重みは開発仮説。'};
   const shortlist127=typeof globalThis!=='undefined'?globalThis.DabimasMildShortlist127?.fromRanked?.({rows,ranker,finish,goal,limit:3})||null:null;
   // Limited, recorded evidence only. Do not suggest any candidate absent from
   // the bounded, fully validated comparison set.
@@ -175,7 +187,7 @@
    fatherFamilies:familyCounts.size,birthCounts,gradeCounts,gradeBirthMatrix,routeCounts,routeGradeCounts,gradeRouteExamples,representatives,
    extraRejectedReasons:Object.entries(reasons).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([reason,count])=>({reason,count})),
    winningGrade:ranker.grade(winner.rank.candidate),winningAdditionalBirths:safe(winner.rank.candidate.additionalBirths),
-   winningBase:winner.trial.anchor?.base||'',rankingPolicy:'肌作りの超完璧・完璧を区別し、同じ理論の比較対照不在は改善未評価とし、同一理論と追加仕込みの承認条件が同じ場合は最終産駒のニトロ段階・独立クロス・リスクを工程数より先に比較。評価が同等なら少工程。',source:'同一クリック内で確認できたDDS・31枠・締め肌理論だけの限定横断比較。ゲーム内未確認。'}};
+   winningBase:winner.trial.anchor?.base||'',rankingPolicy:'締め肌理論と近親リスクを優先し、能力方針別の研究総合指標から追加工程負担を差し引いて選定。従来の厳格比較は参考記録として保持。',source:'同一クリック内で確認できたDDS・31枠・締め肌理論だけの限定横断比較。ゲーム内未確認。'}};
  }
- return Object.freeze({select,identity,dominance});
+ return Object.freeze({select,identity,dominance,utility});
 });

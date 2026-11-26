@@ -624,6 +624,7 @@ function mild89CoverageHtml(plan){
  <p class="muted">一次逆算レシピ ${esc(d.precheckRecipes??'未確認')}案、比較候補リスト ${esc(d.offered??'未確認')}案、31枠を実際に詳細検査 ${esc(d.inspected??'未確認')}案（第2枠 ${esc(d.rescueInspected??0)}案）、31枠完成 ${esc(d.completeCandidates??0)}案。検査リスト内で未実施 ${esc(d.notReviewed??0)}案、比較候補リスト外 ${esc(d.outsideShortlist??0)}案。</p>
  <p class="muted">${d.version===90?`追加検査を行う条件：${esc(d.rescueTrigger||'未確認')}。詳細検査済みの完璧候補${esc(d.perfectCandidates??0)}件・超完璧候補${esc(d.superPerfectCandidates??0)}件（公開血統の一次条件、ゲーム内未確認）。` : ''}結果：${esc(d.stopReason||'未確認')}。${d.exhaustive?'この時点の公開データ上の事前レシピは検査範囲内です。':'探索上限・早期終了があるため、候補の不存在は証明していません。'} 9工程と追加1工程の採否は別の横断比較で決定します。</p>
  ${d.fatherFamiliesInspected105!=null?`<p class="muted"><b>v105｜締め肌父の候補分散：</b>詳細検査した父馬系統 ${esc(d.fatherFamiliesInspected105)}種類／31枠完成した父馬系統 ${esc(d.fatherFamiliesCompleted105)}種類／最終比較へ残った父馬系統 ${esc(d.fatherFamiliesFinal105)}種類。完成した別父候補：${esc((d.fatherExamples105||[]).join('、')||'なし')}。この集計は選択した配置の限定探索のみで、別父の完璧・超完璧成立や能力優位を意味しません。</p>`:''}
+ ${d.lane153?`<p class="muted"><b>v153｜別構成の比較候補保持：</b>完璧・超完璧の一次判定と仕込み構成別に、従来候補${esc(d.lane153.baseline)}案＋比較代表${esc(d.lane153.added)}案を確保。追加候補は生産工程の追加指示ではありません。${esc((d.lane153.retained||[]).map(k=>k.replace('8|','超完璧・').replace('7|','完璧・').replace('sireOnly','種側1').replace('mareOnly','肌側1').replace('both','両側2').replace('direct','追加なし')).join('／'))}。限定探索・ゲーム内未確認。</p>`:''}
  <p class="muted">中心種牡馬 ${esc(d.centerId||'未確認')}。${esc(d.caveat||'ゲーム内未確認。')}</p>
  </details>`;
 }
@@ -1299,7 +1300,7 @@ function getFoalPedigree(sire,mare){
  function add(path,name,factors=[],line='',source='',factorVariant='',parentSystem=''){
   if(!path||path.length>5||!name)return;
   if(at.has(path)&&key(at.get(path).name)!==key(name)){conflicts.push(`${path}: ${at.get(path).name} と ${name}`);return;}
-  at.set(path,{path,name,factors:(factors||[]).filter(Boolean),line:line||'',source,factorVariant:factorVariant||'',parentSystem:parentSystem||''});
+  at.set(path,{path,name,factors:Array.isArray(factors)?factors.slice():['未確認形式'],line:line||'',source,factorVariant:factorVariant||'',parentSystem:parentSystem||''});
  }
  if(sire){add('S',sire.name||splitName(sire.id).name,sire.factors,sire.lineage,sire.id,sire.isHomebred?(sire.mode==='real'&&sire.factorsVerified?'実測ID:'+sire.id:''):sire.variant||splitName(sire.id).variant,sire.parentSystem||sire.ancestry?.find(a=>kanaPath(a.path)==='S')?.parentSystem||'');for(const a of sire.ancestry||[])add('S'+kanaPath(a.path),a.horse,a.factors,a.line,sire.id,a.factorVariant||a.variant||'',a.parentSystem||'');}
  if(mare){for(const a of mare.ancestry||[])add('D'+kanaPath(a.path),a.horse,a.factors,a.line,mare.id,a.factorVariant||a.variant||'',a.parentSystem||'');}
@@ -1309,7 +1310,7 @@ function getFoalPedigree(sire,mare){
  const byName=new Map();for(const a of known){const k=key(a.name);if(!byName.has(k))byName.set(k,[]);byName.get(k).push(a);}
  const repeats=[...byName.values()].filter(x=>x.length>1).map(x=>({name:x[0].name,paths:x.map(a=>a.path)}));
  const triple=[...byName.values()].filter(x=>[3,4,5].every(d=>x.some(a=>a.path.length===d))).map(x=>x[0].name);
- const factorCounts=countItems(known.flatMap(x=>x.factors));const lineCounts=countItems(known.map(x=>x.line));
+ const factorCounts=countItems(known.flatMap(x=>window.DabimasMildFactorIntegrity152?.factorRecord(x)||[]));const lineCounts=countItems(known.map(x=>x.line));
  return {rows,known:known.length,repeats,triple,factorCounts,lineCounts,conflicts,transmission,directAncestor:ancestor64,closeCross65:close65,
   crossCheck:classifyIndependentCross15(rows)};
 }
@@ -2028,7 +2029,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const owned=maleRows().filter(r=>isOwned(r)&&opt10Self(r)&&!anchorNames.has(key(r.name)));
  if(!center||!mares.length||!owned.length)return {results:[],tests:0,message:'至高の中心種牡馬・所持種牡馬・名牝のいずれかが不足しています'};
  const wanted=p.goal==='speed'?['短','速','走']:p.goal==='stamina'?['長','中','底']:['短','速','走','長','中','底'];
- const factorScore=r=>(r?.ancestry||[]).flatMap(a=>a.factors||[]).reduce((n,f)=>n+(wanted.includes(f)?2:0.4),0);
+ const factorScore=r=>(r?.ancestry||[]).flatMap(a=>window.DabimasMildFactorIntegrity152?.factorRecord(a)||[]).reduce((n,f)=>n+(wanted.includes(f)?2:0.4),0);
  // v7.9: two DDS layouts often differ ONLY in g4/g5 order.  Their
  // closing-mare inverse index is identical (same exclusions, owned sires,
  // published mares and goal). Reuse it within this one button click ONLY.
@@ -2054,6 +2055,8 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  const foal=(n,pedigree,sire,sex=api.definitions[n-1]?.sex||'male')=>({id:'__trial69_'+n,name:'逆算仮馬'+n,sex,ancestry:pedigree.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,line:r.line,factors:[...(r.factors||[])],factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),factors:[],lineage:sire.lineage||'',distance:sex==='male'?'仮馬':'',isHomebred:true});
  const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length;
  const results=[],seen=new Set();
+ // v153: retain one representative per validated theory/route lane.
+ const lane153=window.DabimasMildLane153?.create((a,b)=>window.DabimasMildFinish610?.compare(a,b,p.goal)||0);
  // v105: track only successful complete pedigrees, not unverified eight-line prechecks.
  const completeFatherFamilies105=new Set();
  const candidateFatherFamilies105=new Set();
@@ -2113,7 +2116,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   if(theoryGrade<7||theoryGrade!==recipe.distinct){theoryRejected++;reject88.closingTheory++;continue;}
   // Save at most the bounded amount of grade-7 evidence. Still inspect
   // later recipes, as one may be a verified 31-slot grade-8 challenger.
-  if(theoryGrade===7&&results.length>=completeLimit&&results.every(t=>opt66TheoryRank(t)>2))continue;
+  if(!lane153&&theoryGrade===7&&results.length>=completeLimit&&results.every(t=>opt66TheoryRank(t)>2))continue;
   const sireKey=recipe.sireId||recipe.sireName;
   // Diversity across candidate sire recipes: preserve alternatives for factor/cross assessment.
   const signature=[sireKey,base.id].join('|');if(seen.has(signature))continue;seen.add(signature);
@@ -2150,6 +2153,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   for(let salt=0;salt<2;salt++){
    const trial=makeMore(results.length,salt);if(trial){
     reject88.completeCandidates++;
+    lane153?.observe(trial);
     const grade=opt66TheoryRank(trial);
     bestTheoryGrade=Math.max(bestTheoryGrade,grade);
     if(grade===3)grade3Families128.add(String(trial.closingSireFamily105||'未確認').normalize('NFKC'));
@@ -2284,11 +2288,14 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  // v8.5: do not discard the prepared-sire challenger AGAIN when the small
  // finalist cap is reached. At least one documented equal-or-better-theory
  // one-birth recipe must reach the final 31-slot quality comparison.
- const finalists=results.slice(0,4);
+ let finalists=results.slice(0,4);
  const directBest=results.find(x=>(x.additionalBirths||0)===0);
  const challenger=directBest&&results.find(x=>x.xPrep&&!x.marePrep&&x.additionalBirths===1&&
   opt66TheoryRank(x)>=opt66TheoryRank(directBest));
  if(challenger&&finalists.length>=2&&!finalists.includes(challenger))finalists[finalists.length-1]=challenger;
+ const retained153=lane153?.finish([...finalists,...results.filter(x=>!finalists.includes(x))],finalists.length);
+ if(retained153)finalists=retained153.results;
+
  const notReviewed=Math.max(0,offered-reject88.recipesTried);
  const outsideShortlist=Math.max(0,(inverse.stats.ranked||0)-offered);
  const perfectCandidates=results.filter(x=>opt66TheoryRank(x)===2).length;
@@ -2302,7 +2309,7 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
   grade3Families:grade3Families128.size,primaryGrade:gradeAtPrimaryEnd,finalGrade:bestTheoryGrade,
   prechecked:inverse.stats?.ranked||0})||null;
  const coverage89={version:90,gameVerified:false,primaryLimit,rescueLimit,rescue128,
-  rescueTrigger,gradeAtPrimaryEnd,bestTheoryGrade,perfectCandidates,superPerfectCandidates,completeLimit,
+  rescueTrigger,gradeAtPrimaryEnd,bestTheoryGrade,perfectCandidates,superPerfectCandidates,completeLimit,lane153:retained153?.audit||null,
   precheckRecipes:inverse.stats.ranked||0,offered,inspected:reject88.recipesTried,
   rescueInspected,completeCandidates:reject88.completeCandidates,
   fatherFamiliesInspected105:candidateFatherFamilies105.size,
@@ -4031,11 +4038,11 @@ function mild152FactorAuditHtml(p){
  const result=api.audit(rows);
  if(!result.available)return `<details class="a21-flow"><summary>v152｜最終31枠の因子不足箇所</summary><p class="notice warn">${esc(result.reason||'再構築に必要な血統が不足しています')}。旧プランの記録を実測値に置き換えません。</p></details>`;
  const missing=result.unresolved||[];
- const top=missing.slice(0,12).map(x=>`<tr><td>${esc(x.path)}</td><td>${esc(x.name)}</td><td>${esc(x.status==='invalid'?'形式不正／全因子未確認':'因子未収録')}</td></tr>`).join('');
+ const top=missing.map(x=>`<tr><td>${esc(x.path)}</td><td>${esc(x.name)}</td><td>${esc(x.status==='invalid'?'形式不正／全因子未確認':'因子未収録')}</td></tr>`).join('');
  return `<details class="a21-flow"><summary>v152｜最終31枠・因子の未確認位置（${esc(result.missing)}枠）</summary>
  <p>現在の保存プランの連結血統を再構成：因子あり${esc(result.recordedFactorRows)}枠／実測0因子${esc(result.verifiedZero)}枠／未収録${esc(result.unknown)}枠／不正形式${esc(result.invalid)}枠。未知を0として加点・減点しません。</p>
  <p class="muted">未確認位置の世代別内訳：${[1,2,3,4,5].map(i=>esc(i)+'代 '+esc(result.byDepth[i])+'枠').join(' ／ ')}。生産前に因名・本人因子を資料またはゲーム内で照合します。</p>
- ${missing.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>位置</th><th>祖先</th><th>不足理由</th></tr></thead><tbody>${top}</tbody></table></div>${missing.length>12?`<p class="muted">ほか${esc(missing.length-12)}枠はv137の未確認祖先一覧を参照。</p>`:''}`:'<p>この31枠には因子未収録位置がありません（効果や能力が確定する意味ではありません）。</p>'}
+ ${missing.length?`<div style="overflow:auto"><table class="detailtbl"><thead><tr><th>位置</th><th>祖先</th><th>不足理由</th></tr></thead><tbody>${top}</tbody></table></div>`:'<p>この31枠には因子未収録位置がありません（効果や能力が確定する意味ではありません）。</p>'}
  <p class="muted">${esc(result.caveat)} 所持・権利・プラン・マスターの書換えは行いません。</p></details>`;
 }
 // v135: one candidate's concrete 10-mating verification sheet, no writes to plans.

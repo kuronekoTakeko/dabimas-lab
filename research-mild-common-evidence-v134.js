@@ -16,7 +16,7 @@
  const contribution=(fs,counts)=>{for(const f of fs){if(FACTORS.includes(f))counts[f]++;if(SP.includes(f))counts.sp++;if(ST.includes(f))counts.st++;}};
  function sharedEvidence(upper,lower){
   const a=upper?.documentedFactors||{},b=lower?.documentedFactors||{};
-  const shared=Object.keys(a).filter(path=>Array.isArray(a[path])&&a[path].length&&Array.isArray(b[path])&&b[path].length).sort();
+  const shared=Object.keys(a).filter(path=>/^[SD]{0,4}S$/.test(path)&&Array.isArray(a[path])&&Array.isArray(b[path])).sort();
   const observedUpper=vector(),observedLower=vector();
   for(const p of shared){contribution(a[p],observedUpper);contribution(b[p],observedLower);}
   return {sharedSlots:shared.length,unresolvedSlots:31-shared.length,

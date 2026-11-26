@@ -34,9 +34,8 @@
     const anchors=['g3','g4','g5'].map(k=>norm(t.draft.routeDraft.slots[k])).join('|');
     const family=c.xPrep?.fatherId||c.xId||'未確認';
     rows.push({id,grade,route:rt,births,anchors,missingSignature:profile.unknownPaths.join('|'),profile,
-     // v134: evidence-only snapshot, by FINAL FOAL path. Empty is unknown,
-     // never treated as evidence that this ancestor has no factor.
-     documentedFactors:Object.fromEntries(c.full.rows.filter(r=>!profile.unknownPaths.includes(r.path)&&r.factors.length)
+     // v151: coverage is validated by full31.factors; a verified empty array is evidence.
+     documentedFactors:Object.fromEntries(c.full.rows.filter(r=>!profile.unknownPaths.includes(r.path)&&Array.isArray(r.factors))
       .map(r=>[r.path,r.factors.filter(Boolean).map(String)])),
      family,seedMare:c.xPrep?.motherId||null,baseMare:c.choices?.[1]||null});
    }

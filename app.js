@@ -737,7 +737,9 @@ function sumNamedVariants16(entries){
  const known=new Map(),unresolved=[],conflicts=[];
  for(const entry of entries||[]){
   const variant=String(entry.variant||'').trim(),horse=String(entry.name||'').trim();
-  const factors=Array.isArray(entry.factors)?entry.factors.filter(f=>FACTORS.includes(f)):[];
+  const valid=Array.isArray(entry.factors)&&entry.factors.length<=3&&entry.factors.every(f=>FACTORS.includes(f));
+  if(!valid){unresolved.push({path:entry.path||'',name:horse,variant,factors:[],reason:'因子配列が未収録または不正'});continue;}
+  const factors=entry.factors.slice();
   if(!variant||!horse){unresolved.push({path:entry.path||'',name:horse,factors,reason:'因名を特定できません'});continue;}
   const id=key(horse)+'|'+key(variant),ordered=factors.slice().sort();
   if(!factors.length){if(variant.startsWith('実測ID:')){const prev=known.get(id);if(prev?.factors.length){conflicts.push({name:horse,variant,paths:[prev.path,entry.path],reason:'同じ実測馬に因子0個と非0個が混在しています'});prev.conflict=true;}else if(!prev)known.set(id,{name:horse,variant,path:entry.path||'',factors:[],conflict:false});continue;}unresolved.push({path:entry.path||'',name:horse,variant,factors,reason:'因子を特定できません'});continue;}

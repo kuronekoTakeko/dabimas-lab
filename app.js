@@ -458,6 +458,7 @@ function mild87GlobalHtml(plan){
  const d=plan?.mild87;if(!d)return '';
  return `<details class="a21-flow"><summary>v8.7｜至高候補・追加1工程の横断比較</summary>
  <p class="muted">検証済みDDS候補（比較範囲内）${esc(d.distinct??'未確認')}件、重複除外 ${esc(d.duplicates??0)}件、追加1工程を同じ理論の9工程案と照合 ${esc(d.oneExtraCompared??0)}件（証拠が改善 ${esc(d.oneExtraApproved??0)}件）。同等の9工程案が見つからない追加1工程候補 ${esc(d.oneExtraWithoutDirect??0)}件。</p>
+ ${d.selection159?`<p><b>v159 第一候補の記録比較：</b>${d.selection159.promoted?`非悪化条件を満たす別案を${esc(d.selection159.promotions?.length||0)}回採用`:'全評価項目で非悪化の別案を確認できず、従来順位を維持'}。${esc(d.selection159.policy||'')}</p>`:''}
  <p class="muted">これは同一クリック内の限定的な候補比較であり、候補ゼロや対照不在は「不可能」を意味しません。最終31枠の独立クロス・因子記録・危険度を照合した研究上の順位で、ゲーム内での至高・完璧・超完璧成立や産駒SP/STの保証ではありません。</p>
  </details>`;
 }
@@ -625,7 +626,7 @@ function mild89CoverageHtml(plan){
  <p class="muted">一次逆算レシピ ${esc(d.precheckRecipes??'未確認')}案、比較候補リスト ${esc(d.offered??'未確認')}案、31枠を実際に詳細検査 ${esc(d.inspected??'未確認')}案（第2枠 ${esc(d.rescueInspected??0)}案）、31枠完成 ${esc(d.completeCandidates??0)}案。検査リスト内で未実施 ${esc(d.notReviewed??0)}案、比較候補リスト外 ${esc(d.outsideShortlist??0)}案。</p>
  <p class="muted">${d.version===90?`追加検査を行う条件：${esc(d.rescueTrigger||'未確認')}。詳細検査済みの完璧候補${esc(d.perfectCandidates??0)}件・超完璧候補${esc(d.superPerfectCandidates??0)}件（公開血統の一次条件、ゲーム内未確認）。` : ''}結果：${esc(d.stopReason||'未確認')}。${d.exhaustive?'この時点の公開データ上の事前レシピは検査範囲内です。':'探索上限・早期終了があるため、候補の不存在は証明していません。'} 9工程と追加1工程の採否は別の横断比較で決定します。</p>
  ${d.fatherFamiliesInspected105!=null?`<p class="muted"><b>v105｜締め肌父の候補分散：</b>詳細検査した父馬系統 ${esc(d.fatherFamiliesInspected105)}種類／31枠完成した父馬系統 ${esc(d.fatherFamiliesCompleted105)}種類／最終比較へ残った父馬系統 ${esc(d.fatherFamiliesFinal105)}種類。完成した別父候補：${esc((d.fatherExamples105||[]).join('、')||'なし')}。この集計は選択した配置の限定探索のみで、別父の完璧・超完璧成立や能力優位を意味しません。</p>`:''}
- ${d.lane153?`<p class="muted"><b>v153｜別構成の比較候補保持：</b>完璧・超完璧の一次判定と仕込み構成別に、従来候補${esc(d.lane153.baseline)}案＋比較代表${esc(d.lane153.added)}案を確保。能力方針別の因子記録候補 ${esc(d.lane153.goalAdded??0)}案も保持。追加候補は生産工程の追加指示ではありません。${esc((d.lane153.retained||[]).map(k=>k.replace('8|','超完璧・').replace('7|','完璧・').replace('sireOnly','種側1').replace('mareOnly','肌側1').replace('both','両側2').replace('direct','追加なし')).join('／'))}。限定探索・ゲーム内未確認。</p>`:''}
+ ${d.lane153?`<p class="muted"><b>v153｜別構成の比較候補保持：</b>完璧・超完璧の一次判定と仕込み構成別に、従来候補${esc(d.lane153.baseline)}案＋比較代表${esc(d.lane153.added)}案を確保。能力方針別の因子記録候補 ${esc(d.lane153.goalAdded??0)}案も保持。世代別子系統・走中・独立クロス・締め肌の参考候補 ${esc(d.lane153.qualityAdded??0)}案も保持。追加候補は生産工程の追加指示ではありません。${esc((d.lane153.retained||[]).map(k=>k.replace('8|','超完璧・').replace('7|','完璧・').replace('sireOnly','種側1').replace('mareOnly','肌側1').replace('both','両側2').replace('direct','追加なし')).join('／'))}。限定探索・ゲーム内未確認。</p>`:''}
  <p class="muted">中心種牡馬 ${esc(d.centerId||'未確認')}。${esc(d.caveat||'ゲーム内未確認。')}</p>
  </details>`;
 }

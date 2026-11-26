@@ -14,6 +14,28 @@
   const choices=Object.entries(c.choices||{}).map(([n,id])=>[n,norm(id)]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
   return JSON.stringify([set,layout,choices,norm(c.xId),norm(c.xPrep?.fatherId),norm(c.xPrep?.motherId),norm(c.marePrep?.fatherId),norm(c.marePrep?.motherId),norm(c.mareId),safe(c.additionalBirths)]);
  }
+ // v159: conservative same-evidence comparison of a proposed replacement.
+ // No SP/ST conversion, no comparison between different missing masks, no
+ // additional matings. Each dimension must be non-worse, with a strict gain.
+ function dominance(a,b,{finish,goal='balance',nitro=globalThis.DabimasMildNitro107}={}){
+  const x=a?.candidate,y=b?.candidate;if(!x||!y||!nitro?.comparable?.(x,y)||x.additionalBirths!==y.additionalBirths)return null;
+  const tier=r=>[!!r.oneExtra85?.approved,!!r.nitro107?.approved,!!r.twoExtra111?.approved].join('|');
+  if(tier(a)!==tier(b))return null;
+  const xm=finish?.metric?.(x,goal),ym=finish?.metric?.(y,goal),xn=nitro.inspect(x,goal),yn=nitro.inspect(y,goal),xc=finish?.closingEvidence?.(x,goal),yc=finish?.closingEvidence?.(y,goal);
+  if(!xm||!ym||!xn||!yn||!xc||!yc||JSON.stringify(xc.unknownPaths)!==JSON.stringify(yc.unknownPaths))return null;
+  const xl=xm.generationEvidence,yl=ym.generationEvidence;
+  if(!xl||!yl||xl.length!==2||yl.length!==2||xl.some((g,i)=>g.depth!==yl[i].depth||g.slots!==yl[i].slots||JSON.stringify(g.knownPaths)!==JSON.stringify(yl[i].knownPaths)))return null;
+  const pairs=[];const add=(k,u,v,sign=1)=>pairs.push([k,u,v,sign]);
+  for(const k of ['短','速','長']){add('finalCount:'+k,xn.counts[k],yn.counts[k]);add('finalStage:'+k,xn.stages[k],yn.stages[k]);add('closingCount:'+k,xc.counts[k],yc.counts[k]);add('closingStage:'+k,xc.stages[k],yc.stages[k]);}
+  for(const d of [4,5])for(const f of ['走','中'])add('final:'+f+d,xn.recordedByDepth155?.[d]?.[f],yn.recordedByDepth155?.[d]?.[f]);
+  for(const k of ['走','中']){add('finalTotal:'+k,xn.recordedByDepth155?.total?.[k],yn.recordedByDepth155?.total?.[k]);add('closingTotal:'+k,xc.recordedByDepth155?.total?.[k],yc.recordedByDepth155?.total?.[k]);}
+  for(let i=0;i<2;i++)add('line'+xl[i].depth,xl[i].distinct,yl[i].distinct);
+  for(const k of ['independentCrossEvidence','crossFactorEvidence','fullDocumentedFactorSlots','ancestorFactorsRecorded'])add(k,xm[k],ym[k]);
+  for(const k of ['shortCrossRisk','unresolvedCrossCandidates','unresolvedCrosses'])add(k,xm[k],ym[k],-1);
+  if(pairs.some(([,u,v,sign])=>!Number.isFinite(u)||!Number.isFinite(v)||(u-v)*sign<0))return null;
+  const gains=pairs.filter(([,u,v,sign])=>(u-v)*sign>0).map(([metric,after,before])=>({metric,before,after}));
+  return gains.length?gains:null;
+ }
  function select(trials,{ranker,finish,goal='balance',qualityCompare=null,evidenceCompare=null,fallback=null}={}){
   const invalid={version:87,winner:null,stats:{version:87,gameVerified:false,reason:'比較可能な最終31枠がありません',eligible:0,distinct:0}};
   if(!ranker?.grade||!ranker?.oneExtraEvidence||!ranker?.compare||!finish?.metric)return invalid;
@@ -82,7 +104,12 @@
    if(evidence?.approved)twoApproved++;
   }
   rows.sort((a,b)=>ranker.compare(a.rank,b.rank,opts)||a.identity.localeCompare(b.identity,'ja'));
-  const winner=rows[0];
+  // Compare the legacy research-priority winner only against strict, same-mask
+  // improvements. Each promotion is monotonic across all recorded dimensions.
+  const originalWinner=rows[0];let winner=originalWinner;const promotions=[];
+  for(const row of rows){if(row===winner)continue;const gains=dominance(row.rank,winner.rank,{finish,goal,nitro});if(gains){promotions.push({from:winner.identity,to:row.identity,gains});winner=row;}}
+  if(winner!==originalWinner){rows.splice(rows.indexOf(winner),1);rows.unshift(winner);}
+  const selection159={version:159,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,policy:'同じ指定3頭・理論・工程数・因子収録位置・締め肌収録位置・子系統収録位置の記録比較で、全評価項目非悪化かつ改善がある場合のみ第一候補を変更。能力の優位は未確認。'};
   const shortlist127=typeof globalThis!=='undefined'?globalThis.DabimasMildShortlist127?.fromRanked?.({rows,ranker,finish,goal,limit:3})||null:null;
   // Limited, recorded evidence only. Do not suggest any candidate absent from
   // the bounded, fully validated comparison set.
@@ -137,7 +164,7 @@
     status:'記録済み血統・限定探索／ゲーム内未確認'});
    if(representatives.length>=6)break;
   }
-  return {version:112,winner,stats:{version:112,shortlist127,gameVerified:false,eligible:rows.length,distinct:seen.size,
+  return {version:112,winner,stats:{version:112,shortlist127,selection159,gameVerified:false,eligible:rows.length,distinct:seen.size,
    skipped,duplicates,gradesWithDirect:[...new Set([...directByGrade.values()].map(r=>ranker.grade(r.rank.candidate)))].sort((a,b)=>a-b),oneExtraCompared:compared,
    oneExtraApproved:approved,oneExtraNitroApproved:nitroApproved,oneExtraWithoutDirect:noReference,
    twoExtraCompared:twoCompared,twoExtraApproved:twoApproved,twoExtraWithoutOne:twoNoBaseline,
@@ -146,5 +173,5 @@
    winningGrade:ranker.grade(winner.rank.candidate),winningAdditionalBirths:safe(winner.rank.candidate.additionalBirths),
    winningBase:winner.trial.anchor?.base||'',rankingPolicy:'肌作りの超完璧・完璧を区別し、同じ理論の比較対照不在は改善未評価とし、同一理論と追加仕込みの承認条件が同じ場合は最終産駒のニトロ段階・独立クロス・リスクを工程数より先に比較。評価が同等なら少工程。',source:'同一クリック内で確認できたDDS・31枠・締め肌理論だけの限定横断比較。ゲーム内未確認。'}};
  }
- return Object.freeze({select,identity});
+ return Object.freeze({select,identity,dominance});
 });

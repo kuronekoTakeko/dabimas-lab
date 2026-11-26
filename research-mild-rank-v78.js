@@ -68,7 +68,12 @@
     return safe(my.independentCrossEvidence)-safe(mx.independentCrossEvidence);
    if(mx.independentCrossEvidence>0&&my.independentCrossEvidence>0&&mx.crossFactorEvidence!==my.crossFactorEvidence)
     return safe(my.crossFactorEvidence)-safe(mx.crossFactorEvidence);
-   if(mx.score!==my.score)return safe(my.score)-safe(mx.score);
+   // v152: different unknown-factor positions make raw ancestor-factor scores incomparable.
+   if(finish?.comparableCoverage?.(mx,my)&&mx.score!==my.score)return safe(my.score)-safe(mx.score);
+   // Same evidence tier but differing factor masks: a completeness tie-break
+   // for REVIEW priority only, never a claim that one foal is faster.
+   const documentedX=mx.documentedFactorPaths?.length||0,documentedY=my.documentedFactorPaths?.length||0;
+   if(!finish?.comparableCoverage?.(mx,my)&&documentedX!==documentedY)return documentedY-documentedX;
    const line=finish?.compareLineage?.(mx,my)||0;if(line)return line;
   }
   const closing=finish?.compareClosing?.(x,y,goal)||0;if(closing)return closing;

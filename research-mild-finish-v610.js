@@ -7,6 +7,11 @@
  */
 (function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.DabimasMildFinish610=api;})(typeof window!=='undefined'?window:globalThis,function(){'use strict';
  const norm=x=>String(x??'').normalize('NFKC').replace(/\s/g,'').toLowerCase();
+ const LOCAL_FACTORS=new Set(['短','速','底','長','走','中','強','雷','堅','難','適','丈','早','晩']);
+ const factorRecord=r=>{const external=typeof globalThis!=='undefined'?globalThis.DabimasMildFactorIntegrity152:null;
+  if(external?.factorRecord)return external.factorRecord(r);
+  const fs=r?.factors;return Array.isArray(fs)&&fs.length<=3&&fs.every(f=>LOCAL_FACTORS.has(f))&&
+   (fs.length>0||/^実測ID:.+/.test(String(r?.factorVariant||'')))?fs:null;};
  const WEIGHTS={
   speed:{'走':6,'速':4,'短':3,'中':2,'長':1,'底':1},
   stamina:{'長':6,'中':4,'底':3,'走':2,'速':1,'短':1},
@@ -21,14 +26,15 @@
   const anchors=new Set(['DDS','SSSS','SDSSS']);
   const support=rows.filter(r=>[4,5].includes(r.path?.length)&&![...anchors].some(a=>r.path.startsWith(a)));
   const generationEvidence=[4,5].map(depth=>{const group=support.filter(r=>r.path.length===depth), known=group.filter(r=>family(r.line));return {depth,slots:group.length,known:known.length,unknown:group.length-known.length,knownPaths:known.map(r=>r.path).sort(),distinct:new Set(known.map(r=>family(r.line))).size};});
-  let observedFactors=0,observedFactorRows=0;
+  let observedFactors=0,observedFactorRows=0;const factorCoverage=[];
   const childFamilies=new Set();
   for(const r of support){
    const line=family(r.line),scale=r.path.length===4?1.7:0.85;
    if(line)childFamilies.add(line);
-   if(Array.isArray(r.factors)&&r.factors.length){observedFactorRows++;
-    for(const f of r.factors)observedFactors+=(w[f]||0)*scale;
-   }
+   const fs=factorRecord(r);
+   if(fs!==null){factorCoverage.push(r.path);if(fs.length){observedFactorRows++;
+    for(const f of fs)observedFactors+=(w[f]||0)*scale;
+   }}
   }
   // Only documented, independent, conflict-free factor variants are treated
   // as cross-factor evidence. Raw ancestor factors have MUCH lower priority.
@@ -48,12 +54,14 @@
   return {score:Math.round(score*100)/100,grade:grade(t),additionalBirths:safeNumber(t.additionalBirths),
    independentCrossCandidates:candidates.length,independentCrossEvidence:credited.length,crossFactorEvidence:Math.round(crossed*100)/100,
    candidateCrossFactorIndex:Math.round(candidateCrossed*100)/100,unresolvedCrossCandidates,crossEvidenceComplete:allDocumented,
-   ancestorFactorsRecorded:observedFactorRows,lineageEvidence:null,generationEvidence,
+   ancestorFactorsRecorded:observedFactorRows,documentedFactorPaths:factorCoverage.sort(),lineageEvidence:null,generationEvidence,
    childLineDiversity:childFamilies.size,shortCrossRisk:risk,unresolvedCrosses:unverified,
    source:'最終31枠（記録根拠のある独立クロス／候補因子を分離した研究用相対評価）',gameVerified:false};
  }
  // No assumed SP/ST mapping from child-line names. Diversity is only a
  // research tie-break, and only with identical observed positions.
+ function comparableCoverage(x,y){return !!(x?.documentedFactorPaths&&y?.documentedFactorPaths&&
+  JSON.stringify(x.documentedFactorPaths)===JSON.stringify(y.documentedFactorPaths));}
  function compareLineage(x,y){
   const a=x?.generationEvidence,b=y?.generationEvidence;
   if(!a||!b||a.length!==2||b.length!==2||a.some((g,i)=>g.slots!==b[i].slots||JSON.stringify(g.knownPaths)!==JSON.stringify(b[i].knownPaths)))return 0;
@@ -81,12 +89,15 @@
   if(!x)return y?1:0;if(!y)return -1;
   // Theory evidence outranks production cost. Within the same theory grade,
   // extra matings must not be added solely for a research score increase.
-  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||x.shortCrossRisk-y.shortCrossRisk||y.independentCrossEvidence-x.independentCrossEvidence||y.crossFactorEvidence-x.crossFactorEvidence||y.score-x.score||compareLineage(x,y)||compareClosing(a,b,goal);
+  return y.grade-x.grade||x.additionalBirths-y.additionalBirths||x.shortCrossRisk-y.shortCrossRisk||y.independentCrossEvidence-x.independentCrossEvidence||y.crossFactorEvidence-x.crossFactorEvidence||(comparableCoverage(x,y)?y.score-x.score:
+   // Different unknown masks are NOT an ability comparison. In a research
+   // tie, prefer the pedigree with more documented support SLOTS to audit.
+   y.documentedFactorPaths.length-x.documentedFactorPaths.length)||compareLineage(x,y)||compareClosing(a,b,goal);
  }
  function marePriority(m,goal){
   const w=WEIGHTS[goal]||WEIGHTS.balance;
   const ancestors=(m?.ancestry||[]).filter(a=>a?.horse||a?.name);
-  const score=ancestors.reduce((sum,a)=>sum+(a.factors||[]).reduce((s,f)=>s+(w[f]||0),0),0);
+  const score=ancestors.reduce((sum,a)=>sum+(factorRecord(a)||[]).reduce((s,f)=>s+(w[f]||0),0),0);
   const diversity=new Set(ancestors.map(a=>family(a.line)).filter(Boolean)).size;
   return score+diversity*0.5;
  }
@@ -121,8 +132,8 @@
    for(const a of m.ancestry){const path=prefix+String(a.path||'').replace(/父/g,'S').replace(/母/g,'D');
     if(!/^[SD]{0,4}S$/.test(path)||!outside(path))continue;
     const k=norm(a.horse||a.name);if(!k||anchorNames.has(k))continue;
-    factors+=(a.factors||[]).reduce((n,f)=>n+(w[f]||0),0);
-    const hits=opposite.get(k)||[];if(hits.length){names.add(k);if((a.factorVariant||a.variant)&&a.factors?.length&&hits.some(r=>r.factorVariant&&r.factors?.length))recorded.add(k);}
+    const fs=factorRecord(a);factors+=(fs||[]).reduce((n,f)=>n+(w[f]||0),0);
+    const hits=opposite.get(k)||[];if(hits.length){names.add(k);if((a.factorVariant||a.variant)&&fs?.length&&hits.some(r=>r.factorVariant&&factorRecord(r)?.length))recorded.add(k);}
    }
    return {m,matched:names.size,recorded:recorded.size,factors};
   }).sort((a,b)=>b.recorded-a.recorded||b.matched-a.matched||b.factors-a.factors||marePriority(b.m,goal)-marePriority(a.m,goal)||a.m.id.localeCompare(b.m.id,'ja'));
@@ -165,5 +176,5 @@
     changedSteps:changed?changedSteps:[],improved:changed,before:first,after:changed?after:first,
     gameVerified:false,caveat:'31枠の既知因子・独立クロス・子系統の相対順位。未収録は因子なしとしない。ゲーム内の効果・能力・至高成立は未検証。'}};
  }
- return Object.freeze({grade,metric,compare,compareLineage,closingEvidence,compareClosing,shortlist,projectedShortlist,optimize});
+ return Object.freeze({grade,metric,compare,comparableCoverage,compareLineage,closingEvidence,compareClosing,shortlist,projectedShortlist,optimize});
 });

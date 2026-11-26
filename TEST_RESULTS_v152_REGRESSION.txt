@@ -1,0 +1,17 @@
+v135-first-check.test.cjs	PASS	0.05s	PASS v135: 9/10-step DAG, parent linkage and sexes, rights-zero, no-data-mutation, fail-closed, unverified labels
+v136-comparison.test.cjs	PASS	0.07s	PASS v136: matching anchors and unknown paths, both promotion paths, 2-stage gate, malformed rows, global baseline selection, immutability
+v137-factor-target.test.cjs	PASS	0.1s	PASS v137 hypothetical allocation, three goals, actual zero, malformed pedigree, immutability, saved JSON
+v138-cross-pairs.test.cjs	PASS	0.06s	PASS outside-pair restriction, anchor variant exclusion, missing identity, 6th generation exclusion, immutable inputs, wiring
+v139-projected-mares.test.cjs	PASS	0.04s	PASS v139 projected mare proposal: surviving path, excluded anchor, depth, fallback, budget
+v140-pair-search.test.cjs	PASS	1.47s	PASS actual saved pedigree + public mare proposal comparison (not full search)
+v141-lineage.test.cjs	PASS	0.32s	PASS saved DDS pedigree diagnostic, 3 goals, plans: 39
+v143-distance-unknown.test.cjs	PASS	0.03s	PASS: unknown positions retained, known-only distance ranking, input immutable
+v144-family-selection.test.cjs	PASS	0.04s	PASS goal forwarding, goal-specific order, distinct family priority, exact and family modes
+v145-retention.test.cjs	PASS	0.03s	PASS later stronger same-family candidate, family diversity, theory and birth tiers
+v146-closing.test.cjs	PASS	0.03s	PASS closing mare tie-break, coverage, cost, blocked and missing guards
+v147-base-mare.test.cjs	PASS	0.04s	PASS base mare replacement and invalid rejection
+v148-pair-base.test.cjs	PASS	0.03s	PASS base+support pair, all 15 pairs, legacy exclusion, rejection, immutability
+v149-mixed-cross.test.cjs	PASS	0.03s	PASS mixed evidence, unknown exclusion, legacy conservative fallback, per-cross aggregation
+v150-factor-coverage.test.cjs	PASS	0.24s	PASS factor coverage, malformed rows, verified zero, duplicate factors, saved profiles: 52
+v151-factor-integrity.test.cjs	PASS	0.03s	PASS invalid factors, real zero, duplicate counts, shared slots, evidence collection
+v152-factor-audit-and-ranking.test.cjs	PASS	0.21s	PASS v152: malformed factors never partially credited; verified zero; incomplete mask tie; shortlist; data immutable; saved plans: 52

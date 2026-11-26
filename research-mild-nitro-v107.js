@@ -9,7 +9,8 @@
  const norm=x=>String(x??'').normalize('NFKC').replace(/\s/g,'').toLowerCase();
  const grade=c=>c?.theory66?.blocked?0:c?.theory66?.superPerfect==='成立'?8:c?.theory66?.perfect==='成立'?7:0;
  const validFactors150=new Set(['短','速','底','長','走','中','強','雷','堅','難','適','丈','早','晩']);
- function factorRecord150(row){const fs=row?.factors;if(!Array.isArray(fs)||fs.length>3||fs.some(f=>!validFactors150.has(f)))return null;return fs.length||(/^実測ID:.+/.test(String(row.factorVariant||'')))?fs:null;}
+ function factorRecord150(row){const shared=typeof globalThis!=='undefined'?globalThis.DabimasMildFactorIntegrity152:null;
+  if(shared?.factorRecord)return shared.factorRecord(row);const fs=row?.factors;if(!Array.isArray(fs)||fs.length>3||fs.some(f=>!validFactors150.has(f)))return null;return fs.length||(/^実測ID:.+/.test(String(row.factorVariant||'')))?fs:null;}
  function inspect(c,goal='balance'){
   if(!c||c.matches!==3||c.full?.known!==31||c.full?.conflicts?.length||c.full?.transmission?.conflicts?.length||c.full?.transmission?.invalid?.length||grade(c)<7)return null;
   const rows=c.full.rows||[],seen=new Set(),counts={'短':0,'速':0,'長':0},unknownPaths=[];let missing=0;

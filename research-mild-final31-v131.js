@@ -17,7 +17,8 @@
  const father=c=>String(c?.xPrep?.fatherId||c?.xId||'未確認');
  const validPaths=rows=>Array.isArray(rows)&&rows.length===31&&new Set(rows.map(r=>r?.path)).size===31&&rows.every(r=>/^[SD]{0,4}S$/.test(String(r?.path||'')));
  const validFactors150=new Set(['短','速','底','長','走','中','強','雷','堅','難','適','丈','早','晩']);
- function factorRecord150(row){const fs=row?.factors;if(!Array.isArray(fs)||fs.length>3||fs.some(f=>!validFactors150.has(f)))return null;return fs.length||(/^実測ID:.+/.test(String(row.factorVariant||'')))?fs:null;}
+ function factorRecord150(row){const shared=typeof globalThis!=='undefined'?globalThis.DabimasMildFactorIntegrity152:null;
+  if(shared?.factorRecord)return shared.factorRecord(row);const fs=row?.factors;if(!Array.isArray(fs)||fs.length>3||fs.some(f=>!validFactors150.has(f)))return null;return fs.length||(/^実測ID:.+/.test(String(row.factorVariant||'')))?fs:null;}
  function factors(rows){
   if(!validPaths(rows))return null;
   const counts={'短':0,'速':0,'長':0};let missing=0,recorded=0;const unknownPaths=[];

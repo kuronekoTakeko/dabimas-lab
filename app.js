@@ -4681,7 +4681,7 @@ function auto21Create(){
   let mildGlobal87=null;
   if(mode==='mild'&&window.DabimasMildGlobal87&&window.DabimasMildRank78){
    mildGlobal87=window.DabimasMildGlobal87.select(viableAnchorTrials,{
-    ranker:window.DabimasMildRank78,finish:window.DabimasMildFinish610,goal,
+    ranker:window.DabimasMildRank78,finish:window.DabimasMildFinish610,goal,race,
     qualityCompare:auto35CompareQuality,evidenceCompare:auto37Compare,fallback:opt10Sort});
    const chosen=mildGlobal87.winner;
    if(chosen){

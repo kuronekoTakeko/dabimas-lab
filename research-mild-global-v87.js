@@ -41,14 +41,19 @@
   return gains.length?gains:null;
  }
  // v162: configurable research utility, not predicted ability. Unknown factors stay unknown.
- function utility(c,{finish,goal='balance',nitro=globalThis.DabimasMildNitro107}={}){
+ function utility(c,{finish,goal='balance',race='',nitro=globalThis.DabimasMildNitro107}={}){
   const n=nitro?.inspect(c,goal),m=finish?.metric(c,goal);if(!n||!m)return null;
   const w=({speed:[3,3,0.7,2,1],balance:[1.5,2,2,1.5,1.5],stamina:[0.5,1,4,0.7,2]})[goal]||[1.5,2,2,1.5,1.5];
   const factors=e=>e?['短','速','長'].reduce((a,k,i)=>a+w[i]*(e.counts[k]+2*e.stages[k]),0)+w[3]*Math.min(5,e.recordedByDepth155?.total?.走||0)+w[4]*Math.min(goal==='stamina'?4:5,e.recordedByDepth155?.total?.中||0):0;
-  const parts={final:factors(n),parents:0.2*(factors(finish.closingEvidence(c,goal))+factors(finish.closingEvidence(c,goal,'sire'))),lineage:m.lineageEvidence?3*m.lineageEvidence.score:0,cross:2*m.independentCrossEvidence+m.crossFactorEvidence, risk:-6*m.shortCrossRisk-0.5*m.unresolvedCrossCandidates,effort:-8*safe(c.additionalBirths)};
+  // v164: distance lens subordinate to explicit goal; not an aptitude prediction.
+  const match=String(race).normalize('NFKC').match(/(?:芝|ダート)\s*(\d{3,4})\s*m/);
+  const meters=match?Number(match[1]):0;
+  const dw=meters>=800&&meters<=1600?[1.5,1,.1]:meters>=2500&&meters<=4000?[.1,.4,1.5]:meters>1600&&meters<2500?[.4,.8,.8]:[0,0,0];
+  const distance=['短','速','長'].reduce((sum,k,i)=>sum+dw[i]*(n.counts[k]+n.stages[k]),0);
+  const parts={distance,final:factors(n),parents:0.2*(factors(finish.closingEvidence(c,goal))+factors(finish.closingEvidence(c,goal,'sire'))),lineage:m.lineageEvidence?3*m.lineageEvidence.score:0,cross:2*m.independentCrossEvidence+m.crossFactorEvidence, risk:-6*m.shortCrossRisk-0.5*m.unresolvedCrossCandidates,effort:-8*safe(c.additionalBirths)};
   return {score:Object.values(parts).reduce((a,b)=>a+b,0),parts,missing:n.missingFactorSlots,gameVerified:false};
  }
- function select(trials,{ranker,finish,goal='balance',qualityCompare=null,evidenceCompare=null,fallback=null}={}){
+ function select(trials,{ranker,finish,goal='balance',race='',qualityCompare=null,evidenceCompare=null,fallback=null}={}){
   const invalid={version:87,winner:null,stats:{version:87,gameVerified:false,reason:'比較可能な最終31枠がありません',eligible:0,distinct:0}};
   if(!ranker?.grade||!ranker?.oneExtraEvidence||!ranker?.compare||!finish?.metric)return invalid;
   const rows=[],seen=new Set();let duplicates=0,skipped=0;
@@ -121,11 +126,11 @@
   // that tier trade recorded research features against production effort.
   const grade=Math.max(...rows.map(r=>ranker.grade(r.rank.candidate)));
   const minRisk=Math.min(...rows.filter(r=>ranker.grade(r.rank.candidate)===grade).map(r=>finish.metric(r.rank.candidate,goal).shortCrossRisk));
-  const eligible=rows.filter(r=>ranker.grade(r.rank.candidate)===grade&&finish.metric(r.rank.candidate,goal).shortCrossRisk===minRisk).map(r=>({r,u:utility(r.rank.candidate,{finish,goal,nitro})})).filter(x=>x.u);
+  const eligible=rows.filter(r=>ranker.grade(r.rank.candidate)===grade&&finish.metric(r.rank.candidate,goal).shortCrossRisk===minRisk).map(r=>({r,u:utility(r.rank.candidate,{finish,goal,race,nitro})})).filter(x=>x.u);
   eligible.sort((a,b)=>b.u.score-a.u.score||safe(a.r.rank.candidate.additionalBirths)-safe(b.r.rank.candidate.additionalBirths)||a.r.identity.localeCompare(b.r.identity,'ja'));
   if(eligible.length)winner=eligible[0].r;
-  if(winner!==originalWinner){promotions.push({from:originalWinner.identity,to:winner.identity,before:utility(originalWinner.rank.candidate,{finish,goal,nitro}),after:utility(winner.rank.candidate,{finish,goal,nitro})});rows.splice(rows.indexOf(winner),1);rows.unshift(winner);}
-  const selection159={version:163,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,utility:utility(winner.rank.candidate,{finish,goal,nitro}),policy:'研究用の能力方針別総合指標（因子・ニトロ・両親・能力方針別子系統・独立クロス・追加工程負担）。未知因子は未確認。能力値ではなく、重みは開発仮説。'};
+  if(winner!==originalWinner){promotions.push({from:originalWinner.identity,to:winner.identity,before:utility(originalWinner.rank.candidate,{finish,goal,race,nitro}),after:utility(winner.rank.candidate,{finish,goal,race,nitro})});rows.splice(rows.indexOf(winner),1);rows.unshift(winner);}
+  const selection159={version:164,race,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,utility:utility(winner.rank.candidate,{finish,goal,race,nitro}),policy:'研究用の能力方針別総合指標（因子・ニトロ・両親・能力方針別子系統・独立クロス・目標距離の補助評価・追加工程負担）。未知因子は未確認。能力値ではなく、重みは開発仮説。'};
   const shortlist127=typeof globalThis!=='undefined'?globalThis.DabimasMildShortlist127?.fromRanked?.({rows,ranker,finish,goal,limit:3})||null:null;
   // Limited, recorded evidence only. Do not suggest any candidate absent from
   // the bounded, fully validated comparison set.

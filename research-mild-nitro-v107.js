@@ -8,14 +8,16 @@
  const paths=new Set();for(let n=1;n<=5;n++){for(let i=0;i<(1<<(n-1));i++){let s='';for(let bit=n-2;bit>=0;bit--)s+=(i&(1<<bit))?'D':'S';paths.add(s+'S');}}
  const norm=x=>String(x??'').normalize('NFKC').replace(/\s/g,'').toLowerCase();
  const grade=c=>c?.theory66?.blocked?0:c?.theory66?.superPerfect==='成立'?8:c?.theory66?.perfect==='成立'?7:0;
+ const validFactors150=new Set(['短','速','底','長','走','中','強','雷','堅','難','適','丈','早','晩']);
+ function factorRecord150(row){const fs=row?.factors;if(!Array.isArray(fs)||fs.length>3||fs.some(f=>!validFactors150.has(f)))return null;return fs.length||(/^実測ID:.+/.test(String(row.factorVariant||'')))?fs:null;}
  function inspect(c,goal='balance'){
   if(!c||c.matches!==3||c.full?.known!==31||c.full?.conflicts?.length||c.full?.transmission?.conflicts?.length||c.full?.transmission?.invalid?.length||grade(c)<7)return null;
   const rows=c.full.rows||[],seen=new Set(),counts={'短':0,'速':0,'長':0},unknownPaths=[];let missing=0;
   if(rows.length!==31)return null;
   for(const row of rows){const path=String(row?.path||'');if(!paths.has(path)||seen.has(path))return null;seen.add(path);
-   const fs=Array.isArray(row.factors)?row.factors.filter(Boolean):[];
-   if(!fs.length){missing++;unknownPaths.push(path);}
-   for(const f of fs)if(Object.prototype.hasOwnProperty.call(counts,f))counts[f]++;
+   const fs=factorRecord150(row);
+   if(fs===null){missing++;unknownPaths.push(path);}
+   for(const f of fs||[])if(Object.prototype.hasOwnProperty.call(counts,f))counts[f]++;
   }
   if(seen.size!==31)return null;
   const stages=Object.fromEntries(Object.keys(counts).map(k=>[k,thresholds[k].filter(t=>counts[k]>=t).length]));

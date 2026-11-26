@@ -10,7 +10,6 @@
  const LABELS={direct:'追加0',sireOnly:'種＋1',mareOnly:'肌＋1',both:'両側＋1'};
  const norm=x=>String(x??'').normalize('NFKC').replace(/[\s\u3000]/g,'').replace(/[－―ｰ]/g,'-').toLowerCase();
  const isOwned=(owned,id)=>!!id&&Object.entries(owned||{}).some(([k,v])=>norm(id)===norm(k)&&v?.owned===true);
- const missingSignature=rows=>rows.filter(r=>!Array.isArray(r.factors)||!r.factors.some(Boolean)).map(r=>r.path).sort().join('|');
  function candidateID(c,trial){return JSON.stringify([
   ...['g3','g4','g5'].map(k=>trial.draft.routeDraft.slots[k]),
   ...Object.entries(c.choices||{}).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).flat(),
@@ -34,10 +33,10 @@
     const id=candidateID(c,t);if(seen.has(id)){audit.duplicates++;continue;}seen.add(id);
     const anchors=['g3','g4','g5'].map(k=>norm(t.draft.routeDraft.slots[k])).join('|');
     const family=c.xPrep?.fatherId||c.xId||'未確認';
-    rows.push({id,grade,route:rt,births,anchors,missingSignature:missingSignature(c.full.rows),profile,
+    rows.push({id,grade,route:rt,births,anchors,missingSignature:profile.unknownPaths.join('|'),profile,
      // v134: evidence-only snapshot, by FINAL FOAL path. Empty is unknown,
      // never treated as evidence that this ancestor has no factor.
-     documentedFactors:Object.fromEntries(c.full.rows.filter(r=>Array.isArray(r.factors)&&r.factors.some(Boolean))
+     documentedFactors:Object.fromEntries(c.full.rows.filter(r=>!profile.unknownPaths.includes(r.path)&&r.factors.length)
       .map(r=>[r.path,r.factors.filter(Boolean).map(String)])),
      family,seedMare:c.xPrep?.motherId||null,baseMare:c.choices?.[1]||null});
    }

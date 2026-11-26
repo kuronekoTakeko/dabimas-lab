@@ -16,15 +16,17 @@
  const route=c=>c?.xPrep?(c?.marePrep?'both':'sireOnly'):(c?.marePrep?'mareOnly':'direct');
  const father=c=>String(c?.xPrep?.fatherId||c?.xId||'未確認');
  const validPaths=rows=>Array.isArray(rows)&&rows.length===31&&new Set(rows.map(r=>r?.path)).size===31&&rows.every(r=>/^[SD]{0,4}S$/.test(String(r?.path||'')));
+ const validFactors150=new Set(['短','速','底','長','走','中','強','雷','堅','難','適','丈','早','晩']);
+ function factorRecord150(row){const fs=row?.factors;if(!Array.isArray(fs)||fs.length>3||fs.some(f=>!validFactors150.has(f)))return null;return fs.length||(/^実測ID:.+/.test(String(row.factorVariant||'')))?fs:null;}
  function factors(rows){
   if(!validPaths(rows))return null;
-  const counts={'短':0,'速':0,'長':0};let missing=0,recorded=0;
-  for(const r of rows){const a=Array.isArray(r.factors)?r.factors.filter(Boolean):[];
-   if(!a.length)missing++;else recorded++;
-   for(const f of a)if(Object.prototype.hasOwnProperty.call(counts,f))counts[f]++;
+  const counts={'短':0,'速':0,'長':0};let missing=0,recorded=0;const unknownPaths=[];
+  for(const r of rows){const a=factorRecord150(r);
+   if(a===null){missing++;unknownPaths.push(r.path);}else recorded++;
+   for(const f of a||[])if(Object.prototype.hasOwnProperty.call(counts,f))counts[f]++;
   }
   const stages=Object.fromEntries(Object.keys(counts).map(k=>[k,STEPS[k].filter(n=>counts[k]>=n).length]));
-  return {counts,stages,missing,recorded,gameVerified:false};
+  return {counts,stages,missing,recorded,unknownPaths:unknownPaths.sort(),gameVerified:false};
  }
  const stageScore=(profile,goal)=>Object.entries(profile?.stages||{}).reduce((sum,[f,n])=>sum+(WEIGHTS[goal]?.[f]||0)*n,0);
  function saved(plan,{crossOrigin=null}={}){

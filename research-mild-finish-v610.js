@@ -18,6 +18,29 @@
   balance:{'走':4,'速':3,'短':2,'中':4,'長':4,'底':2}
  };
  function family(s){return String(s||'').replace(/系$/,'').trim();}
+ // v163: March 2026 player research, not game ability units.
+ const SP_BIG=new Set('ハビタット ボールドルーラー フェアトライアル クラリオン プリンスビオ トムフール'.split(' '));
+ const ST_BIG=new Set('ハイペリオン ブレニム ネヴァーセイダイ プリンスキロ モスボロー フェアウェイ'.split(' '));
+ const SP_OTHER=new Set('エクリプス ダンテ オーエンテューダー インテント'.split(' '));
+ const ST_OTHER=new Set('サーゲイロード オリオール ナスルーラ テディ フォルティノ ヒムヤー'.split(' '));
+ const MAJOR={レイズアネイティヴ:[1,1],ブランドフォード:[1,1],ヘイルトゥリーズン:[1,0],プリンスリーギフト:[1,0],ファイントップ:[1,0],ノーザンダンサー:[0,1],マイバブー:[0,1]};
+ function lineProfile(rows,goal='balance'){
+  const anchors=['DDS','SSSS','SDSSS'],seen=new Map(),major=new Set();let sp=0,st=0,known=0;const slots=[];
+  const weights=goal==='speed'?[1,.25]:goal==='stamina'?[.25,1]:[.75,.75];
+  for(const r of [...(rows||[])].sort((a,b)=>String(a.path||'').length-String(b.path||'').length||String(a.path||'').localeCompare(String(b.path||'')))){
+   const p=r.path,l=family(r.line||r.lineage);if(!/^[SD]{3,4}S$/.test(p)||!l||anchors.some(a=>p.startsWith(a)))continue;
+   known++;let a=0,b=0;const n=seen.get(l)||0;seen.set(l,n+1);
+   // Only the first two occurrences of large groups; uncertain groups one.
+   // 5th generation receives a smaller proposal weight, except major lines.
+   const scale=p.length===4?1:.45;
+   if(SP_BIG.has(l)&&n<2)a=2*scale;else if(ST_BIG.has(l)&&n<2)b=2*scale;
+   else if(SP_OTHER.has(l)&&n===0)a=1.4*scale;else if(ST_OTHER.has(l)&&n===0)b=1.4*scale;
+   else if(['ニアークティック','ネアルコ'].includes(l)&&n===0)a=b=.7*scale;
+   if(Object.hasOwn(MAJOR,l)&&!major.has(l)){major.add(l);[a,b]=MAJOR[l];}
+   sp+=a;st+=b;if(a||b)slots.push({path:p,line:l,sp:a,st:b});
+  }
+  return {score:sp*weights[0]+st*weights[1],sp,st,known,slots,gameVerified:false};
+ }
  function grade(t){return t?.theory66?.blocked?0:t?.theory66?.superPerfect==='成立'?8:t?.theory66?.perfect==='成立'?7:0;}
  function safeNumber(v){const n=Number(v);return Number.isFinite(n)?Math.max(0,n):0;}
  function metric(t,goal='balance'){
@@ -54,7 +77,7 @@
   return {score:Math.round(score*100)/100,grade:grade(t),additionalBirths:safeNumber(t.additionalBirths),
    independentCrossCandidates:candidates.length,independentCrossEvidence:credited.length,crossFactorEvidence:Math.round(crossed*100)/100,
    candidateCrossFactorIndex:Math.round(candidateCrossed*100)/100,unresolvedCrossCandidates,crossEvidenceComplete:allDocumented,
-   ancestorFactorsRecorded:observedFactorRows,fullDocumentedFactorSlots:rows.filter(r=>factorRecord(r)!==null).length,documentedFactorPaths:factorCoverage.sort(),lineageEvidence:null,generationEvidence,
+   ancestorFactorsRecorded:observedFactorRows,fullDocumentedFactorSlots:rows.filter(r=>factorRecord(r)!==null).length,documentedFactorPaths:factorCoverage.sort(),lineageEvidence:lineProfile(rows,goal),generationEvidence,
    childLineDiversity:childFamilies.size,shortCrossRisk:risk,unresolvedCrosses:unverified,
    source:'最終31枠（記録根拠のある独立クロス／候補因子を分離した研究用相対評価）',gameVerified:false};
  }
@@ -152,7 +175,7 @@
     if(hits.length){names.add(k);const variant=norm(a.factorVariant||a.variant);
      if(variant&&fs?.length&&hits.some(r=>{const v=norm(r.factorVariant||r.variant),other=factorRecord(r);return v&&other?.length&&(v!==variant||JSON.stringify([...fs].sort())===JSON.stringify([...other].sort()));}))recorded.add(k);}
    }
-   return {m,matched:names.size,recorded:recorded.size,factors,knownSlots,novelLines:novelLines.size,priority:marePriority(m,goal)};
+   return {m,matched:names.size,recorded:recorded.size,factors,knownSlots,novelLines:novelLines.size,priority:marePriority(m,goal),targetLine:lineProfile([...rows.filter(r=>!r.path.startsWith(prefix)),...projected.map(e=>({...e.a,path:e.path}))],goal).score};
   }).sort((a,b)=>b.recorded-a.recorded||b.matched-a.matched||b.factors-a.factors||b.priority-a.priority||a.m.id.localeCompare(b.m.id,'ja'));
   // Keep half of the budget for legacy diverse alternatives; projected overlaps
   // are a proposal ordering only, never proof of an independent cross.
@@ -161,7 +184,7 @@
   const projectedBudget=Math.ceil(cap/2);
   if(cap>=4){
    const factorLane=[...scored].sort((a,b)=>b.knownSlots-a.knownSlots||b.factors-a.factors||a.m.id.localeCompare(b.m.id,'ja'));
-   const lineLane=[...scored].sort((a,b)=>b.novelLines-a.novelLines||b.knownSlots-a.knownSlots||b.factors-a.factors||a.m.id.localeCompare(b.m.id,'ja'));
+   const lineLane=[...scored].sort((a,b)=>b.targetLine-a.targetLine||b.novelLines-a.novelLines||b.knownSlots-a.knownSlots||b.factors-a.factors||a.m.id.localeCompare(b.m.id,'ja'));
    const lanes=[scored,factorLane,lineLane];
    for(let i=0;chosen.length<projectedBudget&&i<scored.length;i++)for(const lane of lanes){if(chosen.length>=projectedBudget)break;add(lane[i]?.m);}
   }else for(const x of scored.slice(0,projectedBudget))add(x.m);
@@ -199,5 +222,5 @@
     changedSteps:changed?changedSteps:[],improved:changed,before:first,after:changed?after:first,
     gameVerified:false,caveat:'31枠の既知因子・独立クロス・子系統の相対順位。未収録は因子なしとしない。ゲーム内の効果・能力・至高成立は未検証。'}};
  }
- return Object.freeze({grade,metric,compare,comparableCoverage,compareLineage,closingEvidence,parentEvidence,compareClosing,shortlist,projectedShortlist,optimize});
+ return Object.freeze({lineProfile,grade,metric,compare,comparableCoverage,compareLineage,closingEvidence,parentEvidence,compareClosing,shortlist,projectedShortlist,optimize});
 });

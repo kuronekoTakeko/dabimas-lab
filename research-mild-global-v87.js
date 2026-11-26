@@ -45,7 +45,7 @@
   const n=nitro?.inspect(c,goal),m=finish?.metric(c,goal);if(!n||!m)return null;
   const w=({speed:[3,3,0.7,2,1],balance:[1.5,2,2,1.5,1.5],stamina:[0.5,1,4,0.7,2]})[goal]||[1.5,2,2,1.5,1.5];
   const factors=e=>e?['短','速','長'].reduce((a,k,i)=>a+w[i]*(e.counts[k]+2*e.stages[k]),0)+w[3]*Math.min(5,e.recordedByDepth155?.total?.走||0)+w[4]*Math.min(goal==='stamina'?4:5,e.recordedByDepth155?.total?.中||0):0;
-  const parts={final:factors(n),parents:0.2*(factors(finish.closingEvidence(c,goal))+factors(finish.closingEvidence(c,goal,'sire'))),lineage:0.6*(m.generationEvidence?.[0]?.distinct||0)+0.3*(m.generationEvidence?.[1]?.distinct||0),cross:2*m.independentCrossEvidence+m.crossFactorEvidence, risk:-6*m.shortCrossRisk-0.5*m.unresolvedCrossCandidates,effort:-8*safe(c.additionalBirths)};
+  const parts={final:factors(n),parents:0.2*(factors(finish.closingEvidence(c,goal))+factors(finish.closingEvidence(c,goal,'sire'))),lineage:m.lineageEvidence?3*m.lineageEvidence.score:0,cross:2*m.independentCrossEvidence+m.crossFactorEvidence, risk:-6*m.shortCrossRisk-0.5*m.unresolvedCrossCandidates,effort:-8*safe(c.additionalBirths)};
   return {score:Object.values(parts).reduce((a,b)=>a+b,0),parts,missing:n.missingFactorSlots,gameVerified:false};
  }
  function select(trials,{ranker,finish,goal='balance',qualityCompare=null,evidenceCompare=null,fallback=null}={}){
@@ -125,7 +125,7 @@
   eligible.sort((a,b)=>b.u.score-a.u.score||safe(a.r.rank.candidate.additionalBirths)-safe(b.r.rank.candidate.additionalBirths)||a.r.identity.localeCompare(b.r.identity,'ja'));
   if(eligible.length)winner=eligible[0].r;
   if(winner!==originalWinner){promotions.push({from:originalWinner.identity,to:winner.identity,before:utility(originalWinner.rank.candidate,{finish,goal,nitro}),after:utility(winner.rank.candidate,{finish,goal,nitro})});rows.splice(rows.indexOf(winner),1);rows.unshift(winner);}
-  const selection159={version:162,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,utility:utility(winner.rank.candidate,{finish,goal,nitro}),policy:'研究用の能力方針別総合指標（因子・ニトロ・両親・子系統多様性・独立クロス・追加工程負担）。未知因子は未確認。能力値ではなく、重みは開発仮説。'};
+  const selection159={version:163,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,utility:utility(winner.rank.candidate,{finish,goal,nitro}),policy:'研究用の能力方針別総合指標（因子・ニトロ・両親・能力方針別子系統・独立クロス・追加工程負担）。未知因子は未確認。能力値ではなく、重みは開発仮説。'};
   const shortlist127=typeof globalThis!=='undefined'?globalThis.DabimasMildShortlist127?.fromRanked?.({rows,ranker,finish,goal,limit:3})||null:null;
   // Limited, recorded evidence only. Do not suggest any candidate absent from
   // the bounded, fully validated comparison set.

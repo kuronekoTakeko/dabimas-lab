@@ -23,10 +23,14 @@
   if(tier(a)!==tier(b))return null;
   const xm=finish?.metric?.(x,goal),ym=finish?.metric?.(y,goal),xn=nitro.inspect(x,goal),yn=nitro.inspect(y,goal),xc=finish?.closingEvidence?.(x,goal),yc=finish?.closingEvidence?.(y,goal);
   if(!xm||!ym||!xn||!yn||!xc||!yc||JSON.stringify(xc.unknownPaths)!==JSON.stringify(yc.unknownPaths))return null;
+  const xs=finish?.closingEvidence?.(x,goal,'sire'),ys=finish?.closingEvidence?.(y,goal,'sire');
+  if(!xs||!ys||JSON.stringify(xs.unknownPaths)!==JSON.stringify(ys.unknownPaths))return null;
   const xl=xm.generationEvidence,yl=ym.generationEvidence;
   if(!xl||!yl||xl.length!==2||yl.length!==2||xl.some((g,i)=>g.depth!==yl[i].depth||g.slots!==yl[i].slots||JSON.stringify(g.knownPaths)!==JSON.stringify(yl[i].knownPaths)))return null;
   const pairs=[];const add=(k,u,v,sign=1)=>pairs.push([k,u,v,sign]);
   for(const k of ['短','速','長']){add('finalCount:'+k,xn.counts[k],yn.counts[k]);add('finalStage:'+k,xn.stages[k],yn.stages[k]);add('closingCount:'+k,xc.counts[k],yc.counts[k]);add('closingStage:'+k,xc.stages[k],yc.stages[k]);}
+  for(const k of ['短','速','長']){add('sireCount:'+k,xs.counts[k],ys.counts[k]);add('sireStage:'+k,xs.stages[k],ys.stages[k]);}
+  for(const k of ['走','中'])add('sireTotal:'+k,xs.recordedByDepth155?.total?.[k],ys.recordedByDepth155?.total?.[k]);
   for(const d of [4,5])for(const f of ['走','中'])add('final:'+f+d,xn.recordedByDepth155?.[d]?.[f],yn.recordedByDepth155?.[d]?.[f]);
   for(const k of ['走','中']){add('finalTotal:'+k,xn.recordedByDepth155?.total?.[k],yn.recordedByDepth155?.total?.[k]);add('closingTotal:'+k,xc.recordedByDepth155?.total?.[k],yc.recordedByDepth155?.total?.[k]);}
   for(let i=0;i<2;i++)add('line'+xl[i].depth,xl[i].distinct,yl[i].distinct);
@@ -109,7 +113,7 @@
   const originalWinner=rows[0];let winner=originalWinner;const promotions=[];
   for(const row of rows){if(row===winner)continue;const gains=dominance(row.rank,winner.rank,{finish,goal,nitro});if(gains){promotions.push({from:winner.identity,to:row.identity,gains});winner=row;}}
   if(winner!==originalWinner){rows.splice(rows.indexOf(winner),1);rows.unshift(winner);}
-  const selection159={version:159,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,policy:'同じ指定3頭・理論・工程数・因子収録位置・締め肌収録位置・子系統収録位置の記録比較で、全評価項目非悪化かつ改善がある場合のみ第一候補を変更。能力の優位は未確認。'};
+  const selection159={version:160,promoted:promotions.length>0,promotions,gameVerified:false,abilityVerdict:null,policy:'同じ指定3頭・理論・工程数・因子収録位置・締め肌・締め種収録位置・子系統収録位置の記録比較で、全評価項目非悪化かつ改善がある場合のみ第一候補を変更。能力の優位は未確認。'};
   const shortlist127=typeof globalThis!=='undefined'?globalThis.DabimasMildShortlist127?.fromRanked?.({rows,ranker,finish,goal,limit:3})||null:null;
   // Limited, recorded evidence only. Do not suggest any candidate absent from
   // the bounded, fully validated comparison set.

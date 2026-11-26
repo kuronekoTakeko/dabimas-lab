@@ -458,7 +458,7 @@ function mild87GlobalHtml(plan){
  const d=plan?.mild87;if(!d)return '';
  return `<details class="a21-flow"><summary>v8.7｜至高候補・追加1工程の横断比較</summary>
  <p class="muted">検証済みDDS候補（比較範囲内）${esc(d.distinct??'未確認')}件、重複除外 ${esc(d.duplicates??0)}件、追加1工程を同じ理論の9工程案と照合 ${esc(d.oneExtraCompared??0)}件（証拠が改善 ${esc(d.oneExtraApproved??0)}件）。同等の9工程案が見つからない追加1工程候補 ${esc(d.oneExtraWithoutDirect??0)}件。</p>
- ${d.selection159?`<p><b>v159 第一候補の記録比較：</b>${d.selection159.promoted?`非悪化条件を満たす別案を${esc(d.selection159.promotions?.length||0)}回採用`:'全評価項目で非悪化の別案を確認できず、従来順位を維持'}。${esc(d.selection159.policy||'')}</p>`:''}
+ ${d.selection159?`<p><b>v${esc(d.selection159.version||159)} 第一候補の記録比較：</b>${d.selection159.promoted?`非悪化条件を満たす別案を${esc(d.selection159.promotions?.length||0)}回採用`:'全評価項目で非悪化の別案を確認できず、従来順位を維持'}。${esc(d.selection159.policy||'')}</p>`:''}
  <p class="muted">これは同一クリック内の限定的な候補比較であり、候補ゼロや対照不在は「不可能」を意味しません。最終31枠の独立クロス・因子記録・危険度を照合した研究上の順位で、ゲーム内での至高・完璧・超完璧成立や産駒SP/STの保証ではありません。</p>
  </details>`;
 }
@@ -626,16 +626,19 @@ function mild89CoverageHtml(plan){
  <p class="muted">一次逆算レシピ ${esc(d.precheckRecipes??'未確認')}案、比較候補リスト ${esc(d.offered??'未確認')}案、31枠を実際に詳細検査 ${esc(d.inspected??'未確認')}案（第2枠 ${esc(d.rescueInspected??0)}案）、31枠完成 ${esc(d.completeCandidates??0)}案。検査リスト内で未実施 ${esc(d.notReviewed??0)}案、比較候補リスト外 ${esc(d.outsideShortlist??0)}案。</p>
  <p class="muted">${d.version===90?`追加検査を行う条件：${esc(d.rescueTrigger||'未確認')}。詳細検査済みの完璧候補${esc(d.perfectCandidates??0)}件・超完璧候補${esc(d.superPerfectCandidates??0)}件（公開血統の一次条件、ゲーム内未確認）。` : ''}結果：${esc(d.stopReason||'未確認')}。${d.exhaustive?'この時点の公開データ上の事前レシピは検査範囲内です。':'探索上限・早期終了があるため、候補の不存在は証明していません。'} 9工程と追加1工程の採否は別の横断比較で決定します。</p>
  ${d.fatherFamiliesInspected105!=null?`<p class="muted"><b>v105｜締め肌父の候補分散：</b>詳細検査した父馬系統 ${esc(d.fatherFamiliesInspected105)}種類／31枠完成した父馬系統 ${esc(d.fatherFamiliesCompleted105)}種類／最終比較へ残った父馬系統 ${esc(d.fatherFamiliesFinal105)}種類。完成した別父候補：${esc((d.fatherExamples105||[]).join('、')||'なし')}。この集計は選択した配置の限定探索のみで、別父の完璧・超完璧成立や能力優位を意味しません。</p>`:''}
- ${d.lane153?`<p class="muted"><b>v153｜別構成の比較候補保持：</b>完璧・超完璧の一次判定と仕込み構成別に、従来候補${esc(d.lane153.baseline)}案＋比較代表${esc(d.lane153.added)}案を確保。能力方針別の因子記録候補 ${esc(d.lane153.goalAdded??0)}案も保持。世代別子系統・走中・独立クロス・締め肌の参考候補 ${esc(d.lane153.qualityAdded??0)}案も保持。追加候補は生産工程の追加指示ではありません。${esc((d.lane153.retained||[]).map(k=>k.replace('8|','超完璧・').replace('7|','完璧・').replace('sireOnly','種側1').replace('mareOnly','肌側1').replace('both','両側2').replace('direct','追加なし')).join('／'))}。限定探索・ゲーム内未確認。</p>`:''}
+ ${d.lane153?`<p class="muted"><b>v153｜別構成の比較候補保持：</b>完璧・超完璧の一次判定と仕込み構成別に、従来候補${esc(d.lane153.baseline)}案＋比較代表${esc(d.lane153.added)}案を確保。能力方針別の因子記録候補 ${esc(d.lane153.goalAdded??0)}案も保持。世代別子系統・走中・独立クロス・締め肌・締め種（v160以降）の参考候補 ${esc(d.lane153.qualityAdded??0)}案も保持。追加候補は生産工程の追加指示ではありません。${esc((d.lane153.retained||[]).map(k=>k.replace('8|','超完璧・').replace('7|','完璧・').replace('sireOnly','種側1').replace('mareOnly','肌側1').replace('both','両側2').replace('direct','追加なし')).join('／'))}。限定探索・ゲーム内未確認。</p>`:''}
  <p class="muted">中心種牡馬 ${esc(d.centerId||'未確認')}。${esc(d.caveat||'ゲーム内未確認。')}</p>
  </details>`;
 }
 function mild107NitroHtml(plan){
  const x=plan?.mildNitro107;if(!x)return '';
  const counts=x.counts||{},stages=x.stages||{};
+ const parent=plan?.mildParents160;
+ const parentRows=parent?.version===160?['mare','sire'].map(role=>{const e=parent[role];return `<tr><th>${role==='mare'?'締め肌':'締め種'}</th><td>${e?esc(e.knownFactorSlots)+'/31':'未確認'}</td><td>${esc(e?.counts?.短??'未確認')}</td><td>${esc(e?.counts?.速??'未確認')}</td><td>${esc(e?.counts?.長??'未確認')}</td><td>${esc(e?.recordedByDepth155?.total?.走??'未確認')}</td><td>${esc(e?.recordedByDepth155?.total?.中??'未確認')}</td></tr>`;}).join(''):'';
  return `<details class="a21-flow"><summary>v107｜マイルド型・短速長ニトロ段階（研究上の指標）</summary>
  <p class="muted">指定タイプ：${esc(x.goal||'balance')}／短 ${esc(counts['短']??'未確認')}個（段階 ${esc(stages['短']??'未確認')}）・速 ${esc(counts['速']??'未確認')}個（段階 ${esc(stages['速']??'未確認')}）・長 ${esc(counts['長']??'未確認')}個（段階 ${esc(stages['長']??'未確認')}）。研究順位指数 ${esc(x.researchIndex??'未確認')}。</p>
  ${x.recordedByDepth155?`<p class="muted">記録済み走・中因子（能力加点なし）：全31枠 走 ${esc(x.recordedByDepth155.total.走)}／中 ${esc(x.recordedByDepth155.total.中)}、4代目 走 ${esc(x.recordedByDepth155[4].走)}／中 ${esc(x.recordedByDepth155[4].中)}、5代目 走 ${esc(x.recordedByDepth155[5].走)}／中 ${esc(x.recordedByDepth155[5].中)}。未収録は未知。</p>`:''}
+ ${parentRows?`<p class="muted"><b>v160｜設計時の締め肌・締め種の記録済み祖先因子</b>（本人因子や実SP/STではありません）</p><table><thead><tr><th>親馬</th><th>記録枠</th><th>短</th><th>速</th><th>長</th><th>走</th><th>中</th></tr></thead><tbody>${parentRows}</tbody></table><p class="muted">設計時の参考記録です。実馬の生産後や血統変更後は現在の血統を確認してください。</p>`:''}
  <p class="muted">因子未収録 ${esc(x.missingFactorSlots??'未確認')}枠。短 4/6/8/9/10、速 4/8/12/16/20、長 3/6/9 の段階を採用しています。<b>プレイヤー研究による仮説であり、公式確定やゲーム内SP/ST・成立を意味しません。</b> 短はSPとSTの両面に関係する可能性があるため、指数をゲーム内能力に換算しません。v136以降の新規探索では、指定3頭・締め肌理論・因子未収録位置が同一の対照だけを追加工程の改善判定に使用します。保存済みの旧研究順位は変更しません。</p>
  </details>`;
 }
@@ -1805,7 +1808,7 @@ function opt10Trial(p,choices,xId,xCandidate=null,mareCandidates=null){
  const centerFocus=isMaternalDDS67(p)?window.DabimasInverseMild69?.fixedFromAnchor?.(
   routeSnapshotMember(slots.g3,p),currentParentTheory68())?.values?.[0]||null:'Royal Charger';
  return {diversity60:window.DabimasMildDiversity60?.summarize(final,currentParentTheory68(),
-  {anchors:Object.values(anchorPaths66(p)),focusParent:centerFocus})||null,choices:{...choices},xId,full:final,closingPed:selected[chain09ClosureStep(p)-1],finalSire:outputs[isMaternal66(p)?8:2],finalMare:outputs[isMaternal66(p)?2:8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraOrigin126,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
+  {anchors:Object.values(anchorPaths66(p)),focusParent:centerFocus})||null,choices:{...choices},xId,full:final,closingPed:selected[chain09ClosureStep(p)-1],closingSirePed:selected[(isMaternal66(p)?8:2)-1],finalSire:outputs[isMaternal66(p)?8:2],finalMare:outputs[isMaternal66(p)?2:8],sp,st,spL,stL,extra,idx,matches,risk,extraEffective,extraOrigin126,extraFactorCounts:extras,unresolvedCount:effective.uncertain.length,conflictCount:effective.conflicts.length,
    xLineage:(map.get(key(xId))||{}).lineage||'',xResearchFactors:[...(map.get(key(xId))?.factors||[])],xSearchCount:0};
 }
 // v6.6: Seven public meihin dams + three owned Deep variants, nine REAL mating steps.
@@ -4807,6 +4810,7 @@ function auto21Create(){
   if(mode==='mild'&&isMaternalDDS67(draft)&&window.DabimasMildRank78){
    draft.mild78=window.DabimasMildRank78.snapshot(base,goal,window.DabimasMildFinish610);
    if(window.DabimasMildNitro107?.inspect)draft.mildNitro107=window.DabimasMildNitro107.inspect(base,goal);
+   if(window.DabimasMildFinish610?.parentEvidence)draft.mildParents160=window.DabimasMildFinish610.parentEvidence(base,goal);
    const choice=ranked[0];
    if(mildGlobal87?.stats?.shortlist127)draft.mild127={...mildGlobal87.stats.shortlist127};
    if(mildGlobal87?.stats)draft.mild87={...mildGlobal87.stats,

@@ -70,13 +70,17 @@
  // v146: closing-mare evidence is a research tie-break, not a prediction.
  // Do not compare different coverage masks, unknown/invalid pedigrees, or
  // different theory/cost tiers. Only use the existing nitro hypothesis.
- function closingEvidence(t,goal='balance'){
-  const p=t?.closingPed;
+ function closingEvidence(t,goal='balance',role='mare'){
+  const p=role==='sire'?t?.closingSirePed:t?.closingPed;
   if(!p||p.known!==31||p.conflicts?.length||p.transmission?.conflicts?.length||p.transmission?.invalid?.length||p.directAncestor?.blocked||p.closeCross65?.blocked||grade(t)<7)return null;
   const api=typeof globalThis!=='undefined'?globalThis.DabimasMildNitro107:null;
   const e=api?.inspect?.({matches:3,full:p,theory66:t.theory66},goal);
   if(!e||!p.rows.every(r=>r.name||r.horse))return null;
   return e;
+ }
+ function parentEvidence(t,goal='balance'){
+  const mare=closingEvidence(t,goal,'mare'),sire=closingEvidence(t,goal,'sire');
+  return {version:160,mare,sire,gameVerified:false,abilityVerdict:null};
  }
  function compareClosing(a,b,goal='balance'){
   if(grade(a)!==grade(b)||safeNumber(a?.additionalBirths)!==safeNumber(b?.additionalBirths))return 0;
@@ -188,5 +192,5 @@
     changedSteps:changed?changedSteps:[],improved:changed,before:first,after:changed?after:first,
     gameVerified:false,caveat:'31枠の既知因子・独立クロス・子系統の相対順位。未収録は因子なしとしない。ゲーム内の効果・能力・至高成立は未検証。'}};
  }
- return Object.freeze({grade,metric,compare,comparableCoverage,compareLineage,closingEvidence,compareClosing,shortlist,projectedShortlist,optimize});
+ return Object.freeze({grade,metric,compare,comparableCoverage,compareLineage,closingEvidence,parentEvidence,compareClosing,shortlist,projectedShortlist,optimize});
 });

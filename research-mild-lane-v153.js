@@ -16,6 +16,7 @@
    for(const g of m.generationEvidence||[]){if(g.known===g.slots)add('line'+g.depth,g.distinct);}
    for(const d of [4,5])for(const f of (goal==='speed'?['走']:goal==='stamina'?['中']:['走','中']))add(f+d,n.recordedByDepth155?.[d]?.[f]);
    add('documentedCross',m.independentCrossEvidence);const closing=api.closingEvidence?.(c,goal);add('closingNitro',closing?.researchIndex);
+   const sire=api.closingEvidence?.(c,goal,'sire');for(const f of factors)add('sire:'+f,sire?.counts?.[f]);add('sireNitro',sire?.researchIndex);
    for(const [k,v] of objectives){const id=lane(c)+'|'+k,old=qualityTargets.get(id);if(!old||v>old.count||(v===old.count&&compare(c,old.c)<0))qualityTargets.set(id,{c,count:v});}
   }
   function observe(c){if(!valid(c))return false;const k=lane(c);observed[k]=(observed[k]||0)+1;const old=lanes.get(k);if(!old||compare(c,old)<0)lanes.set(k,c);keepTarget(c);keepQuality(c);return true;}

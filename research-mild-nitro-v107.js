@@ -15,18 +15,20 @@
  function inspect(c,goal='balance'){
   if(!c||c.matches!==3||c.full?.known!==31||c.full?.conflicts?.length||c.full?.transmission?.conflicts?.length||c.full?.transmission?.invalid?.length||grade(c)<7)return null;
   const rows=c.full.rows||[],seen=new Set(),counts={'短':0,'速':0,'長':0},unknownPaths=[];let missing=0;
+  const recordedByDepth155={total:{走:0,中:0},4:{走:0,中:0},5:{走:0,中:0}};
   if(rows.length!==31)return null;
   for(const row of rows){const path=String(row?.path||'');if(!paths.has(path)||seen.has(path))return null;seen.add(path);
    const fs=factorRecord150(row);
    if(fs===null){missing++;unknownPaths.push(path);}
-   for(const f of fs||[])if(Object.prototype.hasOwnProperty.call(counts,f))counts[f]++;
+   for(const f of fs||[]){if(Object.prototype.hasOwnProperty.call(counts,f))counts[f]++;
+    if(f==='走'||f==='中'){recordedByDepth155.total[f]++;if(path.length===4||path.length===5)recordedByDepth155[path.length][f]++;}}
   }
   if(seen.size!==31)return null;
   const stages=Object.fromEntries(Object.keys(counts).map(k=>[k,thresholds[k].filter(t=>counts[k]>=t).length]));
   const w=weights[goal]||weights.balance;
   const researchIndex=Object.keys(stages).reduce((s,k)=>s+stages[k]*w[k],0);
   return {version:107,goal,counts,stages,missingFactorSlots:missing,knownFactorSlots:31-missing,
-   researchIndex,thresholds,unknownPaths:unknownPaths.sort(),gameVerified:false,limited:missing>0,
+   researchIndex,recordedByDepth155,thresholds,unknownPaths:unknownPaths.sort(),gameVerified:false,limited:missing>0,
    caveat:'記録済み31祖先枠の短・速・長の段階による研究指標。未収録は0因子と断定できず、SP/ST能力・ゲーム内ボーナスを保証しません。'};
  }
  // v136: compare additional matings only with identical anchor IDs/positions and missing-factor positions.

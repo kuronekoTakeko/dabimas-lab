@@ -633,6 +633,7 @@ function mild107NitroHtml(plan){
  const counts=x.counts||{},stages=x.stages||{};
  return `<details class="a21-flow"><summary>v107｜マイルド型・短速長ニトロ段階（研究上の指標）</summary>
  <p class="muted">指定タイプ：${esc(x.goal||'balance')}／短 ${esc(counts['短']??'未確認')}個（段階 ${esc(stages['短']??'未確認')}）・速 ${esc(counts['速']??'未確認')}個（段階 ${esc(stages['速']??'未確認')}）・長 ${esc(counts['長']??'未確認')}個（段階 ${esc(stages['長']??'未確認')}）。研究順位指数 ${esc(x.researchIndex??'未確認')}。</p>
+ ${x.recordedByDepth155?`<p class="muted">記録済み走・中因子（能力加点なし）：全31枠 走 ${esc(x.recordedByDepth155.total.走)}／中 ${esc(x.recordedByDepth155.total.中)}、4代目 走 ${esc(x.recordedByDepth155[4].走)}／中 ${esc(x.recordedByDepth155[4].中)}、5代目 走 ${esc(x.recordedByDepth155[5].走)}／中 ${esc(x.recordedByDepth155[5].中)}。未収録は未知。</p>`:''}
  <p class="muted">因子未収録 ${esc(x.missingFactorSlots??'未確認')}枠。短 4/6/8/9/10、速 4/8/12/16/20、長 3/6/9 の段階を採用しています。<b>プレイヤー研究による仮説であり、公式確定やゲーム内SP/ST・成立を意味しません。</b> 短はSPとSTの両面に関係する可能性があるため、指数をゲーム内能力に換算しません。v136以降の新規探索では、指定3頭・締め肌理論・因子未収録位置が同一の対照だけを追加工程の改善判定に使用します。保存済みの旧研究順位は変更しません。</p>
  </details>`;
 }
@@ -2053,8 +2054,8 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
  let tests=inverse.stats?.precheckedPrepared||0,invalid=0,theoryRejected=0;
  const reject88={preparedSire31:0,preparedMare31:0,missingParents:0,directDaughter31:0,closingMare31:0,closingTheory:0,supportMare31:0,supportNotFound:0,parentChain31:0,finalFoal31:0,anchorPositions:0,recipesTried:0,completeCandidates:0};
  const foal=(n,pedigree,sire,sex=api.definitions[n-1]?.sex||'male')=>({id:'__trial69_'+n,name:'逆算仮馬'+n,sex,ancestry:pedigree.rows.filter(r=>r.name).map(r=>({path:r.path,horse:r.name,line:r.line,factors:[...(r.factors||[])],factorVariant:r.factorVariant||'',parentSystem:r.parentSystem||''})),factors:[],lineage:sire.lineage||'',distance:sex==='male'?'仮馬':'',isHomebred:true});
- const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length;
- const results=[],seen=new Set();
+ const valid=ped=>ped?.known===31&&!ped.conflicts?.length&&!ped.transmission?.conflicts?.length&&!ped.transmission?.invalid?.length&&window.DabimasMildFactorIntegrity152.audit(ped.rows).available;
+ const results=[],seen=new Set(),supportSignatures=new Set();
  // v153: retain one representative per validated theory/route lane.
  const lane153=window.DabimasMildLane153?.create((a,b)=>window.DabimasMildFinish610?.compare(a,b,p.goal)||0);
  // v105: track only successful complete pedigrees, not unverified eight-line prechecks.
@@ -2151,7 +2152,9 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
    return trial;
   };
   for(let salt=0;salt<2;salt++){
-   const trial=makeMore(results.length,salt);if(trial){
+   const trial=makeMore(recipeIndex,salt);if(trial){
+    const supportKey=JSON.stringify([signature,trial.choices]);
+    if(supportSignatures.has(supportKey))continue;supportSignatures.add(supportKey);
     reject88.completeCandidates++;
     lane153?.observe(trial);
     const grade=opt66TheoryRank(trial);
@@ -2164,7 +2167,6 @@ function opt69Find(p,scope,inverseMemo79=null,inverseStats79=null){
      (typeof inv.retainStrongest90==='function'?inv.retainStrongest90(results,trial,completeLimit,opt66TheoryRank):
       [...results,trial].sort((a,b)=>opt66TheoryRank(b)-opt66TheoryRank(a)).slice(0,completeLimit));
     results.splice(0,results.length,...retained);
-    break;
    }
   }
  }
